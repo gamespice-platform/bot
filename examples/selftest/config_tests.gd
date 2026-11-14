@@ -143,7 +143,9 @@ func _test_profile() -> void:
 	var p := DotBotProfile.preset("medium")
 	_check(not p.apply_preset("brutal").ok and p.preset_name == "medium", "applying an unknown preset changes nothing")
 	_check(p.set_field("reaction", "0.5").ok and is_equal_approx(p.reaction, 0.5), "a field set from text")
-	_check(p.set_field("reaction", "99").ok and is_equal_approx(p.reaction, 3.0), "and clamped to its range")
+	_check(p.set_field("reaction", "99").ok and is_equal_approx(p.reaction, 99.0), "a value over a guide maximum is used as given, not clamped")
+	_check(not p.set_field("reaction", "0.01").ok and is_equal_approx(p.reaction, 99.0), "a value under the minimum is refused and changes nothing")
+	_check(not p.set_field("aggression", "2").ok and not p.set_field("fov", "400").ok, "a chance over 1 and a view cone over 360 are refused")
 	_check(not p.set_field("reaction", "fast").ok, "a non-number is refused")
 	_check(not p.set_field("wallhack", "1").ok, "an unknown field is refused")
 	var c := p.copy()
@@ -214,7 +216,7 @@ func _test_cvars() -> void:
 		"a setting's cvar overrides it")
 	_check(diff.set_value("easy").ok and reaction.value.to_float() == 0.45, "and the override survives the next preset, in the cvar too")
 	_check(not s.is_overridden("aim_error"), "a cvar this wrote is not taken for an override")
-	_check(reaction.set_value("50").ok and is_equal_approx(s.profile.reaction, 3.0), "the cvar's range clamps")
+	_check(reaction.set_value("50").ok and is_equal_approx(s.profile.reaction, 50.0), "the cvar has no upper bound on a guide maximum")
 
 	# A config that ran before the module registered leaves values waiting.
 	var waiting := func(n: String, value: String, _help: String, _flags: int) -> Object:

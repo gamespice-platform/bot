@@ -182,7 +182,11 @@ func bind_cvars(add: Callable, flags: int = 0, add_command: Callable = Callable(
 			continue
 		var cv := c as Object
 		if cv.has_method(&"with_range"):
-			cv.call(&"with_range", float(row[DotBotProfile.COL_MIN]), float(row[DotBotProfile.COL_MAX]))
+			# A guide maximum is not a limit: only the minimum, and a fact-maximum (a chance, the view cone), bound the cvar.
+			if DotBotProfile.is_hard_max(field):
+				cv.call(&"with_range", float(row[DotBotProfile.COL_MIN]), float(row[DotBotProfile.COL_MAX]))
+			elif cv.has_method(&"with_min"):
+				cv.call(&"with_min", float(row[DotBotProfile.COL_MIN]))
 		if cv.has_signal(&"changed"):
 			cv.connect(&"changed", _on_field_cvar.bind(field, cv))
 		_cvars[cvar_name] = cv

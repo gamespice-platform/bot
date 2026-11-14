@@ -29,7 +29,7 @@ func _test_policy() -> void:
 	_check(DotBotProfile.spec_for("policy").size() > 0 and DotBotProfile.new().policy == 0.0, "bot_policy is a setting and 0 by default")
 	for preset in DotBotProfile.PRESETS:
 		_check(DotBotProfile.preset_value(preset, "policy") == 0.0, "%s leaves the policy off" % preset)
-	_check(DotBotProfile.new().set_field("policy", "3").value == 1.0, "bot_policy clamps to 1")
+	_check(not DotBotProfile.new().set_field("policy", "3").ok, "bot_policy over 1 is refused")
 
 	var parts := _policy_parts()
 	var bad := DotBotPolicy.new()

@@ -156,7 +156,7 @@ game-hide-n-seek's `game/hs_bots.gd` is the worked example.
 | `bot_hesitate` | 0.35 | 0.2 | 0.12 | 0.06 | 0 to 2 | Seconds a bot may stand still when it first sights somebody before it starts moving. |
 | `bot_hurt_delay` | 0.25 | 0.15 | 0.1 | 0.06 | 0 to 1 | Seconds before a bot that was hit turns toward the shooter (0 is instant). |
 
-A value outside its allowed range is clamped to it. Hard is meant to play like a good human player. Nightmare is better than a human, but its reaction never drops to zero and its aim is never exact.
+A value under the minimum, or over a chance's 1 or the view cone's 360, is refused with a message and changes nothing. The other maximums in "Allowed range" are guides: a larger value is used as given, with one warning per setting (there is no cap; defaults are the preset columns). Hard is meant to play like a good human player. Nightmare is better than a human, but its reaction never drops to zero and its aim is never exact.
 
 ## Privacy of the demonstration recorder
 

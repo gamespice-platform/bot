@@ -219,7 +219,38 @@ func apply_preset(name: String) -> DotResult:
 	return DotResult.success(preset_name)
 
 
-## Sets one field from text, clamped to its range. Refuses an unknown field or a non-number.
+## Whether [param field]'s maximum is a fact, not a taste: a chance or fraction (max 1) or the view cone
+## (360 degrees) has nothing above it. Every other maximum is a guide; a value over it is used, with a warning.
+static func is_hard_max(field: String) -> bool:
+	var row := spec_for(field)
+	return not row.is_empty() and (float(row[COL_MAX]) <= 1.0 or field == "fov")
+
+
+## Why [param value] is not acceptable for [param row]'s field, or "" when it is: under the minimum
+## (zero or below where the minimum is above zero is physically meaningless) or over a [method is_hard_max].
+static func _refusal(row: Array, value: float) -> String:
+	var field := String(row[COL_FIELD])
+	if is_nan(value) or value < float(row[COL_MIN]):
+		return "bot_%s must be at least %s, not %s" % [field, _fmt(float(row[COL_MIN])), _fmt(value)]
+	if value > float(row[COL_MAX]) and is_hard_max(field):
+		return "bot_%s cannot be more than %s, not %s" % [field, _fmt(float(row[COL_MAX])), _fmt(value)]
+	return ""
+
+
+## A value over a field's guide maximum is used as given; this says so, once per field.
+static func _warn_over(row: Array, value: float) -> void:
+	var field := String(row[COL_FIELD])
+	if value > float(row[COL_MAX]) and not _warned_over.has(field):
+		_warned_over[field] = true
+		DotLog.warn("bot", "bot setting is above its usual maximum; used as given", {"field": field, "value": value, "usual_max": row[COL_MAX]})
+
+
+static var _warned_over: Dictionary = {}
+
+
+## Sets one field from text. Refuses an unknown field, a non-number, a value under its minimum or over a
+## fact-maximum (a chance over 1, a view cone over 360), changing nothing; a value over a guide maximum is
+## used, with a warning.
 func set_field(field: String, text: String) -> DotResult:
 	var row := spec_for(field)
 	if row.is_empty():
@@ -227,17 +258,32 @@ func set_field(field: String, text: String) -> DotResult:
 	var clean := text.strip_edges()
 	if not clean.is_valid_float():
 		return DotResult.fail(DotError.CODE_INVALID, "bot_%s takes a number, not '%s'" % [field, text])
-	var value := clampf(clean.to_float(), float(row[COL_MIN]), float(row[COL_MAX]))
+	var value := clean.to_float()
+	var why := _refusal(row, value)
+	if not why.is_empty():
+		return DotResult.fail(DotError.CODE_INVALID, why)
+	_warn_over(row, value)
 	set(StringName(field), value)
 	return DotResult.success(value)
 
 
-## Sets one field to a number clamped to its range; false for an unknown field.
+## Sets one field to a number; false for an unknown field. A derived value (a persona's scale and
+## spread) under the minimum or over a fact-maximum is pulled to it with a warning, once per field;
+## over a guide maximum it is used as given.
 func set_number(field: String, value: float) -> bool:
 	var row := spec_for(field)
 	if row.is_empty():
 		return false
-	set(StringName(field), clampf(value, float(row[COL_MIN]), float(row[COL_MAX])))
+	var why := _refusal(row, value)
+	var used := value
+	if not why.is_empty():
+		used = clampf(value, float(row[COL_MIN]), float(row[COL_MAX]))
+		if not _warned_over.has(field + "!"):
+			_warned_over[field + "!"] = true
+			DotLog.warn("bot", why + "; pulled to the nearest allowed value", {"field": field, "used": used})
+	else:
+		_warn_over(row, value)
+	set(StringName(field), used)
 	return true
 
 
