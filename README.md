@@ -1,5 +1,3 @@
-# dot-bot
-
 Player bots for Godot 4.7+. A brain that plays like a person, difficulty presets, a pool of bot names and a roster that keeps the bot count right. Part of the [dot-*](https://github.com/modcommunity) family and needs only [dot-core](https://github.com/modcommunity/dot-core).
 
 ## What it does
