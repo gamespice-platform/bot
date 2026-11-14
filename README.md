@@ -1,15 +1,6 @@
-This is the **bot** asset for TMC's **Dot** collection. It adds player bots: a brain that plays like a person, difficulty presets, names and a roster.
+# dot-bot
 
-This collection of assets provides modular building blocks for creating games and applications within the TMC ecosystem, ensuring consistency and interoperability across all `dot-*` assets. This includes core functionality, networking, authentication, cloud integration, and more.
-
-**These assets are COMPLETELY OPEN SOURCE**. You are free to use, modify, and distribute them under the terms of the MIT license. The only thing not open source is the back-end web infrastructure. So if you opt into using your own authentication backend instead of integrating with TMC, you will need to build and integrate your own back-end infrastructure.
-
-## From Maintainer & WARNING
-This asset, along with all the others, was built initially with **Claude Code** and will continue to be maintained and extended using it. This is because I (`gamemann`) cannot build the entire TMC platform alone (I wish I could lol).
-
-**Please treat this as partially tested.** Every asset has its own headless test suite and those suites pass, but very little of this has been in front of real players yet. Expect rough edges, and please report anything you run into.
-
-I intend on reviewing code, testing, and editing documentation regularly. If you're interested in helping out, please let me know!
+Player bots for Godot 4.7+. A brain that plays like a person, difficulty presets, a pool of bot names and a roster that keeps the bot count right. Part of the [dot-*](https://github.com/modcommunity) family and needs only [dot-core](https://github.com/modcommunity/dot-core).
 
 ## What it does
 A bot here is a player. Each tick the brain decides what a person would press (where to look, how to move, whether to shoot, crouch, jump or throw) and your game turns that into the same movement and weapon commands a client sends. The bot walks through your movement code and shoots through your weapons, so it can never do something a player could not.
@@ -20,7 +11,7 @@ How well it does all that is a profile of about forty numbers. Four presets (`ea
 
 It also has a pool of bot names, so a scoreboard never shows "Bot 2", and a roster that adds or removes bots to reach a count (dot-server's `DotBotQuota` says what the count is).
 
-## Getting started
+## Install
 You need [Godot 4.7](https://godotengine.org/download). The easiest way to get this addon and the ones it needs is [dot-bootstrap](https://github.com/modcommunity/dot-bootstrap), which clones every project and links the addons into each one.
 
 To add it to your own project by hand, copy `addons/dot_bot/` and [dot-core](https://github.com/modcommunity/dot-core)'s `addons/dot_core/` into it and enable dot-bot in **Project → Project Settings → Plugins**. dot-core is the only dependency.
@@ -85,10 +76,13 @@ roster.keep(quota.wanted(humans, max_players), bot_ids,
     names_in_use)
 ```
 
-### Flashes and smoke
-Added at API level 8. `brain.blind_for(now, 3.0, flash_position)` blinds a bot (it sees nothing, still hears), and `world.add_sight_blocker(center, radius, until)` makes line of sight through a sphere fail until `until` (returns an id for `remove_sight_blocker`). A consumer that has to run against older builds guards with `DotAddonApi.build_level("dot_bot") >= 8`. See [design](docs/design.md#flashes-and-smoke-api-level-8).
+### Flashes, smoke and ladders
 
-Added at API level 9. Ladders: `DotBotLinks` joins each ladder brush as a one-way up edge, and the brain climbs it when the game assigns `world.ladder_fn = links.ladder_of` after `links.join(nav)`. The brain faces the ladder, holds forward, and hops off at the top. A consumer guards with `DotAddonApi.build_level("dot_bot") >= 9`. Added at API level 10: `DotBotLinks.link_ladders(nav, boxes)` does the join in one call and returns the links (or null), so a game only assigns `world.ladder_fn = links.ladder_of`. Added at API level 11: `DotBotClimb.begin(links.ladder_of(ride), now)` then `step(feet, now)` each tick gives `{yaw, move, jump, done}` for a game that steers its own stand-ins (the brain uses the same class).
+- `brain.blind_for(now, 3.0, flash_position)` blinds a bot: it sees nothing but still hears.
+- `world.add_sight_blocker(center, radius, until)` makes line of sight through a sphere fail until `until`. It returns an id for `remove_sight_blocker`.
+- Ladders: call `links.link_ladders(nav, boxes)` and assign `world.ladder_fn = links.ladder_of`. The brain faces the ladder, holds forward and hops off at the top. For a game that steers its own bots, `DotBotClimb.begin(...)` then `step(feet, now)` each tick returns `{yaw, move, jump, done}`.
+
+A consumer that must run against older builds can guard with `DotAddonApi.build_level("dot_bot")`. These features need level 8 (blind and smoke) and level 9 to 11 (ladders). See [docs/design.md](docs/design.md).
 
 ### Hiding, searching and walking a map
 For games where bots hide and seek rather than fight, three helpers sit beside the brain. `DotBotNav` bakes a navigation mesh from your map's colliders when the map is built (pass the bodies that never move, so a door baked shut is not a wall) and gives paths and seeded random points. `DotBotHiding` scores places by how many of the map's sight lines reach them, picks one apart from the other hiders, and finds somewhere out of a seeker's sight to run to. `DotBotSearch` is a seeker's memory: the likely places first, crossed off once looked at, and the places near a sound put back on the list.
@@ -106,9 +100,9 @@ var next := search.next(my_feet, now, other_seekers_targets, stream)
 game-hide-n-seek's `game/hs_bots.gd` is the worked example.
 
 ## Settings
-`bot_difficulty` picks a preset (default `medium`). Every other setting below follows the preset unless you set it yourself; a setting you set stays when the preset changes, and `bot_settings_reset` puts the preset's values back. `bot_settings` lists every value and marks the ones you set.
+`bot_difficulty` picks a preset (default `medium`). See [docs/presets.md](docs/presets.md). Every other setting below follows the preset unless you set it yourself; a setting you set stays when the preset changes, and `bot_settings_reset` puts the preset's values back. `bot_settings` lists every value and marks the ones you set.
 
-| Cvar | Easy | Medium (default) | Hard | Nightmare | Range | What it does |
+| Cvar | Easy | Medium (default) | Hard | Nightmare | Allowed range | What it does |
 | --- | --- | --- | --- | --- | --- | --- |
 | `bot_reaction` | 0.5 | 0.3 | 0.21 | 0.12 | 0.05 to 3 | Seconds between first seeing somebody and pulling the trigger on them. |
 | `bot_notice` | 0.35 | 0.15 | 0.12 | 0.06 | 0 to 2 | Extra seconds to react to somebody 90 degrees off the view, scaled by how far off they are. |
@@ -162,17 +156,17 @@ game-hide-n-seek's `game/hs_bots.gd` is the worked example.
 | `bot_hesitate` | 0.35 | 0.2 | 0.12 | 0.06 | 0 to 2 | Seconds a bot may stand still when it first sights somebody before it starts moving. |
 | `bot_hurt_delay` | 0.25 | 0.15 | 0.1 | 0.06 | 0 to 1 | Seconds before a bot that was hit turns toward the shooter (0 is instant). |
 
-Hard is meant to play like a good human player. Nightmare is better than a human, but its reaction never drops to zero and its aim is never exact.
+A value outside its allowed range is clamped to it. Hard is meant to play like a good human player. Nightmare is better than a human, but its reaction never drops to zero and its aim is never exact.
 
 ## Privacy of the demonstration recorder
 
-A server can record anonymous movement (where players move, how they ride ramps, how quickly they react in a fight) to teach its bots; see [docs/demonstration-recorder.md](docs/demonstration-recorder.md). What is kept: the map and its version, a schema id, the samples of one stretch of movement, its outcome, and the date. What is never kept: a name, an account id, a peer number, an address, a team roster, chat, voice, or a time finer than a day. Recording is server-side only and on by default; the server owner turns it off for the whole server with `bot_record 0` (config key `record`, or `bot_record_store off`). Suggested text for a game's README and a server's rules:
+A server can record anonymous movement (where players move, how they ride ramps, how quickly they react in a fight) to teach its bots; see [docs/demonstration-recorder.md](docs/demonstration-recorder.md). What is kept: the map and its version, a schema id, the samples of one stretch of movement, its outcome, and the date. What is never kept: a name, an account id, a peer number, an address, a team roster, chat, voice, or a time finer than a day. Recording is server-side only. The default is in [docs/demonstration-recorder.md](docs/demonstration-recorder.md); the server owner turns it off for the whole server with `bot_record 0` (config key `record`, or `bot_record_store off`). Suggested text for a game's README and a server's rules:
 
 > This server records anonymous movement (where players move and how they ride ramps, and how quickly they react in a fight) to teach its bots. No names, account ids, addresses or chat are recorded, and recordings are stored by map and date only. The server owner can turn this off with `bot_record 0`.
 
 Stores: JSON files (the default, `bot_record_path`), SQLite, or PostgreSQL and MySQL through a dot-sql gateway (`bot_record_url`; `bot_record_token` is read from the config file only, never the environment or the command line).
 
-## Testing
+## Test
 ```bash
 godot --headless --path . --import
 timeout 180 godot --headless --path . res://examples/bot_selftest.tscn
@@ -180,5 +174,10 @@ timeout 180 godot --headless --path . res://examples/bot_selftest.tscn
 
 The suite checks the presets and cvars, and measures each preset's reaction time, first-shot aim error, settled aim, turn speed and kill/death ratio against one scripted opponent. game-fatal-contact's `headless_bots` measures the same in a real match.
 
-## License
-[MIT](LICENSE)
+## Status
+
+Built and maintained with Claude Code. The test suites pass, but little of this has been in front of real players yet. Please report rough edges by opening an issue.
+
+## Licence
+
+MIT. See [LICENSE](LICENSE).
