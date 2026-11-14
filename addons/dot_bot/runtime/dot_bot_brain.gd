@@ -73,6 +73,7 @@ func _init(p_id: int = 0, p_settings: DotBotSettings = null) -> void:
 	if aim._n != null and _perceive_available():
 		_mind = aim._n
 	_unstick = DotBotUnstick.new(_rng)
+	style = DotBotStyle.new(p_id)
 	goal = DotBotGoal.new(p_id)
 
 
@@ -99,6 +100,9 @@ func think(me: DotBotContact, world: DotBotWorld, now: float) -> DotBotIntent:
 		_respawned()
 
 	aim.view_from(me.view_yaw, me.view_pitch)
+	style.refresh(me, settings)
+	aim.reach_k = style.reach_k
+	aim.burst_k = style.burst_k
 
 	if now >= _hurt_pending_at:
 		# The shooter is only noticed a moment after the hit: pain first, then the turn.
@@ -132,6 +136,10 @@ func think(me: DotBotContact, world: DotBotWorld, now: float) -> DotBotIntent:
 		pickup.cancel()
 	if seen != null:
 		_fight(me, seen, world, p, now, dt, out)
+		if style.active:
+			style.after_fight(self, me, seen, world, now, dt, out)
+	elif style.active and style.lead(self, me, world, now, dt, out, not tethered and goal.dest == Vector3.INF):
+		pass
 	elif not tethered and _last_seen_pos != Vector3.INF and now - _last_seen_at <= _hold_time(p, _peeking or _chase_lost):
 		_search(me, p, now, dt, out)
 	elif not tethered and maxf(_heard_at, _hurt_at) > -INF and now - maxf(_heard_at, _hurt_at) <= _hold_time(p, _chase_sound or _hurt_at >= _heard_at):
@@ -188,6 +196,7 @@ func _respawned() -> void:
 	_hurt_at = -INF
 	_hurt_pending_at = INF
 	goal.reset()
+	style.respawn(settings)
 
 
 static func _lap(phase: int) -> void:
@@ -264,7 +273,7 @@ func _perceive(me: DotBotContact, all: Array, world: DotBotWorld, p: DotBotProfi
 		if r.size() == 2:
 			picked = true
 			if r[1] != 0:
-				_forget_target()
+				_target_down()
 			if r[0] >= 0:
 				chosen = world.sensed()[r[0]]
 	if not picked:
@@ -277,11 +286,12 @@ func _perceive(me: DotBotContact, all: Array, world: DotBotWorld, p: DotBotProfi
 
 	if aim.engage(chosen.id, eye, chosen.aim_point(), now):
 		# A new engagement: how this fight will go, rolled once.
-		_roll_stop = _rng.next_unit() < p.stop_to_shoot
-		_roll_crouch = _rng.next_unit() < p.crouch
+		_roll_stop = _rng.next_unit() < p.stop_to_shoot + style.stop_b
+		_roll_crouch = _rng.next_unit() < p.crouch + style.crouch_b
 		_roll_cover = _rng.next_unit() < p.cover
 		if p.hesitate > 0.0:
 			_hesitate_until = now + p.hesitate * (0.3 + 0.7 * _rng.next_unit())
+		style.engage()
 		DotLog.trace(CHANNEL, "bot acquires a target", {"bot": id, "target": chosen.id})
 
 	_visible = true
@@ -366,7 +376,7 @@ func _candidates(me: DotBotContact, all: Array, p: DotBotProfile, eye: Vector3, 
 		if not c.alive and c.id == target_id and _visible:
 			# Killed, by this bot or somebody else, in plain view: a person moves on, and does
 			# not stand pre-aiming the body for the next four seconds.
-			_forget_target()
+			_target_down()
 			continue
 		if not c.alive or not me.is_enemy(c):
 			continue
@@ -390,7 +400,7 @@ func _candidates_native(senses: Object, world: DotBotWorld, me: DotBotContact, p
 	var cand: Array[DotBotContact] = []
 	var idx: PackedInt32Array = senses.call(&"candidates", me.id, me.team, eye, forward, half, p.sight, CLOSE_NOTICE, target_id, _visible)
 	if senses.call(&"target_dead"):
-		_forget_target()
+		_target_down()
 	if idx.is_empty():
 		return cand
 	var list := world.sensed()
@@ -445,9 +455,15 @@ func _lose(p: DotBotProfile, now: float) -> void:
 	_visible = false
 	_lost_at = now
 	aim.release()
-	_peeking = _rng.next_unit() < p.peek
-	_chase_lost = _rng.next_unit() < p.aggression
+	_peeking = _rng.next_unit() < p.peek + style.peek_b
+	_chase_lost = _rng.next_unit() < p.aggression + style.aggression_b
 	_grenade_ready = _rng.next_unit() < p.grenades
+
+
+## The target died in plain view: forgotten, and the style hears of the kill.
+func _target_down() -> void:
+	_forget_target()
+	style.on_kill()
 
 
 func _forget_target() -> void:
@@ -487,7 +503,7 @@ func _hear(me: DotBotContact, all: Array, world: DotBotWorld, p: DotBotProfile, 
 		var spread := d * 0.08
 		_heard_pos = at + Vector3((_rng.next_unit() - 0.5) * 2.0 * spread, 0.0, (_rng.next_unit() - 0.5) * 2.0 * spread)
 		_heard_at = now
-		_chase_sound = _rng.next_unit() < p.aggression
+		_chase_sound = _rng.next_unit() < p.aggression + style.aggression_b
 		_known_enemy = _heard_pos
 
 
@@ -519,9 +535,10 @@ func _fight(me: DotBotContact, c: DotBotContact, world: DotBotWorld, p: DotBotPr
 	# Distance and strafing.
 	var dir := flat / dist if dist > 0.01 else Vector2(0.0, -1.0)
 	var forward := 0.0
-	if dist > p.range * 1.3:
+	var keep := p.range * style.range_k
+	if dist > keep * 1.3:
 		forward = 1.0
-	elif dist < p.range * 0.7:
+	elif dist < keep * 0.7:
 		forward = -0.7
 
 	if push:
@@ -529,11 +546,11 @@ func _fight(me: DotBotContact, c: DotBotContact, world: DotBotWorld, p: DotBotPr
 	if retreat:
 		forward = -1.0
 	out.state = &"retreat" if retreat else &"fight"
-	_scene = &"flee" if retreat else (&"close" if dist > p.range * 1.3 else &"fight")
+	_scene = &"flee" if retreat else (&"close" if dist > keep * 1.3 else &"fight")
 	_scene_up = c.position.y - me.position.y
 
 	if now >= _strafe_until:
-		_strafe = (1.0 if _rng.next_unit() < 0.5 else -1.0) if _rng.next_unit() < p.strafe else 0.0
+		_strafe = (1.0 if _rng.next_unit() < 0.5 else -1.0) if _rng.next_unit() < p.strafe * style.strafe_k else 0.0
 		if p.strafe_jitter > 0.0:
 			# Uneven lengths (many short, a few long) and now and then a stop to aim.
 			var u := _rng.next_unit()
@@ -596,8 +613,8 @@ func _fight_native(me: DotBotContact, c: DotBotContact, eye: Vector3, speed: flo
 	io[16] = _strafe_until
 	io[17] = _strafe_eased
 	io = aim._pack_profile(io, 18)
-	io[30] = p.range
-	io[31] = p.strafe
+	io[30] = p.range * style.range_k
+	io[31] = p.strafe * style.strafe_k
 	io[32] = p.strafe_jitter
 	io[33] = p.strafe_time
 	io[34] = p.jump

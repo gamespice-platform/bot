@@ -46,6 +46,16 @@ var air_jump_ready: bool = false
 ## An unlisted slot is empty. Read by [DotBotPickup]; a game that never fills it has bots that take nothing off the floor.
 var loadout: Dictionary = {}
 
+## The class of the weapon in hand, for [DotBotStyle]: [code]&"sniper"[/code], [code]&"rifle"[/code],
+## [code]&"smg"[/code], [code]&"shotgun"[/code], [code]&"pistol"[/code], [code]&"heavy"[/code],
+## [code]&"launcher"[/code], [code]&"melee"[/code], [code]&"throw"[/code], or a game's own (with a
+## table that names it). Empty when the game does not say: the bot then plays the one generic way.
+var weapon_class: StringName = &""
+
+## Rounds left in the magazine in hand as a fraction of a full one, -1 when unknown. A style that
+## reloads in cover reads it.
+var magazine: float = -1.0
+
 ## 0..1.
 var health: float = 1.0
 

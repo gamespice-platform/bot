@@ -53,6 +53,27 @@ The view, the aim error, the reaction and the trigger are `DotBotAim`, which the
 
 **A target killed in view is forgotten.** A person moves on after a kill; a bot that searched for it stood pre-aiming the body for its whole memory (seen in the first render). A sound or a lost target the bot is not going after holds it for a glance (1.2 s), not its whole memory, for the same reason: a bot staring at a wall for four seconds reads as stuck.
 
+### Weapon styles
+
+Each gun is played its own way (`DotBotStyle`, `runtime/dot_bot_style.gd`). The game sets `DotBotContact.weapon_class` to the class of the weapon in hand (`sniper`, `marksman`, `rifle`, `smg`, `shotgun`, `pistol`, `heavy`, `launcher`, `melee`, `throw`, or its own) and, if it can, `DotBotContact.magazine` (0..1). Each class has a weighted table of styles. A bot picks one style per class from its own random stream (`dot_bot_style`, so the brain's own draws do not change). On each respawn it picks again with chance `bot_style_variety`, and it rolls a small per-life jitter (±`bot_style_variety`) on every scale, so no two bots play one style the same way.
+
+A style row scales what the generic fight already does:
+- `range` scales the distance kept;
+- `reach` scales the farthest distance it shoots from;
+- `strafe` scales the strafing;
+- `burst` lengthens bursts and shortens the pauses between them;
+- `stop`, `crouch`, `aggression` and `peek_chance` shift the existing rolls.
+
+The row's `fight` and `roam` add moves:
+- **`peek`** (the snipers, the rifle anchor, the grenade peeker): after `peek` seconds of shooting, or after a kill, the bot finds cover from the enemy's eye. It tries short sidesteps away from the sightline first and backs off if none work. It sits in cover for `hide` seconds (state `cover`), then walks out to its old spot (`peek`), or with chance `reposition` takes another angle (`reposition`, or `sneak` walking with chance `sneak`).
+- **`rush`** (shotgun, smg, melee): it closes in, strafing `flank` hard across the enemy's line (state `rush`).
+- **`camp`**: a quiet bot picks a vantage among the waypoints with the longest sightlines, walks there and holds it, sweeping the view (`vantage`). It moves on when hurt or after `patience` seconds.
+- **`cover_reload`**: the chance that a low magazine sends it to cover first.
+
+The table ships in `DotBotStyle.DEFAULTS`. `bot_style_file` names a JSON file whose rows merge into it by name, and a new class adds a class. `bot_style_weights` (`sniper.camper=0, smg.flanker=3`) changes single weights.
+
+`bot_styles` (0..2) scales all of it. 0, or an empty class, is the generic bot to the bit. Per-tick cost is a few multiplies; cover and vantage searches cast at most 6 and 18 rays, once per phase change.
+
 ### Simulated bullets
 
 With the server's `sv_ballistics` on, a bullet drops and takes time to arrive, and a hitscan aim misses. `DotBotAim.aim_solver` is an optional callable `func(eye, point, velocity) -> Vector3` that `track` uses in place of the plain lead; unset (the default) changes nothing. `DotBotAimSolver.solve(muzzle, target, velocity, tuning)` is a ready one: it iterates flight time and bore pitch a few times, reads `muzzle_velocity`, `bullet_gravity` and `drag` off the tuning by duck typing (a dot-weapon `DotWeaponBallistics`, or a dictionary), and returns the plain point when there is no tuning or no solution. dot-bot does not depend on dot-weapon.

@@ -92,6 +92,9 @@ const SPEC := [
 	["glance", 0.0, 1.0, 0.8, 0.6, 0.5, 0.4, "How often a roaming bot turns its head to look aside and holds the look (0 never)."],
 	["hesitate", 0.0, 2.0, 0.35, 0.2, 0.12, 0.06, "Seconds a bot may stand still when it first sights somebody before it starts moving."],
 	["hurt_delay", 0.0, 1.0, 0.25, 0.15, 0.1, 0.06, "Seconds before a bot that was hit turns toward the shooter (0 is instant)."],
+	# Styles: how a bot plays the weapon in its hand (DotBotStyle). Only for a game that says which class it holds.
+	["styles", 0.0, 2.0, 0.6, 1.0, 1.0, 1.0, "How strongly a bot plays its weapon's style (a sniper holding an angle, a shotgun rushing): 0 is the one generic way, 1 the style table as written, above 1 exaggerated."],
+	["style_variety", 0.0, 1.0, 0.35, 0.3, 0.25, 0.2, "How much a style varies from one life to the next (range, strafing, patience, peek timing), and the chance a bot picks its style again on a respawn."],
 ]
 
 ## SPEC's columns.
@@ -166,6 +169,10 @@ const COL_HELP := 7
 @export var glance: float = 0.6
 @export var hesitate: float = 0.2
 @export var hurt_delay: float = 0.15
+
+@export_group("Styles")
+@export var styles: float = 1.0
+@export var style_variety: float = 0.3
 
 
 ## A profile set to [param name]'s column, or null for a name that is not a preset.

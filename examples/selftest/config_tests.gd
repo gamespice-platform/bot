@@ -203,7 +203,7 @@ func _test_cvars() -> void:
 
 	var s := DotBotSettings.new()
 	var list := s.bind_cvars(add, 0, add_command)
-	_check(list.size() == DotBotProfile.fields().size() + 1, "bot_difficulty and one cvar per setting", str(list.size()))
+	_check(list.size() == DotBotProfile.fields().size() + 3, "bot_difficulty, one cvar per setting and the two style cvars", str(list.size()))
 	_check(commands.has("bot_settings") and commands.has("bot_settings_reset"), "and the two commands")
 	_check((made["bot_difficulty"] as FakeCvar).value == "medium", "bot_difficulty starts at medium")
 
@@ -236,7 +236,7 @@ func _test_console() -> void:
 	var s := DotBotSettings.new()
 	var local := FakeLocal.new()
 	_check(s.bind_console(local), "binds to anything with add_var")
-	_check(local.vars.has("bot_difficulty") and local.vars.size() == DotBotProfile.fields().size() + 1, "every name a server has, in solo")
+	_check(local.vars.has("bot_difficulty") and local.vars.size() == DotBotProfile.fields().size() + 3, "every name a server has, in solo")
 	_check(local.commands.has("bot_settings") and local.commands.has("bot_settings_reset"), "and the two commands")
 	_check(local.get_var("bot_difficulty") == "medium", "reads medium")
 	var res: Variant = local.set_var("bot_difficulty", "hard")

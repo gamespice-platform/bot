@@ -111,6 +111,8 @@ var _ride_reached: int = -1
 # The ladder being climbed, or null.
 var _climb: DotBotClimb = null
 var _unstick: DotBotUnstick = null
+## How this bot plays the weapon in its hand (neutral when the game names no class).
+var style: DotBotStyle = null
 
 var _now: float = NAN
 var _was_alive: bool = true
@@ -393,6 +395,8 @@ func describe() -> Dictionary:
 		"aim_error_deg": snappedf(aim.error_deg(_now if not is_nan(_now) else 0.0), 0.01),
 		"role": goal.role,
 		"goal": goal.kind,
+		"style": style.label(),
+		"style_phase": style.phase_name(),
 	}
 
 

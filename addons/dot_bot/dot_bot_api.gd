@@ -48,5 +48,6 @@ extends RefCounted
 # 29: DotBotWorld.sounds_into; DotBotBrain.phase_timers, PHASES, phase_us (a think's time per phase); DotBotPickup.NONE; profile row replan_every (0, every think, unchanged).
 # 30: DotBotThinkTier.max_period reaches dot-sim's native tier (any value, 0 unlimited; a negative one is an error); a native library older than this runs the script tier for a non-default value.
 # 31: DotBotNav bakes a map over the engine's 30 million cell limit in tiles joined into one mesh (agent key `tile`, metres, 0 auto; a bad size fails loudly); DotBotNavTiles; describe() reports tiles and tile.
-const LEVEL := 31
+# 32: Weapon play styles: DotBotStyle, a weighted table of styles per weapon class (sniper, marksman, rifle, smg, shotgun, pistol, heavy, launcher, melee, throw); DotBotContact weapon_class and magazine; cvars bot_styles, bot_style_file, bot_style_weights (0 styles is the generic bot to the bit); describe() reports style and style_phase.
+const LEVEL := 32
 const OLDEST := 1

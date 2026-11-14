@@ -34,6 +34,10 @@ const META := &"dot_bot_settings"
 const CVAR_DIFFICULTY := "bot_difficulty"
 const COMMAND_SHOW := "bot_settings"
 const COMMAND_RESET := "bot_settings_reset"
+const CVAR_STYLE_FILE := "bot_style_file"
+const CVAR_STYLE_WEIGHTS := "bot_style_weights"
+const STYLE_FILE_HELP := "A JSON file of weapon class -> [style rows] over the built-in bot styles (DotBotStyle.DEFAULTS); empty for the built-in ones."
+const STYLE_WEIGHTS_HELP := "Bot style weights over the table, class.style=weight comma separated (sniper.camper=6,smg.flanker=0)."
 
 ## Emitted after anything changed.
 signal changed
@@ -59,6 +63,12 @@ var _base: DotBotSettings = null
 var _persona: DotBotPersona = null
 var _seed: int = 0
 var _base_revision: int = -1
+
+## The style table [method set_style_config] built; empty is [constant DotBotStyle.DEFAULTS].
+var _style_table: Dictionary = {}
+var _style_file: String = ""
+var _style_weights: String = ""
+var _style_stamp: int = 0
 
 
 ## The settings on [param node], made (at the default preset) and attached if missing.
@@ -145,6 +155,41 @@ func is_overridden(field: String) -> bool:
 	return overrides.has(field)
 
 
+# --- Styles ---------------------------------------------------------------------
+
+## The weapon-class style table every bot reads ([DotBotStyle]); a derived bot reads its base's.
+func style_table() -> Dictionary:
+	if _base != null:
+		return _base.style_table()
+	return DotBotStyle.DEFAULTS if _style_table.is_empty() else _style_table
+
+
+## Bumped when the table changes; a [DotBotStyle] compares it.
+func style_stamp() -> int:
+	return _base.style_stamp() if _base != null else _style_stamp
+
+
+## Builds the style table from [param file] (JSON, see [method DotBotStyle.build_table]; empty
+## for none) and [param weights] over the built-in one. On an error nothing changes.
+func set_style_config(file: String, weights: String) -> DotResult:
+	var text := ""
+	var path := file.strip_edges()
+	if path != "":
+		if not FileAccess.file_exists(path):
+			return DotResult.fail(DotError.CODE_INVALID, "bot_style_file: no file '%s'." % path)
+		text = FileAccess.get_file_as_string(path)
+	var built := DotBotStyle.build_table(DotBotStyle.DEFAULTS, text, weights.strip_edges())
+	if not bool(built["ok"]):
+		DotLog.warn(CHANNEL, "bot styles not changed", {"error": built["error"]})
+		return DotResult.fail(DotError.CODE_INVALID, String(built["error"]))
+	_style_table = {} if path == "" and weights.strip_edges() == "" else built["table"]
+	_style_file = path
+	_style_weights = weights.strip_edges()
+	_style_stamp += 1
+	DotLog.info(CHANNEL, "bot styles", {"file": _style_file, "weights": _style_weights})
+	return DotResult.success(_style_stamp)
+
+
 # --- Server cvars ---------------------------------------------------------------
 
 ## Registers `bot_difficulty` and every `bot_<field>` through [param add], which is called as
@@ -192,6 +237,15 @@ func bind_cvars(add: Callable, flags: int = 0, add_command: Callable = Callable(
 		_cvars[cvar_name] = cv
 		made.append(cv)
 
+	for style_cvar: String in [CVAR_STYLE_FILE, CVAR_STYLE_WEIGHTS]:
+		var sc: Variant = add.call(style_cvar, "", STYLE_FILE_HELP if style_cvar == CVAR_STYLE_FILE else STYLE_WEIGHTS_HELP, flags)
+		if not (sc is Object) or sc == null:
+			continue
+		if (sc as Object).has_signal(&"changed"):
+			(sc as Object).connect(&"changed", _on_style_cvar.bind(style_cvar, sc))
+		_cvars[style_cvar] = sc
+		made.append(sc)
+
 	if add_command.is_valid():
 		add_command.call(COMMAND_SHOW, _cmd_show, "Every bot setting; * marks one set by hand.")
 		add_command.call(COMMAND_RESET, _cmd_reset, "Drop the hand-set bot settings, back to the preset.")
@@ -209,6 +263,10 @@ func bind_cvars(add: Callable, flags: int = 0, add_command: Callable = Callable(
 		var _res := set_difficulty(waiting)
 	for field: String in waiting_fields:
 		var _set := set_value(field, waiting_fields[field])
+	var style_file := _cvar_string(CVAR_STYLE_FILE)
+	var style_weights := _cvar_string(CVAR_STYLE_WEIGHTS)
+	if style_file != "" or style_weights != "":
+		var _styled := set_style_config(style_file, style_weights)
 
 	return made
 
@@ -229,6 +287,13 @@ func _on_field_cvar(_old: String, new_value: String, field: String, _cv: Object)
 	if _writing:
 		return
 	var _res := set_value(field, new_value)
+
+
+func _on_style_cvar(_old: String, new_value: String, which: String, _cv: Object) -> void:
+	if _writing:
+		return
+	var _res := set_style_config(new_value if which == CVAR_STYLE_FILE else _style_file,
+		new_value if which == CVAR_STYLE_WEIGHTS else _style_weights)
 
 
 func _cmd_show(ctx: Object) -> void:
@@ -295,6 +360,15 @@ func bind_console(local: Object) -> bool:
 			func() -> Variant: return DotBotProfile._fmt(profile.get_field(field)),
 			func(v: Variant) -> Variant: return set_value(field, str(v))
 		)
+
+	local.call(&"add_var", StringName(CVAR_STYLE_FILE), STYLE_FILE_HELP,
+		func() -> Variant: return _style_file,
+		func(v: Variant) -> Variant: return set_style_config(str(v), _style_weights)
+	)
+	local.call(&"add_var", StringName(CVAR_STYLE_WEIGHTS), STYLE_WEIGHTS_HELP,
+		func() -> Variant: return _style_weights,
+		func(v: Variant) -> Variant: return set_style_config(_style_file, str(v))
+	)
 
 	if local.has_method(&"add_command"):
 		local.call(&"add_command", StringName(COMMAND_SHOW), "Every bot setting; * marks one set by hand.",

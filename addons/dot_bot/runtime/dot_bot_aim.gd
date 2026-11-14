@@ -74,6 +74,10 @@ var _flinch: float = 0.0
 var _want: Vector2 = Vector2(NAN, NAN)
 var _want_prev: Vector2 = Vector2(NAN, NAN)
 var _in_burst: bool = false
+## Scales a [DotBotStyle] puts on bot_max_range and on bursts (longer bursts, shorter pauses
+## above 1). 1 leaves the profile as it is.
+var reach_k: float = 1.0
+var burst_k: float = 1.0
 var _burst_until: float = -INF
 var _pause_until: float = -INF
 var _rng: DotRandomStream = null
@@ -150,10 +154,10 @@ func _pack_profile(io: PackedFloat64Array, at: int) -> PackedFloat64Array:
 	io[at + 5] = p.fire_cone
 	io[at + 6] = p.turn_smooth
 	io[at + 7] = p.turn_rate
-	io[at + 8] = p.max_range
+	io[at + 8] = p.max_range * reach_k
 	io[at + 9] = p.burst_range
-	io[at + 10] = p.burst
-	io[at + 11] = p.burst_pause
+	io[at + 10] = p.burst * burst_k
+	io[at + 11] = p.burst_pause / burst_k
 	return io
 
 
@@ -339,15 +343,15 @@ func trigger(now: float, distance: float) -> bool:
 		_trigger_io = _pack_profile(_trigger_io, 3)
 		return _n.trigger(now, distance, _trigger_io)
 	var p := settings.profile
-	var can := now >= react_at and on_aim() and distance <= p.max_range
+	var can := now >= react_at and on_aim() and distance <= p.max_range * reach_k
 	var down := false
 	if can and distance > p.burst_range:
 		if not _in_burst and now >= _pause_until:
 			_in_burst = true
-			_burst_until = now + p.burst * (0.8 + 0.4 * _rng.next_unit())
+			_burst_until = now + p.burst * burst_k * (0.8 + 0.4 * _rng.next_unit())
 		if _in_burst and now >= _burst_until:
 			_in_burst = false
-			_pause_until = now + p.burst_pause * (0.8 + 0.4 * _rng.next_unit())
+			_pause_until = now + p.burst_pause / burst_k * (0.8 + 0.4 * _rng.next_unit())
 		down = _in_burst
 	elif can:
 		down = true
