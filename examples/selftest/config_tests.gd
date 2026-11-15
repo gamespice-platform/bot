@@ -476,6 +476,12 @@ func _test_think_tier_body(t: DotBotThinkTier, eyes: PackedVector3Array, looks: 
 	_check(t.period(4, at[3], false) == t.far_every and t.period(3, at[2], false) == t.near_every, "body tiers change no think period")
 	t.body_far_every = 100
 	_check(t.body_period(4, at[3], false) == DotBotThinkTier.MAX_PERIOD, "a body period stops at MAX_PERIOD")
+	t.max_period = 0
+	_check(t.body_period(4, at[3], false) == 100, "max_period 0 lifts the cap on a body period")
+	t.load_scale = 100.0
+	_check(t.period(4, at[3], false) == t.far_every * 100, "and on a stretched think period")
+	t.load_scale = 1.0
+	t.max_period = DotBotThinkTier.DEFAULT_MAX_PERIOD
 	var thinks := 0
 	var tick := 2
 	while tick < 50:

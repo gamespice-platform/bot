@@ -25,10 +25,14 @@ var engaged_range: float = 25.0
 ## Not stretched by [member load_scale]. 1: a seen bot is full rate whatever it does (the tiers before API 21).
 var idle_view_every: int = 2
 ## Multiplies every period above 1 (the tiers under load): a game that measures its tick running over its budget raises
-## it, 1 is the periods as set. Full-rate bots stay full rate, and no period passes [constant MAX_PERIOD].
+## it, 1 is the periods as set. Full-rate bots stay full rate, and no period passes [member max_period].
 var load_scale: float = 1.0
-## The longest period [member load_scale] may stretch a tier to: a bot that sits out more ticks than this cannot steer.
-const MAX_PERIOD := 8
+## The longest period [member load_scale] may stretch a tier to: a bot that sits out more ticks than this cannot steer. 0 = no limit.
+## [constant DEFAULT_MAX_PERIOD] by default. Another value runs the GDScript tier, because the native one (dot-sim, `tier.rs`) still holds 8.
+var max_period: int = DEFAULT_MAX_PERIOD
+const DEFAULT_MAX_PERIOD := 8
+## Kept for callers that read the old constant.
+const MAX_PERIOD := DEFAULT_MAX_PERIOD
 ## A bot within [member view_range] metres and inside a person's view cone (half angle [member view_half_angle]
 ## degrees) is full rate. A cone and no ray: a bot behind a wall counts as seen, which only costs time.
 var view_range: float = 60.0
@@ -37,7 +41,7 @@ var view_half_angle: float = 60.0:
 		view_half_angle = value
 		_view_cos = cos(deg_to_rad(clampf(value, 0.0, 180.0)))
 
-## Ticks between motor ticks of a bot [method period] calls near, and far ([method body_period]); 1: every bot's body moves every tick. Never stretched by [member load_scale], capped at [constant MAX_PERIOD].
+## Ticks between motor ticks of a bot [method period] calls near, and far ([method body_period]); 1: every bot's body moves every tick. Never stretched by [member load_scale], capped at [member max_period].
 ## Measured on 48 bots (staging02, windowed, 3 runs a side, 2/4 against 1/1): ticks per second +18%, dropped ticks per second -28%, the per-tick cost of the game -14%; the frame itself runs longer, because the game spends the gain on catch-up ticks.
 var body_near_every: int = 2
 var body_far_every: int = 4
@@ -93,7 +97,7 @@ func begin(players: int, eyes: PackedVector3Array, looks: PackedVector3Array, bo
 	_looks = looks
 	_pinned.clear()
 	_flush()
-	_use = native and _native != null
+	_use = native and _native != null and max_period == DEFAULT_MAX_PERIOD
 	if _use:
 		_native.configure(PackedFloat64Array([above, near_every, far_every, far_range, close_range, nearest, engaged_far_every,
 			engaged_range, idle_view_every, load_scale, view_range, _view_cos, body_near_every, body_far_every, body_above]))
@@ -179,9 +183,9 @@ func body_period(id: int, position: Vector3, engaged: bool, idle: bool = false) 
 func _body_of_reason() -> int:
 	var every := 1
 	if _reason == &"near":
-		every = clampi(body_near_every, 1, MAX_PERIOD)
+		every = _capped(body_near_every)
 	elif _reason == &"far":
-		every = clampi(body_far_every, 1, MAX_PERIOD)
+		every = _capped(body_far_every)
 	if every > 1:
 		body_counts[_reason] = int(body_counts.get(_reason, 0)) + 1
 	return every
@@ -236,7 +240,13 @@ func _unseen_every() -> int:
 func _scaled(every: int) -> int:
 	if every <= 1:
 		return 1
-	return clampi(ceili(float(every) * maxf(load_scale, 1.0) - 0.001), 1, maxi(MAX_PERIOD, every))
+	var stretched := maxi(ceili(float(every) * maxf(load_scale, 1.0) - 0.001), 1)
+	return stretched if max_period <= 0 else mini(stretched, maxi(max_period, every))
+
+
+## [param every] held to [member max_period] (0: not held), never below 1.
+func _capped(every: int) -> int:
+	return maxi(every, 1) if max_period <= 0 else clampi(every, 1, max_period)
 
 
 func _count(reason: StringName, every: int) -> int:
