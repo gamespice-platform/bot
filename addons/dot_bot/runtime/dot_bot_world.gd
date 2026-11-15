@@ -167,7 +167,9 @@ var _blocker_seq: int = 0
 
 
 func line_of_sight(from: Vector3, to: Vector3) -> bool:
-	for b: Dictionary in sight_blockers.values():
+	# By key, not values(): that built a new array on every call, smoke or none.
+	for id: int in sight_blockers:
+		var b: Dictionary = sight_blockers[id]
 		if segment_hits_sphere(from, to, b["center"], float(b["radius"])):
 			return false
 	return bool(line_of_sight_fn.call(from, to)) if line_of_sight_fn.is_valid() else true

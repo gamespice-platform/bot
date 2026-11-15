@@ -81,6 +81,8 @@ var _chase_sound: bool = false
 var _heard_seq: int = 0
 ## The sounds of the last hearing, one array kept for every think.
 var _heard: Array[Dictionary] = []
+## [method _pick_waypoint]'s places over 3 m away, kept between thinks; only its first n slots are this pick's.
+var _far := PackedVector3Array()
 var _hurt_from: Vector3 = Vector3.INF
 var _hurt_at: float = -INF
 var _hurt_pending_at: float = INF
@@ -269,30 +271,34 @@ func _quiet(now: float, p: DotBotProfile) -> bool:
 
 func _pick_waypoint(me: DotBotContact, world: DotBotWorld, p: DotBotProfile) -> Vector3:
 	var points := world.waypoints() if world != null else PackedVector3Array()
-	var far: Array[Vector3] = []
+	# The places over 3 m away, in _far's first n slots: it only grows, so a pick allocates nothing.
+	if _far.size() < points.size():
+		_far.resize(points.size())
+	var n := 0
 	for point in points:
 		if point.distance_to(me.position) > 3.0:
-			far.append(point)
-	if far.is_empty():
+			_far[n] = point
+			n += 1
+	if n == 0:
 		return Vector3.INF
 	if _known_enemy != Vector3.INF and _rng.next_unit() < p.map_knowledge:
-		var best := far[0]
-		for point in far:
-			if point.distance_to(_known_enemy) < best.distance_to(_known_enemy):
-				best = point
+		var best := _far[0]
+		for i in n:
+			if _far[i].distance_to(_known_enemy) < best.distance_to(_known_enemy):
+				best = _far[i]
 		_known_enemy = Vector3.INF
 		return best
 	# Hunting: no lead, but a body somewhere on the map; head for the place nearest the closest one.
 	if _rng.next_unit() < p.map_knowledge * 0.4:
 		var prey := _nearest_enemy(me, world)
 		if prey != Vector3.INF:
-			var near := far[0]
-			for point in far:
-				if point.distance_to(prey) < near.distance_to(prey):
-					near = point
+			var near := _far[0]
+			for i in n:
+				if _far[i].distance_to(prey) < near.distance_to(prey):
+					near = _far[i]
 			# A sparse mesh leaves the nearest place far from the prey; walk at the prey then.
 			return near if near.distance_to(prey) <= HUNT_PLACE_NEAR else prey
-	return far[_rng.next_range_i(0, far.size() - 1)]
+	return _far[_rng.next_range_i(0, n - 1)]
 
 
 func _nearest_enemy(me: DotBotContact, world: DotBotWorld) -> Vector3:
