@@ -104,12 +104,7 @@ func think(me: DotBotContact, world: DotBotWorld, now: float) -> DotBotIntent:
 	aim.reach_k = style.reach_k
 	aim.burst_k = style.burst_k
 
-	if now >= _hurt_pending_at:
-		# The shooter is only noticed a moment after the hit: pain first, then the turn.
-		_hurt_from = _hurt_pending_from
-		_hurt_at = now
-		_known_enemy = _hurt_pending_from
-		_hurt_pending_at = INF
+	_notice_hurt(now)
 
 	if world != null:
 		world.prune_sight_blockers(now)
@@ -127,26 +122,7 @@ func think(me: DotBotContact, world: DotBotWorld, now: float) -> DotBotIntent:
 			goal.plan(me, world.objective, world, p, _rng, now)
 	if phase_timers:
 		_lap(3)
-	# A carrier runs home and a defender keeps to its post rather than chase what it lost.
-	var tethered := goal.urgent or goal.strays(me.position)
-
-	_scene = &"roam"
-	_scene_up = 0.0
-	if seen != null or not _quiet(now, p):
-		pickup.cancel()
-	if seen != null:
-		_fight(me, seen, world, p, now, dt, out)
-		if style.active:
-			style.after_fight(self, me, seen, world, now, dt, out)
-	elif style.active and style.lead(self, me, world, now, dt, out, not tethered and goal.dest == Vector3.INF):
-		pass
-	elif not tethered and _last_seen_pos != Vector3.INF and now - _last_seen_at <= _hold_time(p, _peeking or _chase_lost):
-		_search(me, p, now, dt, out)
-	elif not tethered and maxf(_heard_at, _hurt_at) > -INF and now - maxf(_heard_at, _hurt_at) <= _hold_time(p, _chase_sound or _hurt_at >= _heard_at):
-		_listen(me, world, p, now, dt, out)
-	else:
-		_roam(me, world, p, now, dt, out)
-
+	_act(me, seen, world, p, now, dt, out)
 	out.yaw = aim.yaw
 	out.pitch = aim.pitch
 	if phase_timers:
@@ -171,6 +147,37 @@ func think(me: DotBotContact, world: DotBotWorld, now: float) -> DotBotIntent:
 	_ride_reached = -1
 	last = out
 	return out
+
+
+func _notice_hurt(now: float) -> void:
+	if now >= _hurt_pending_at:
+		# The shooter is only noticed a moment after the hit: pain first, then the turn.
+		_hurt_from = _hurt_pending_from
+		_hurt_at = now
+		_known_enemy = _hurt_pending_from
+		_hurt_pending_at = INF
+
+
+func _act(me: DotBotContact, seen: DotBotContact, world: DotBotWorld, p: DotBotProfile, now: float, dt: float, out: DotBotIntent) -> void:
+	# A carrier runs home and a defender keeps to its post rather than chase what it lost.
+	var tethered := goal.urgent or goal.strays(me.position)
+
+	_scene = &"roam"
+	_scene_up = 0.0
+	if seen != null or not _quiet(now, p):
+		pickup.cancel()
+	if seen != null:
+		_fight(me, seen, world, p, now, dt, out)
+		if style.active:
+			style.after_fight(self, me, seen, world, now, dt, out)
+	elif style.active and style.lead(self, me, world, now, dt, out, not tethered and goal.dest == Vector3.INF):
+		pass
+	elif not tethered and _last_seen_pos != Vector3.INF and now - _last_seen_at <= _hold_time(p, _peeking or _chase_lost):
+		_search(me, p, now, dt, out)
+	elif not tethered and maxf(_heard_at, _hurt_at) > -INF and now - maxf(_heard_at, _hurt_at) <= _hold_time(p, _chase_sound or _hurt_at >= _heard_at):
+		_listen(me, world, p, now, dt, out)
+	else:
+		_roam(me, world, p, now, dt, out)
 
 
 func _dead(out: DotBotIntent) -> DotBotIntent:

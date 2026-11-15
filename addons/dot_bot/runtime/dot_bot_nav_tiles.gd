@@ -206,6 +206,10 @@ func _stitch(vertices: PackedVector3Array, tris: PackedInt32Array) -> int:
 	for i in tris.size():
 		tris[i] = _root_of(rep, tris[i])
 
+	return _split_edges(vertices, tris, on_x, on_z, sorted_x, sorted_z, rise)
+
+
+func _split_edges(vertices: PackedVector3Array, tris: PackedInt32Array, on_x: PackedInt32Array, on_z: PackedInt32Array, sorted_x: Dictionary, sorted_z: Dictionary, rise: float) -> int:
 	# Split: a triangle's edge along a line gains every vertex of the line strictly inside it at its height.
 	var splits := 0
 	var out := PackedInt32Array()

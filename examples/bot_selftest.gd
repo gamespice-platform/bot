@@ -84,6 +84,10 @@ func _run() -> void:
 	_test_style_table()
 	_test_style_play()
 
+	_report()
+
+
+func _report() -> void:
 	print("")
 	print("%d passed, %d failed" % [_passed, _failed])
 	for line in _failures:

@@ -1,4 +1,4 @@
-extends "res://examples/selftest/nav_tests.gd"
+extends "res://examples/selftest/nav_tile_tests.gd"
 ## The weapon-style sections of the bot suite: the table and its config, bots that differ, a
 ## sniper that peeks, hides and moves, a shotgun that rushes, and no style at all being the
 ## generic bot to the bit.

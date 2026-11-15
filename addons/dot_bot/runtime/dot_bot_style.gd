@@ -376,84 +376,13 @@ func lead(b: DotBotBrain, me: DotBotContact, world: DotBotWorld, now: float, dt:
 	var eye := me.eye()
 	match phase:
 		HIDE:
-			if now >= phase_until and (_at(me, spot) or now > phase_since + TRAVEL_MAX):
-				if _killed or _rng.next_unit() < float(row["reposition"]):
-					_to_vantage(me, world, now, peek_spot)
-				else:
-					_begin(RETURN, now, now + TRAVEL_MAX)
-					spot = peek_spot
-				return phase != NONE and lead(b, me, world, now, dt, out, free)
-			var there := _at(me, spot)
-			if not there:
-				_go(b, me, world, spot, false, out)
-			else:
-				out.move = Vector2.ZERO
-				out.crouch = _hold_crouch
-			if threat != Vector3.INF:
-				# Pre-aimed at where it will come out.
-				var _v := b.aim.look_at_point(eye, threat + Vector3.UP * 1.25, dt)
-			out.state = &"cover"
-			b._scene = &"cover" if there else &"flee"
-			return true
+			return _lead_hide(b, me, world, now, dt, out, free, eye)
 		RETURN:
-			if _at(me, spot) or now >= phase_until:
-				if row["roam"] == "camp" and free:
-					_begin(HOLD, now, now + _between(row["patience"]) * _j_patience)
-					face = threat
-					return lead(b, me, world, now, dt, out, free)
-				_end()
-				return false
-			_go(b, me, world, spot, true, out)
-			if threat != Vector3.INF:
-				var _v := b.aim.look_at_point(eye, threat + Vector3.UP * 1.25, dt)
-			out.state = &"peek"
-			b._scene = &"cover"
-			return true
+			return _lead_return(b, me, world, now, dt, out, free, eye)
 		MOVE:
-			if not free:
-				_end()
-				return false
-			if _at(me, spot):
-				_begin(HOLD, now, now + _between(row["patience"]) * _j_patience)
-				return lead(b, me, world, now, dt, out, free)
-			if now >= phase_until:
-				_end()
-				return false
-			var dir := _go(b, me, world, spot, _sneak, out)
-			var _v := b.aim.look_at_point(eye, eye + Vector3(dir.x, 0.0, dir.y), dt)
-			out.state = &"sneak" if _sneak else &"reposition"
-			b._scene = &"cover"
-			return true
+			return _lead_move(b, me, world, now, dt, out, free, eye)
 		HOLD:
-			if not free or b._hurt_at > phase_since:
-				# Shot from somewhere it is not watching: this angle is burnt.
-				var burnt := b._hurt_at > phase_since
-				_end()
-				if burnt and free and row["roam"] == "camp":
-					_to_vantage(me, world, now, me.position)
-					return phase != NONE and lead(b, me, world, now, dt, out, free)
-				return false
-			if now >= phase_until:
-				_end()
-				if row["roam"] == "camp":
-					_to_vantage(me, world, now, me.position)
-					return phase != NONE and lead(b, me, world, now, dt, out, free)
-				return false
-			out.move = Vector2.ZERO
-			out.crouch = _hold_crouch
-			var look := face
-			if b._heard_at > phase_since and b._heard_pos != Vector3.INF:
-				look = b._heard_pos
-			if look != Vector3.INF:
-				var at := look + Vector3.UP * 1.25
-				var sweep := 18.0 * sin(now * 0.4 + float(b.id % 83))
-				var dir := (at - eye).rotated(Vector3.UP, deg_to_rad(sweep))
-				var _v := b.aim.look_at_point(eye, eye + dir, dt)
-			else:
-				b._drift(15.0, dt)
-			out.state = &"vantage"
-			b._scene = &"cover"
-			return true
+			return _lead_hold(b, me, world, now, dt, out, free, eye)
 	# No phase. After a kill a peeker or camper may give up the angle it was seen on.
 	if _killed:
 		_killed = false
@@ -466,6 +395,93 @@ func lead(b: DotBotBrain, me: DotBotContact, world: DotBotWorld, now: float, dt:
 		_to_vantage(me, world, now, me.position)
 		return phase != NONE and lead(b, me, world, now, dt, out, free)
 	return false
+
+
+func _lead_hide(b: DotBotBrain, me: DotBotContact, world: DotBotWorld, now: float, dt: float, out: DotBotIntent, free: bool, eye: Vector3) -> bool:
+	if now >= phase_until and (_at(me, spot) or now > phase_since + TRAVEL_MAX):
+		if _killed or _rng.next_unit() < float(row["reposition"]):
+			_to_vantage(me, world, now, peek_spot)
+		else:
+			_begin(RETURN, now, now + TRAVEL_MAX)
+			spot = peek_spot
+		return phase != NONE and lead(b, me, world, now, dt, out, free)
+	var there := _at(me, spot)
+	if not there:
+		_go(b, me, world, spot, false, out)
+	else:
+		out.move = Vector2.ZERO
+		out.crouch = _hold_crouch
+	if threat != Vector3.INF:
+		# Pre-aimed at where it will come out.
+		var _v := b.aim.look_at_point(eye, threat + Vector3.UP * 1.25, dt)
+	out.state = &"cover"
+	b._scene = &"cover" if there else &"flee"
+	return true
+
+
+func _lead_return(b: DotBotBrain, me: DotBotContact, world: DotBotWorld, now: float, dt: float, out: DotBotIntent, free: bool, eye: Vector3) -> bool:
+	if _at(me, spot) or now >= phase_until:
+		if row["roam"] == "camp" and free:
+			_begin(HOLD, now, now + _between(row["patience"]) * _j_patience)
+			face = threat
+			return lead(b, me, world, now, dt, out, free)
+		_end()
+		return false
+	_go(b, me, world, spot, true, out)
+	if threat != Vector3.INF:
+		var _v := b.aim.look_at_point(eye, threat + Vector3.UP * 1.25, dt)
+	out.state = &"peek"
+	b._scene = &"cover"
+	return true
+
+
+func _lead_move(b: DotBotBrain, me: DotBotContact, world: DotBotWorld, now: float, dt: float, out: DotBotIntent, free: bool, eye: Vector3) -> bool:
+	if not free:
+		_end()
+		return false
+	if _at(me, spot):
+		_begin(HOLD, now, now + _between(row["patience"]) * _j_patience)
+		return lead(b, me, world, now, dt, out, free)
+	if now >= phase_until:
+		_end()
+		return false
+	var dir := _go(b, me, world, spot, _sneak, out)
+	var _v := b.aim.look_at_point(eye, eye + Vector3(dir.x, 0.0, dir.y), dt)
+	out.state = &"sneak" if _sneak else &"reposition"
+	b._scene = &"cover"
+	return true
+
+
+func _lead_hold(b: DotBotBrain, me: DotBotContact, world: DotBotWorld, now: float, dt: float, out: DotBotIntent, free: bool, eye: Vector3) -> bool:
+	if not free or b._hurt_at > phase_since:
+		# Shot from somewhere it is not watching: this angle is burnt.
+		var burnt := b._hurt_at > phase_since
+		_end()
+		if burnt and free and row["roam"] == "camp":
+			_to_vantage(me, world, now, me.position)
+			return phase != NONE and lead(b, me, world, now, dt, out, free)
+		return false
+	if now >= phase_until:
+		_end()
+		if row["roam"] == "camp":
+			_to_vantage(me, world, now, me.position)
+			return phase != NONE and lead(b, me, world, now, dt, out, free)
+		return false
+	out.move = Vector2.ZERO
+	out.crouch = _hold_crouch
+	var look := face
+	if b._heard_at > phase_since and b._heard_pos != Vector3.INF:
+		look = b._heard_pos
+	if look != Vector3.INF:
+		var at := look + Vector3.UP * 1.25
+		var sweep := 18.0 * sin(now * 0.4 + float(b.id % 83))
+		var dir := (at - eye).rotated(Vector3.UP, deg_to_rad(sweep))
+		var _v := b.aim.look_at_point(eye, eye + dir, dt)
+	else:
+		b._drift(15.0, dt)
+	out.state = &"vantage"
+	b._scene = &"cover"
+	return true
 
 
 # --- Phases -----------------------------------------------------------------------
