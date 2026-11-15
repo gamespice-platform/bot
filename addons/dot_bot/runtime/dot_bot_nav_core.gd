@@ -32,11 +32,16 @@ var cache_id: String = ""
 ## Whether the last bake took its mesh from the cache.
 var last_bake_cached: bool = false
 
+## The tiles the last bake was cut into (0 for one grid) and their side, metres. See the bake's agent key `tile`.
+var tiles_used: int = 0
+var tile_used: float = 0.0
+
 const CACHE_FORMAT := 1
 const CACHE_META := &"dot_bot_nav_cache"
 
 var _cache_digest: String = ""
 var _started: int = 0
+var _tiler: DotBotNavTiles = DotBotNavTiles.new()
 ## The root last baked, for [method find_drops]'s clearance rays.
 var _root: Node3D = null
 var _baking: bool = false
@@ -67,7 +72,8 @@ var _total_area: float = 0.0
 
 
 ## Bakes the static colliders under [param root].
-## [param agent]: `radius`, `height` (the lowest a body can go, crouched, so crawl spaces are on the mesh), `climb` (a step), `slope` (degrees), `cell` and `cell_height` (default [constant CELL], [constant CELL_HEIGHT]);
+## [param agent]: `radius`, `height` (the lowest a body can go, crouched, so crawl spaces are on the mesh), `climb` (a step), `slope` (degrees), `cell` and `cell_height` (default [constant CELL], [constant CELL_HEIGHT]),
+## `tile` (metres, default 0 = auto: one grid while the map fits the engine's 30 million cells, as always, else [constant DotBotNavTiles.AUTO_TILE] m tiles joined into one mesh; above 0 always tiles; a negative or engine-refused size fails with the reason, never clamped; see [DotBotNavTiles]);
 ## [param mask] the collision layers that count as ground and walls (0 for all). With [param bodies] (nodes under [param root]), only those and their children are parsed.
 func bake(root: Node3D, agent: Dictionary = {}, mask: int = 0, bodies: Array = []) -> DotResult:
 	var parsed := _parse(root, agent, mask, bodies)
@@ -75,7 +81,25 @@ func bake(root: Node3D, agent: Dictionary = {}, mask: int = 0, bodies: Array = [
 		return parsed
 	if _cache_load(parsed.value):
 		return _take_in()
-	NavigationServer3D.bake_from_source_geometry_data(mesh, parsed.value)
+	return _bake_now(parsed.value)
+
+
+## The synchronous bake of an already parsed [param source]: one grid, or the tiles baked in turn and joined.
+func _bake_now(source: NavigationMeshSourceGeometryData3D) -> DotResult:
+	if _tiler.count() == 0:
+		NavigationServer3D.bake_from_source_geometry_data(mesh, source)
+		return _take_in()
+	var parts: Array[NavigationMesh] = []
+	for box in _tiler.boxes:
+		var part := _tiler.tile_mesh(box)
+		NavigationServer3D.bake_from_source_geometry_data(part, source)
+		parts.append(part)
+	return _joined(parts)
+
+
+## Joins the baked tile [param parts] into [member mesh] and takes it in.
+func _joined(parts: Array[NavigationMesh]) -> DotResult:
+	_tiler.join(parts)
 	return _take_in()
 
 
@@ -87,16 +111,23 @@ func bake_in_background(root: Node3D, agent: Dictionary = {}, mask: int = 0, bod
 		return parsed
 	var cached := _cache_load(parsed.value)
 	if cached or not DotPlatform.has_threads():
-		if not cached:
-			NavigationServer3D.bake_from_source_geometry_data(mesh, parsed.value)
-		var res := _take_in()
+		var res := _take_in() if cached else _bake_now(parsed.value)
 		if done.is_valid():
 			done.call(res)
 		return res
 	_baking = true
 	# The generation and the mesh are bound so a bake that lands after clear() or a newer bake
 	# is dropped instead of taken in over the map that replaced it.
-	NavigationServer3D.bake_from_source_geometry_data_async(mesh, parsed.value, _on_baked.bind(_generation, mesh, done))
+	if _tiler.count() == 0:
+		NavigationServer3D.bake_from_source_geometry_data_async(mesh, parsed.value, _on_baked.bind(_generation, mesh, done))
+		return DotResult.success(0)
+	# Tiles side by side on the server's workers; the last to land joins them.
+	var parts: Array[NavigationMesh] = []
+	var landed := [0]
+	for box in _tiler.boxes:
+		parts.append(_tiler.tile_mesh(box))
+	for part in parts:
+		NavigationServer3D.bake_from_source_geometry_data_async(part, parsed.value, _on_tile.bind(_generation, mesh, parts, landed, done))
 	return DotResult.success(0)
 
 
@@ -114,6 +145,18 @@ func _on_baked(generation: int, baked: NavigationMesh, done: Callable) -> void:
 		done.call(res)
 
 
+func _on_tile(generation: int, base: NavigationMesh, parts: Array[NavigationMesh], landed: Array, done: Callable) -> void:
+	if generation != _generation or base != mesh:
+		return
+	landed[0] += 1
+	if landed[0] < parts.size():
+		return
+	_baking = false
+	var res := _joined(parts)
+	if done.is_valid():
+		done.call(res)
+
+
 ## Clears, then sets [member mesh] up and parses the colliders into source geometry.
 func _parse(root: Node3D, agent: Dictionary, mask: int, bodies: Array) -> DotResult:
 	clear()
@@ -125,6 +168,9 @@ func _parse(root: Node3D, agent: Dictionary, mask: int, bodies: Array) -> DotRes
 	_root = root
 	last_bake_cached = false
 	_cache_digest = ""
+	_tiler.reset()
+	tiles_used = 0
+	tile_used = 0.0
 	mesh = NavigationMesh.new()
 	_poly_grid.clear()
 	var cell := maxf(float(agent.get("cell", CELL)), 0.01)
@@ -159,6 +205,11 @@ func _parse(root: Node3D, agent: Dictionary, mask: int, bodies: Array) -> DotRes
 		source.add_projected_obstruction(PackedVector3Array([
 			Vector3(lo.x, 0.0, lo.z), Vector3(hi.x, 0.0, lo.z), Vector3(hi.x, 0.0, hi.z), Vector3(lo.x, 0.0, hi.z)]),
 			lo.y - avoid_body, box.size.y + avoid_body, true)
+	var planned := _tiler.plan(source, mesh, float(agent.get("tile", 0.0)))
+	if not planned.ok:
+		return planned
+	tiles_used = _tiler.count()
+	tile_used = _tiler.side_m
 	return DotResult.success(source)
 
 
@@ -166,7 +217,11 @@ func _parse(root: Node3D, agent: Dictionary, mask: int, bodies: Array) -> DotRes
 func cache_path() -> String:
 	if cache_dir.is_empty() or cache_id.is_empty():
 		return ""
-	return cache_dir.path_join(cache_id.validate_filename() + ".nav.res")
+	var stem := cache_id.validate_filename()
+	# A tiled bake keeps its own file, so changing the tile never reads the other's mesh.
+	if tiles_used > 0:
+		stem += ".tile%d" % roundi(tile_used * 1000.0)
+	return cache_dir.path_join(stem + ".nav.res")
 
 
 ## Fingerprint of everything the bake depends on: the parsed triangles, the agent and cell sizes, the avoid boxes.
@@ -682,6 +737,8 @@ func describe() -> Dictionary:
 		"bake_ms": snappedf(bake_ms, 0.1),
 		"rides": _rides.size(),
 		"avoid": avoid.size(),
+		"tiles": tiles_used,
+		"tile": snappedf(tile_used, 0.001),
 	}
 
 

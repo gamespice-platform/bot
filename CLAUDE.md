@@ -45,6 +45,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first; this file is only what is sp
 | `addons/dot_bot/runtime/surf/` | surf bots: `DotBotSurfCourse` (one ride), `DotBotSurfPlanner` (the search on the motor, the cache's repair rounds), `DotBotSurfPilot` (the run-time policy and veto), `DotBotSurfRide` (one bot riding one edge while it aims) |
 | (dot-bot-record) | the demonstration recorder, schema and stores were here until API level 6 and are now their own addon, `DotBotDemo*` names unchanged. dot-bot reaches a store, schema or episode untyped (`Variant`), never by class name, so it compiles without it; the suite links `addons/dot_bot_record` |
 | `addons/dot_bot/soak/` | `DotBotSoak` (headless soak runner, JSON report, pass/fail reasons) and `DotBotSoakConfig` (thresholds); [docs/soak.md](docs/soak.md); suite `examples/soak_selftest.tscn` |
+| `addons/dot_bot/runtime/dot_bot_nav_tiles.gd` | `DotBotNavTiles`: a bake over the engine's 30M-cell limit cut into tiles and joined into one mesh (agent key `tile`, 0 auto); `DotBotNav` owns one |
 | `examples/bot_selftest.tscn` | the suite: presets, cvars, names, roster, senses, turn rate, reaction and aim measured, duels, hiding, searching, a baked path, a surf ride on a toy simulator, a ride edge, the demonstration recorder |
 
 ## Running and testing

@@ -47,5 +47,6 @@ extends RefCounted
 # 28: DotBotProfile.is_hard_max; set_field refuses under the minimum and over a fact-maximum, allows over a guide maximum with a warning (was a silent clamp).
 # 29: DotBotWorld.sounds_into; DotBotBrain.phase_timers, PHASES, phase_us (a think's time per phase); DotBotPickup.NONE; profile row replan_every (0, every think, unchanged).
 # 30: DotBotThinkTier.max_period reaches dot-sim's native tier (any value, 0 unlimited; a negative one is an error); a native library older than this runs the script tier for a non-default value.
-const LEVEL := 30
+# 31: DotBotNav bakes a map over the engine's 30 million cell limit in tiles joined into one mesh (agent key `tile`, metres, 0 auto; a bad size fails loudly); DotBotNavTiles; describe() reports tiles and tile.
+const LEVEL := 31
 const OLDEST := 1
