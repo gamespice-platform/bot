@@ -49,5 +49,6 @@ extends RefCounted
 # 30: DotBotThinkTier.max_period reaches dot-sim's native tier (any value, 0 unlimited; a negative one is an error); a native library older than this runs the script tier for a non-default value.
 # 31: DotBotNav bakes a map over the engine's 30 million cell limit in tiles joined into one mesh (agent key `tile`, metres, 0 auto; a bad size fails loudly); DotBotNavTiles; describe() reports tiles and tile.
 # 32: Weapon play styles: DotBotStyle, a weighted table of styles per weapon class (sniper, marksman, rifle, smg, shotgun, pistol, heavy, launcher, melee, throw); DotBotContact weapon_class and magazine; cvars bot_styles, bot_style_file, bot_style_weights (0 styles is the generic bot to the bit); describe() reports style and style_phase.
-const LEVEL := 32
+# 33: DotBotNav sets its map's edge-merge cell (agent key `merge_scale`, a share of the mesh cell from 0.01 to 0.1, 0 the engine's default 0.1 that the project setting does not reach; outside the range fails loudly); merge_scale_used; describe() reports merge_scale.
+const LEVEL := 33
 const OLDEST := 1

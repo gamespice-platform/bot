@@ -36,6 +36,13 @@ var last_bake_cached: bool = false
 var tiles_used: int = 0
 var tile_used: float = 0.0
 
+## The map's edge-merge cell as a share of the mesh cell (agent key `merge_scale`), 0 when the bake left the engine's default for a new map.
+var merge_scale_used: float = 0.0
+
+## The range NavigationServer3D keeps a map's merge rasterizer cell scale in; it clamps outside it.
+const MERGE_SCALE_MIN := 0.01
+const MERGE_SCALE_MAX := 0.1
+
 const CACHE_FORMAT := 1
 const CACHE_META := &"dot_bot_nav_cache"
 
@@ -73,6 +80,7 @@ var _total_area: float = 0.0
 
 ## Bakes the static colliders under [param root].
 ## [param agent]: `radius`, `height` (the lowest a body can go, crouched, so crawl spaces are on the mesh), `climb` (a step), `slope` (degrees), `cell` and `cell_height` (default [constant CELL], [constant CELL_HEIGHT]),
+## `merge_scale` (the map's edge-merge cell over the mesh cell, [constant MERGE_SCALE_MIN] to [constant MERGE_SCALE_MAX]; default 0 leaves the engine's default for a new map, 0.1, which the project setting does not reach; outside the range fails);
 ## `tile` (metres, default 0 = auto: one grid while the map fits the engine's 30 million cells, as always, else [constant DotBotNavTiles.AUTO_TILE] m tiles joined into one mesh; above 0 always tiles; a negative or engine-refused size fails with the reason, never clamped; see [DotBotNavTiles]);
 ## [param mask] the collision layers that count as ground and walls (0 for all). With [param bodies] (nodes under [param root]), only those and their children are parsed.
 func bake(root: Node3D, agent: Dictionary = {}, mask: int = 0, bodies: Array = []) -> DotResult:
@@ -173,6 +181,11 @@ func _parse(root: Node3D, agent: Dictionary, mask: int, bodies: Array) -> DotRes
 	tile_used = 0.0
 	mesh = NavigationMesh.new()
 	_poly_grid.clear()
+	var merge_scale := float(agent.get("merge_scale", 0.0))
+	if merge_scale != 0.0 and (merge_scale < MERGE_SCALE_MIN or merge_scale > MERGE_SCALE_MAX):
+		return DotResult.fail(DotError.CODE_INVALID, "the bake's merge_scale %s is outside the engine's %s to %s (0 for its default)" % [
+			merge_scale, MERGE_SCALE_MIN, MERGE_SCALE_MAX])
+	merge_scale_used = merge_scale
 	var cell := maxf(float(agent.get("cell", CELL)), 0.01)
 	var cell_height := maxf(float(agent.get("cell_height", CELL_HEIGHT)), 0.01)
 	mesh.cell_size = cell
@@ -281,6 +294,8 @@ func _take_in() -> DotResult:
 	_map = NavigationServer3D.map_create()
 	NavigationServer3D.map_set_cell_size(_map, mesh.cell_size)
 	NavigationServer3D.map_set_cell_height(_map, mesh.cell_height)
+	if merge_scale_used > 0.0:
+		NavigationServer3D.map_set_merge_rasterizer_cell_scale(_map, merge_scale_used)
 	NavigationServer3D.map_set_active(_map, true)
 	_region = NavigationServer3D.region_create()
 	NavigationServer3D.region_set_map(_region, _map)
@@ -739,6 +754,7 @@ func describe() -> Dictionary:
 		"avoid": avoid.size(),
 		"tiles": tiles_used,
 		"tile": snappedf(tile_used, 0.001),
+		"merge_scale": merge_scale_used,
 	}
 
 

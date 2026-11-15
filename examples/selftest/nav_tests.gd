@@ -636,6 +636,28 @@ func _test_nav_tiles() -> void:
 	DirAccess.remove_absolute(fits.cache_path())
 	_check(forced.path_length(Vector3(-9.0, 0.0, -9.0), Vector3(9.0, 0.0, 9.0)) < 27.0, "a path crosses the seams of an asked tile", str(forced.path_length(Vector3(-9.0, 0.0, -9.0), Vector3(9.0, 0.0, 9.0))))
 
+	# The edge-merge cell (API level 33): the default leaves the engine's 0.1 for a new map, an
+	# asked share reaches the map, one outside the engine's range fails and is not clamped.
+	var plain_merge := DotBotNav.new()
+	_check(plain_merge.bake(small, agent).ok and plain_merge.merge_scale_used == 0.0
+		and is_equal_approx(NavigationServer3D.map_get_merge_rasterizer_cell_scale(plain_merge._map), 0.1),
+		"no merge_scale keeps the engine's 0.1 for the map", str(NavigationServer3D.map_get_merge_rasterizer_cell_scale(plain_merge._map)))
+	var fine := DotBotNav.new()
+	var fine_agent := agent.duplicate()
+	fine_agent["merge_scale"] = 0.01
+	var fine_res := fine.bake(small, fine_agent)
+	_check(fine_res.ok and is_equal_approx(fine.merge_scale_used, 0.01) and is_equal_approx(float(fine.describe().get("merge_scale", 0.0)), 0.01)
+		and is_equal_approx(NavigationServer3D.map_get_merge_rasterizer_cell_scale(fine._map), 0.01)
+		and fine.path_length(Vector3(-9.0, 0.0, -9.0), Vector3(9.0, 0.0, 9.0)) < 27.0,
+		"merge_scale 0.01 reaches the map, describe() says it, a path still crosses", str(NavigationServer3D.map_get_merge_rasterizer_cell_scale(fine._map)))
+	for bad_merge in [-0.05, 0.005, 0.2]:
+		var wrong_merge := DotBotNav.new()
+		var wrong_merge_agent := agent.duplicate()
+		wrong_merge_agent["merge_scale"] = bad_merge
+		var wrong_merge_res := wrong_merge.bake(small, wrong_merge_agent)
+		_check(not wrong_merge_res.ok and not wrong_merge.is_ready(), "a merge_scale of %s fails loudly and is not clamped" % bad_merge,
+			str(wrong_merge_res.error) if not wrong_merge_res.ok else "baked")
+
 	var big := Node3D.new()
 	add_child(big)
 	var big_body := StaticBody3D.new()
