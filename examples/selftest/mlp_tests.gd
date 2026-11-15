@@ -112,6 +112,14 @@ func _test_mlp() -> void:
 	h2["schema_id"] = narrow.schema_id()
 	_check(_mlp_refused(h2, bytes, narrow), "a net whose input size is not the schema's is refused")
 
+	_test_mlp_untrusted(header, bytes)
+
+	_test_mlp_files(net, bytes)
+	_done()
+
+
+## Part of [method _test_mlp]: every mutation of a good header or body is refused.
+func _test_mlp_untrusted(header: Dictionary, bytes: PackedByteArray) -> void:
 	# Untrusted input: every mutation of a good header or body is refused.
 	var bad := bytes.duplicate()
 	bad[10] ^= 0x01
@@ -149,6 +157,9 @@ func _test_mlp() -> void:
 	_check(_mlp_refused(nan_scale, bytes), "a vanishing input scale is refused")
 	_check(_mlp_refused([1, 2], bytes) and _mlp_refused(null, bytes), "a header that is not an object is refused")
 
+
+## The end of [method _test_mlp]: loading a net from its header and weights files.
+func _test_mlp_files(net: Dictionary, bytes: PackedByteArray) -> void:
 	# Through files: header and weights are siblings; a missing or oversized sibling is refused.
 	var dir := "user://dot_bot_mlp_%d" % randi()
 	DirAccess.make_dir_recursive_absolute(dir)
@@ -174,4 +185,3 @@ func _test_mlp() -> void:
 	DirAccess.remove_absolute(stem + ".dotmlp")
 	DirAccess.remove_absolute(stem + ".f32")
 	DirAccess.remove_absolute(dir)
-	_done()

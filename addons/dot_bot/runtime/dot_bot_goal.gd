@@ -1,23 +1,9 @@
 class_name DotBotGoal
 extends RefCounted
 
-## One bot's current job in a flag or hill mode: where to go and how much else may distract it,
-## re-planned every [constant REPLAN] seconds from the [DotBotObjective] the world holds.
-##
-## [codeblock]
-## carrying a flag      capture: run home, no pickups, fights on the move (urgent)
-## own flag dropped     return: defenders and supporters, and anybody close
-## own flag carried     intercept: chase the carrier (defenders, supporters, anybody close)
-## attack               grab the enemy flag, or escort a teammate who has it
-## support              escort a carrier, else hold the ground between the bases
-## defend               patrol within bot_defend_radius of home, hold and watch the way in;
-##                      does not chase a sound or a lost target beyond twice that
-## a hill instead       defend holds on it, attack takes it when another team has it (else
-##                      hunts), support holds a ring around it facing in
-## [/codeblock]
-##
-## bot_objective_focus is how often the bot keeps to its job; the rest of the time it roams a
-## few seconds as in a free-for-all.
+## One bot's current job in a flag or hill mode: where to go and how much else may distract it, re-planned every [constant REPLAN] seconds from the [DotBotObjective] the world holds.
+## Carrying a flag: capture (run home, no pickups, fights on the move; urgent). Own flag dropped: return (defenders and supporters, and anybody close). Own flag carried: intercept (chase the carrier; defenders, supporters, anybody close). Attack: grab the enemy flag, or escort a teammate who has it. Support: escort a carrier, else hold the ground between the bases. Defend: patrol within bot_defend_radius of home, hold and watch the way in; does not chase a sound or a lost target beyond twice that. A hill instead: defend holds on it, attack takes it when another team has it (else hunts), support holds a ring around it facing in.
+## bot_objective_focus is how often the bot keeps to its job; the rest of the time it roams a few seconds as in a free-for-all.
 
 # No log channel: plans; the brain logs.
 

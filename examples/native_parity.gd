@@ -1,13 +1,7 @@
 extends Node
 
-## Native against script brains (`godot --headless --path . res://examples/native_parity.tscn`):
-## two brains with the same id in two copies of the same scripted fights, one thinking through
-## dot_sim's DotSimBotMind and one in GDScript, compared to the bit every tick (intent, view,
-## engagement, strafe, the random streams and the aim's private state). Needs the dot_sim
-## extension; without it there is nothing to compare and the scene says so and passes.
-## The native side's world also bumps contacts_version every tick, so it perceives through
-## DotSimBotMind.perceive over the native sight scan, with bystanders to choose among and the
-## target killed late in some rounds.
+## Native against script brains (`godot --headless --path . res://examples/native_parity.tscn`): two brains with the same id in two copies of the same scripted fights, one thinking through dot_sim's DotSimBotMind and one in GDScript, compared to the bit every tick (intent, view, engagement, strafe, the random streams and the aim's private state).
+## Needs the dot_sim extension; without it there is nothing to compare and the scene says so and passes. The native side's world also bumps contacts_version every tick, so it perceives through DotSimBotMind.perceive over the native sight scan, with bystanders to choose among and the target killed late in some rounds.
 
 const TICK := 1.0 / 30.0
 const ROUNDS := 12

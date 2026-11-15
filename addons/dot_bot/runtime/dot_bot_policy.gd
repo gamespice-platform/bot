@@ -2,13 +2,10 @@ class_name DotBotPolicy
 extends RefCounted
 
 ## The cloned policy's place in the brain: a [DotBotMlp] read every think, its action written over the brain's [DotBotIntent].
-##
 ## [b]Off unless it passes.[/b] A policy drives a bot only when all of these hold: [member DotBotProfile.policy] (`bot_policy`, 0 in every preset) is above 0; this object has a net and an observation function; the evaluation gate's report ([DotBotEvalGate]) lists the current map in `policy_on` ([method allow_from_report]); and the bot falls inside the share `bot_policy` asks for (a fixed draw per bot id, so 0.5 is half the bots, always the same half). A report that failed, a map not in it, or no report at all leaves the rules' brain in full control.
-##
-## [b]What the net may do.[/b] Its action fields are read by name from the host's schema: `move` (2: strafe, forward), `look` (2: yaw and pitch change in degrees, held to `bot_turn_rate` times the think's step, so the policy can not turn faster than the preset allows), and the buttons `fire`, `crouch`, `jump`, `walk`, `use`, `throw` (discrete: a logit above 0 is pressed, the trainer's sigmoid at one half). A field with another name is ignored, and a field the net lacks keeps the brain's own value. `fire` is pressed only while the brain has a target in sight, so a policy can never shoot at what the bot does not see.
-## The policy is a fixed function of the observation: the same net and observation give the same intent.
+## [b]What the net may do.[/b] Its action fields are read by name from the host's schema: `move` (2: strafe, forward), `look` (2: yaw and pitch change in degrees, held to `bot_turn_rate` times the think's step, so the policy can not turn faster than the preset allows), and the buttons `fire`, `crouch`, `jump`, `walk`, `use`, `throw` (discrete: a logit above 0 is pressed, the trainer's sigmoid at one half). A field with another name is ignored, and a field the net lacks keeps the brain's own value. `fire` is pressed only while the brain has a target in sight, so a policy can never shoot at what the bot does not see. The policy is a fixed function of the observation: the same net and observation give the same intent.
 
-const CHANNEL := "bot.policy"
+# No log channel: a fixed function of the observation; the brain logs.
 
 ## Buttons the net may press, by action field name.
 const BUTTONS := ["fire", "crouch", "jump", "walk", "use", "throw"]

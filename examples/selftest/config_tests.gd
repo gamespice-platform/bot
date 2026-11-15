@@ -331,6 +331,12 @@ func _test_personas() -> void:
 	_check(schema_names.has("hunt") and schema_names.has("support") and schema_names.has("weight") and schema_names.has("skill"), "the profile schema names the mix, weight and skill")
 	_check(DotBotPersona.profile_schemas().has("bot"), "profile_check finds the bot kind")
 
+	_test_personas_dealt(rng)
+	_done()
+
+
+## The second half of [method _test_personas]: a pool dealing personas by weight, and settings derived from a persona.
+func _test_personas_dealt(rng: RandomNumberGenerator) -> void:
 	var dealer := DotBotPersonaPool.new()
 	dealer.personas = [DotBotPersona.from_values("a", {"weight": 2.0}), DotBotPersona.from_values("b", {}), DotBotPersona.from_values("c", {})]
 	var dealt := {}
@@ -356,7 +362,6 @@ func _test_personas() -> void:
 	_check(one.sync() and one.profile == held and one.profile.preset_name == "hard", "sync follows a difficulty change in place")
 	var plain := DotBotSettings.derived(game, DotBotPersona.from_values("plain", {}), 9)
 	_check(is_equal_approx(plain.profile.aim_error, game.profile.aim_error) and not DotBotPersona.from_values("plain", {}).shapes_skill(), "a persona with no skill keys copies the game's values")
-	_done()
 
 
 func _test_roster() -> void:
@@ -450,6 +455,12 @@ func _test_think_tier() -> void:
 	t.begin(32, PackedVector3Array(), PackedVector3Array(), ids, at)
 	_check(t.period(1, at[0], false) == t.far_every, "with no person every bot is far")
 	t.nearest = 1
+	_test_think_tier_body(t, eyes, looks, ids, at)
+	_done()
+
+
+## The second half of [method _test_think_tier]: body tiers, until_beat, and schedule against the separate calls.
+func _test_think_tier_body(t: DotBotThinkTier, eyes: PackedVector3Array, looks: PackedVector3Array, ids: PackedInt32Array, at: PackedVector3Array) -> void:
 	t.body_above = 32
 	t.begin(32, eyes, looks, ids, at)
 	_check(t.body_period(4, at[3], false) == 1 and t.body_period(3, at[2], false) == 1 and t.body_counts.is_empty(), "body tiers are off at body_above players or fewer: every body ticks every tick")
@@ -488,13 +499,9 @@ func _test_think_tier() -> void:
 				var b := t.body_period(ids[i], at[i], false, idle) if e > 1 and k != 3 else 1
 				same = same and u.schedule(ids[i], at[i], false, idle, k, i, 2, k != 3) == Vector2i(e, b)
 	_check(same and u.counts == t.counts and u.body_counts == t.body_counts, "schedule is period, until_beat at the floor and body_period of a coasting bot, counted alike")
-	_done()
 
 
-## The regression for think-rate tiers: a bot near a person (within close_range, among the nearest, or fighting them
-## within engaged_range) gives the very intents, tick for tick, that it gives thinking every tick, from idle through
-## its turn and its fight; and an idle bot a person only sees, thinned to idle_view_every, fires no later than two
-## periods after the every-tick bot (up to a period late to notice, and its idle look and rolls drift a little).
+## The regression for think-rate tiers: a bot near a person (within close_range, among the nearest, or fighting them within engaged_range) gives the very intents, tick for tick, that it gives thinking every tick, from idle through its turn and its fight; and an idle bot a person only sees, thinned to idle_view_every, fires no later than two periods after the every-tick bot (up to a period late to notice, and its idle look and rolls drift a little).
 func _test_think_tier_near_person() -> void:
 	_section("think-rate tiers leave a bot near a person as it was")
 	# distance to the person, tier.nearest, the person watching the bot

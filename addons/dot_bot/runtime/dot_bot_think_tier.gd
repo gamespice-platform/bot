@@ -1,26 +1,9 @@
 class_name DotBotThinkTier
 extends RefCounted
 
-## Think-rate tiers for a crowd of bots: which bots run their brain every tick and which every few ticks.
-##
-## A bot a person can see, is fighting, or is near runs every tick, so the aim a person meets is the full one.
-## The rest (bots fighting bots out of sight, bots roaming) think every [member near_every] ticks within
-## [member far_range] of a person and every [member far_every] beyond, up to the beat [method until_beat] gives, so the
-## thinkers spread over the ticks. Plain data in, a period out: the game's loop and a native brain share it.
-##
-## What a thinned bot skips is its brain, never its body: the game moves it every tick on the commands of its last think
-## (held buttons, the view carried towards where it last looked), so its walk, its hitboxes and lag compensation are the
-## same at any period. A bot a person was just hurt by, or that turns on a person, is full rate on its next think.
-##
-## Body tiers (API 22; on by default above [member body_above] players since API 23) go one step further for the bots nobody can meet: [method body_period] is how
-## many ticks apart the game may run the motor of a bot that is near or far by the rules above (not seen, not fighting a
-## person, not close or nearest), the game making the ticks up in one longer motor tick. Such a bot walks in steps and
-## its hitboxes jump, which no person sees; anything the game cannot carry over (a jump, a push, the air) is its call.
-##
-## Native (API 27): where dot-sim's library is loaded (class [code]DotSimThinkTier[/code]), [method begin], [method period],
-## [method body_period] and [method schedule] run there, with the same answers and counts (dot-sim's selftest compares the
-## two); [member native] false, or no library (the web build), keeps this script. [method schedule] is one think's
-## [method period], [method until_beat] and [method body_period] from one look at the people.
+## Think-rate tiers for a crowd of bots: which bots run their brain every tick and which every few ticks. A bot a person can see, is fighting, or is near runs every tick, so the aim a person meets is the full one. The rest (bots fighting bots out of sight, bots roaming) think every [member near_every] ticks within [member far_range] of a person and every [member far_every] beyond, up to the beat [method until_beat] gives, so the thinkers spread over the ticks. Plain data in, a period out: the game's loop and a native brain share it.
+## What a thinned bot skips is its brain, never its body: the game moves it every tick on the commands of its last think (held buttons, the view carried towards where it last looked), so its walk, its hitboxes and lag compensation are the same at any period. A bot a person was just hurt by, or that turns on a person, is full rate on its next think. Body tiers (API 22; on by default above [member body_above] players since API 23) go one step further for the bots nobody can meet: [method body_period] is how many ticks apart the game may run the motor of a bot that is near or far by the rules above (not seen, not fighting a person, not close or nearest), the game making the ticks up in one longer motor tick. Such a bot walks in steps and its hitboxes jump, which no person sees; anything the game cannot carry over (a jump, a push, the air) is its call.
+## Native (API 27): where dot-sim's library is loaded (class [code]DotSimThinkTier[/code]), [method begin], [method period], [method body_period] and [method schedule] run there, with the same answers and counts (dot-sim's selftest compares the two); [member native] false, or no library (the web build), keeps this script. [method schedule] is one think's [method period], [method until_beat] and [method body_period] from one look at the people.
 
 ## Players above which tiers apply; at or below it every bot thinks every tick. Negative: never.
 var above: int = 16
@@ -38,10 +21,8 @@ var nearest: int = 3
 var engaged_far_every: int = 1
 ## Metres: a fighting bot nearer than this to a person is full rate whatever the person faces.
 var engaged_range: float = 25.0
-## Period of an idle bot (the game's word: it has no target, or it is dead) that is in a person's view cone but is
-## neither within [member close_range] nor among the [member nearest]: in sight it shows only its walk, which the game
-## carries between thinks, and the tick it picks a target it is no longer idle. Not stretched by [member load_scale].
-## 1: a seen bot is full rate whatever it does (the tiers before API 21).
+## Period of an idle bot (the game's word: it has no target, or it is dead) that is in a person's view cone but is neither within [member close_range] nor among the [member nearest]: in sight it shows only its walk, which the game carries between thinks, and the tick it picks a target it is no longer idle.
+## Not stretched by [member load_scale]. 1: a seen bot is full rate whatever it does (the tiers before API 21).
 var idle_view_every: int = 2
 ## Multiplies every period above 1 (the tiers under load): a game that measures its tick running over its budget raises
 ## it, 1 is the periods as set. Full-rate bots stay full rate, and no period passes [constant MAX_PERIOD].
@@ -56,10 +37,8 @@ var view_half_angle: float = 60.0:
 		view_half_angle = value
 		_view_cos = cos(deg_to_rad(clampf(value, 0.0, 180.0)))
 
-## Ticks between motor ticks of a bot [method period] calls near, and far ([method body_period]); 1: every bot's body
-## moves every tick. Never stretched by [member load_scale], capped at [constant MAX_PERIOD]. Measured on 48 bots
-## (staging02, windowed, 3 runs a side, 2/4 against 1/1): ticks per second +18%, dropped ticks per second -28%, the
-## per-tick cost of the game -14%; the frame itself runs longer, because the game spends the gain on catch-up ticks.
+## Ticks between motor ticks of a bot [method period] calls near, and far ([method body_period]); 1: every bot's body moves every tick. Never stretched by [member load_scale], capped at [constant MAX_PERIOD].
+## Measured on 48 bots (staging02, windowed, 3 runs a side, 2/4 against 1/1): ticks per second +18%, dropped ticks per second -28%, the per-tick cost of the game -14%; the frame itself runs longer, because the game spends the gain on catch-up ticks.
 var body_near_every: int = 2
 var body_far_every: int = 4
 ## Players above which body tiers apply (on top of [member above]): a small game has too few bots to pay for steps

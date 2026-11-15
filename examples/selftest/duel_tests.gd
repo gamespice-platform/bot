@@ -1,4 +1,4 @@
-extends "res://examples/selftest/harvest_tests.gd"
+extends "res://examples/selftest/ride_pilot_tests.gd"
 ## The duels, the aim solver and the humanisation sections of the bot suite.
 
 ## K/D against the scripted opponent ([method _duel]), per preset: [low, high].

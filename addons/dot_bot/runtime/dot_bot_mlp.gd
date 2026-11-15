@@ -2,11 +2,10 @@ class_name DotBotMlp
 extends RefCounted
 
 ## A small multilayer perceptron run in GDScript: the behaviour-cloning policy's forward pass.
-##
-## Weights are `<name>.dotmlp` (a JSON header) and a sibling `<name>.f32` (little-endian float32: per layer the weights row-major, [out][in], then the biases). Both are untrusted: sizes, the hash, every float and every shape are checked before use.
-## [method forward] allocates nothing (the buffers are made at load) and gives the same result for the same input, every call.
+## Weights are `<name>.dotmlp` (a JSON header) and a sibling `<name>.f32` (little-endian float32: per layer the weights row-major, [out][in], then the biases).
+## Both are untrusted: sizes, the hash, every float and every shape are checked before use. [method forward] allocates nothing (the buffers are made at load) and gives the same result for the same input, every call.
 
-const CHANNEL := "bot.mlp"
+# No log channel: loading answers with a DotResult; its caller logs.
 const FORMAT := "dotbot-mlp"
 const VERSION := 1
 const HEADER_EXT := "dotmlp"

@@ -2,19 +2,10 @@ class_name DotBotEvalGate
 extends RefCounted
 
 ## The evaluation gate of a cloned policy: replays the held-out episodes' start states on a host's simulator, once with a [DotBotMlp] and once with the fixed baseline it would replace, under seeded perturbations, and says per map whether the policy beats the baseline by more than the spread between seeds.
-##
-## The host is duck typed (the gate names no game) and must be deterministic for a given start and seed:
-## [codeblock]
-## eval_start(start: Dictionary, seed: int) -> Variant   # a fresh state; the seed drives the host's perturbation
-## eval_observe(state) -> PackedFloat32Array              # the net's input, raw
-## eval_baseline(state) -> PackedFloat32Array             # what the baseline would do now, in the net's output layout
-## eval_step(state, action: PackedFloat32Array) -> void   # one think
-## eval_done(state) -> bool
-## eval_score(state) -> float                             # the kind's own metric, higher is better (1 for landed; seconds alive)
-## [/codeblock]
+## The host is duck typed (the gate names no game) and must be deterministic for a given start and seed: [code]eval_start(start: Dictionary, seed: int) -> Variant[/code] (a fresh state; the seed drives the host's perturbation), [code]eval_observe(state) -> PackedFloat32Array[/code] (the net's input, raw), [code]eval_baseline(state) -> PackedFloat32Array[/code] (what the baseline would do now, in the net's output layout), [code]eval_step(state, action: PackedFloat32Array) -> void[/code] (one think), [code]eval_done(state) -> bool[/code] and [code]eval_score(state) -> float[/code] (the kind's own metric, higher is better: 1 for landed; seconds alive).
 ## Pure and repeatable: the same net, manifest, host and config give the same report, byte for byte. [method evaluate] returns a success when every map passes and a failure otherwise; the report (the metrics in both cases) is in [member report].
 
-const CHANNEL := "bot.eval"
+# No log channel: the verdict is the DotResult and [member report]; the tool that runs it logs.
 const FORMAT := "dotbot-eval"
 const VERSION := 1
 const MAX_SEEDS := 256

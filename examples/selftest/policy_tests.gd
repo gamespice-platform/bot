@@ -69,6 +69,12 @@ func _test_policy() -> void:
 	no_obs.allowed_maps = PackedStringArray(["m@1"])
 	_check(not no_obs.active(s.profile, 1), "no observation function, no policy")
 
+	_test_policy_on(s, pol)
+	_done()
+
+
+## The rest of [method _test_policy]: with the policy on, the net drives the bot, held to the turn rate, and only a share of the bots.
+func _test_policy_on(s: DotBotSettings, pol: DotBotPolicy) -> void:
 	# On: the net's action is the intent, held to the turn rate, and fire needs a target.
 	brain = DotBotBrain.new(1, s)
 	brain.policy = pol
@@ -124,4 +130,3 @@ func _test_policy() -> void:
 		drawn += 1 if pol.active(s.profile, bot_id) else 0
 	_check(drawn > 70 and drawn < 130, "bot_policy 0.5 drives about half the bots", str(drawn))
 	_check(pol.active(s.profile, 7) == pol.active(s.profile, 7), "which bots is fixed")
-	_done()

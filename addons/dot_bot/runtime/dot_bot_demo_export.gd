@@ -2,10 +2,8 @@ class_name DotBotDemoExport
 extends RefCounted
 
 ## Verified episodes of one schema as a behaviour-cloning dataset: `manifest.json` and `shard_N.f32` files, split into train and held-out by episode.
-##
 ## A shard is little-endian float32 rows, observation then action, raw (the manifest holds each field's scale), one split and one map version each, an episode never across two shards. Plain bytes, so the trainer needs no Godot.
-## Nothing that identifies a person is written: the episode ids are the store's counters.
-## [method load_manifest] and [method read_shard] treat the directory as untrusted: every size, name, count and float is checked before it is believed.
+## Nothing that identifies a person is written: the episode ids are the store's counters. [method load_manifest] and [method read_shard] treat the directory as untrusted: every size, name, count and float is checked before it is believed.
 
 const CHANNEL := "bot.demo.export"
 const FORMAT := "dotbot-bc"
@@ -248,41 +246,59 @@ static func load_manifest(dir: String) -> DotResult:
 	var shards: Array = []
 	var totals := {SPLIT_TRAIN: 0, SPLIT_HELD_OUT: 0}
 	for item: Variant in shards_in:
-		if not item is Dictionary:
-			return _bad("a shard entry is not an object.")
-		var e: Dictionary = item
-		var file: String = e["file"] if e.get("file") is String else ""
-		var split: String = e["split"] if e.get("split") is String else ""
-		var rows_n := _count(e.get("rows"), 1, MAX_SHARD_BYTES / 4 / frame)
-		var hash_hex: String = e["sha256"] if e.get("sha256") is String else ""
-		if name_check.search(file) == null or files.has(file):
-			return _bad("shard file '%s' is not shard_N.f32 or is listed twice." % file.left(MAX_NAME))
-		if not totals.has(split) or rows_n < 0 or hash_hex.length() != 64 or not hash_hex.is_valid_hex_number(false):
-			return _bad("shard '%s' has a bad split, row count or hash." % file)
-		var eps_in: Variant = e.get("episodes")
-		if not eps_in is Array or (eps_in as Array).is_empty() or (eps_in as Array).size() > rows_n:
-			return _bad("shard '%s' lists no episodes or more than it has rows." % file)
-		var eps: Array = []
-		var sum := 0
-		for pair: Variant in eps_in:
-			if not pair is Array or (pair as Array).size() != 2:
-				return _bad("shard '%s' has an episode entry that is not [id, rows]." % file)
-			var ep_id := _count(pair[0], 0, 1 << 52)
-			var ep_rows := _count(pair[1], 1, rows_n)
-			if ep_rows < 0 or ep_id < 0:
-				return _bad("shard '%s' has an episode with a bad id or row count." % file)
-			sum += ep_rows
-			eps.append([ep_id, ep_rows])
-		if sum != rows_n:
-			return _bad("shard '%s' says %d rows but its episodes add up to %d." % [file, rows_n, sum])
-		var map_id := _name(e.get("map_id"))
-		if map_id == "" or not e.get("map_version") is String or _name(e["map_version"], true) != e["map_version"]:
-			return _bad("shard '%s' has no usable map id and version." % file)
-		files[file] = true
-		totals[split] += rows_n
-		shards.append({"file": file, "split": split, "rows": rows_n, "sha256": hash_hex.to_lower(), "episodes": eps, "map_id": map_id, "map_version": e["map_version"]})
+		var one := _manifest_shard(item, name_check, files, totals, frame)
+		if not one.ok:
+			return one
+		shards.append(one.value)
 	out["shards"] = shards
 
+	var held := _manifest_held(m)
+	if not held.ok:
+		return held
+	out["held_out"] = held.value
+	out["totals"] = totals
+	return DotResult.success(out)
+
+
+## One entry of a manifest's [code]shards[/code], checked; adds its file to [param files] and its rows to [param totals].
+static func _manifest_shard(item: Variant, name_check: RegEx, files: Dictionary, totals: Dictionary, frame: int) -> DotResult:
+	if not item is Dictionary:
+		return _bad("a shard entry is not an object.")
+	var e: Dictionary = item
+	var file: String = e["file"] if e.get("file") is String else ""
+	var split: String = e["split"] if e.get("split") is String else ""
+	var rows_n := _count(e.get("rows"), 1, MAX_SHARD_BYTES / 4 / frame)
+	var hash_hex: String = e["sha256"] if e.get("sha256") is String else ""
+	if name_check.search(file) == null or files.has(file):
+		return _bad("shard file '%s' is not shard_N.f32 or is listed twice." % file.left(MAX_NAME))
+	if not totals.has(split) or rows_n < 0 or hash_hex.length() != 64 or not hash_hex.is_valid_hex_number(false):
+		return _bad("shard '%s' has a bad split, row count or hash." % file)
+	var eps_in: Variant = e.get("episodes")
+	if not eps_in is Array or (eps_in as Array).is_empty() or (eps_in as Array).size() > rows_n:
+		return _bad("shard '%s' lists no episodes or more than it has rows." % file)
+	var eps: Array = []
+	var sum := 0
+	for pair: Variant in eps_in:
+		if not pair is Array or (pair as Array).size() != 2:
+			return _bad("shard '%s' has an episode entry that is not [id, rows]." % file)
+		var ep_id := _count(pair[0], 0, 1 << 52)
+		var ep_rows := _count(pair[1], 1, rows_n)
+		if ep_rows < 0 or ep_id < 0:
+			return _bad("shard '%s' has an episode with a bad id or row count." % file)
+		sum += ep_rows
+		eps.append([ep_id, ep_rows])
+	if sum != rows_n:
+		return _bad("shard '%s' says %d rows but its episodes add up to %d." % [file, rows_n, sum])
+	var map_id := _name(e.get("map_id"))
+	if map_id == "" or not e.get("map_version") is String or _name(e["map_version"], true) != e["map_version"]:
+		return _bad("shard '%s' has no usable map id and version." % file)
+	files[file] = true
+	totals[split] += rows_n
+	return DotResult.success({"file": file, "split": split, "rows": rows_n, "sha256": hash_hex.to_lower(), "episodes": eps, "map_id": map_id, "map_version": e["map_version"]})
+
+
+## A manifest's [code]held_out[/code] list, checked.
+static func _manifest_held(m: Dictionary) -> DotResult:
 	var held_in: Variant = m.get("held_out", [])
 	if not held_in is Array or (held_in as Array).size() > MAX_HELD_OUT:
 		return _bad("'held_out' is not a list of at most %d." % MAX_HELD_OUT)
@@ -301,9 +317,7 @@ static func load_manifest(dir: String) -> DotResult:
 			"id": h_id, "map_id": _name(h.get("map_id")), "map_version": _name(h.get("map_version"), true), "key": _name(h.get("key"), true),
 			"rate": float(h_rate), "outcome": _name(h.get("outcome"), true), "rows": h_rows, "start": h_start,
 		})
-	out["held_out"] = held
-	out["totals"] = totals
-	return DotResult.success(out)
+	return DotResult.success(held)
 
 
 ## The rows of shard [param index] of a manifest [method load_manifest] returned, as one flat array of frame_size floats per row. The file's size, hash and every value are checked first.

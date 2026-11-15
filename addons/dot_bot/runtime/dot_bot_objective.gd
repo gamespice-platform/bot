@@ -1,20 +1,9 @@
 class_name DotBotObjective
 extends RefCounted
 
-## What every bot may know about the flags (or a hill to hold), and which job each bot has: the
-## shared half of a team mode's bot plan. [DotBotGoal] is the per-bot half that reads it.
-##
-## [b]Written by the game, read by brains.[/b] The game calls [method set_flag] for each team's
-## flag once per tick on the main thread and [method assign] when a bot joins or changes team;
-## brains (possibly on worker threads) only read. Flags are public knowledge in a flag mode (the
-## HUD shows them), so this is no cheat in the sense of [DotBotWorld].
-##
-## [codeblock]
-## var objective := DotBotObjective.new()
-## world.objective = objective
-## objective.set_flag(team, flag.home, flag.position, carrier_id, DotBotObjective.CARRIED, capture_point)
-## var role := objective.assign(bot_id, team, settings.profile, persona.role_bias())
-## [/codeblock]
+## What every bot may know about the flags (or a hill to hold), and which job each bot has: the shared half of a team mode's bot plan. [DotBotGoal] is the per-bot half that reads it.
+## [b]Written by the game, read by brains.[/b] The game calls [method set_flag] for each team's flag once per tick on the main thread and [method assign] when a bot joins or changes team; brains (possibly on worker threads) only read. Flags are public knowledge in a flag mode (the HUD shows them), so this is no cheat in the sense of [DotBotWorld].
+## Wiring: [code]var objective := DotBotObjective.new()[/code] and [code]world.objective = objective[/code]; each tick [code]objective.set_flag(team, flag.home, flag.position, carrier_id, DotBotObjective.CARRIED, capture_point)[/code]; on joining [code]var role := objective.assign(bot_id, team, settings.profile, persona.role_bias())[/code].
 
 # No log channel: holds state; the brain and the game log.
 

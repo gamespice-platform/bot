@@ -87,6 +87,14 @@ func _test_objective() -> void:
 	var back := _planned(dropped, _red(2, Vector3(5.0, 0.0, 0.0)), focused)
 	_check(back.kind == &"return" and back.dest == Vector3(20.0, 0.0, 0.0), "a defender returns its dropped flag", "%s %s" % [back.kind, back.dest])
 
+	_test_objective_hill(p, even, focused, flags)
+
+	_test_objective_brain(carried)
+	_done()
+
+
+## Part of [method _test_objective]: a hill instead of flags, and how often objective_focus lets a bot off the job.
+func _test_objective_hill(p: DotBotProfile, even: DotBotProfile, focused: DotBotProfile, flags: DotBotObjective) -> void:
 	# A hill instead of flags: the same roles, each at its own distance from it.
 	var hill_at := Vector3(30.0, 0.0, 0.0)
 	var hill := DotBotObjective.new()
@@ -124,6 +132,9 @@ func _test_objective() -> void:
 		spells[focus] = free
 	_check(int(spells[1.0]) == 0 and int(spells[0.0]) > 20, "bot_objective_focus 1 never strays off the job; 0 often does", str(spells))
 
+
+## The end of [method _test_objective]: a brain walking its job.
+func _test_objective_brain(carried: DotBotObjective) -> void:
 	# A brain walking its job: the carrier runs home on a flat floor.
 	var me := _red(1, Vector3(50.0, 0.0, 0.0))
 	var world := DotBotWorld.new()
@@ -146,4 +157,3 @@ func _test_objective() -> void:
 	_check(me.position.distance_to(RED_HOME) < 12.0, "a carrier brain walks the flag home", str(me.position))
 	_check(states.has(&"capture"), "its state names the job")
 	_check(brain.describe()["role"] == DotBotObjective.ATTACK, "describe reports the role")
-	_done()

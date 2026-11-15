@@ -2,9 +2,7 @@ class_name DotBotRideHarvest
 extends RefCounted
 
 ## Turns recorded ride episodes into verified ones: replays each on the host's simulator from its start and keeps it only if it lands where the player did.
-##
 ## The host is duck typed: [code]replay_start[/code], [code]replay_command[/code], [code]landing[/code] and optionally [code]perturb[/code]; the simulator has [code]step[/code] and [code]delta[/code]. A ride is kept when the replay lands and enough perturbed starts ([member DotBotRideConfig.min_score]) do too.
-##
 ## [b]Piloted replay[/b] (host method [code]pilot_setup(pilot, episode)[/code], [member DotBotRideConfig.piloted]): the commands are quantised to pilot actions ([DotBotRideQuantiser]) and a [DotBotSurfPilot] with the ride as its only cache, tracking and vetoing, rides the simulator. That is what a bot does with the ride, so a line the pilot cannot follow is rejected however well the player flew it. The simulator must return [DotBotSurfCourse] events for the veto. Without [code]pilot_setup[/code] the recorded commands are replayed open loop.
 
 const CHANNEL := "bot.ride.harvest"
