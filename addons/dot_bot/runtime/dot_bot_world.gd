@@ -137,6 +137,7 @@ func _pack(all: Array) -> void:
 	var teams := PackedInt32Array()
 	var alive := PackedByteArray()
 	var eyes := PackedVector3Array()
+	var positions := PackedVector3Array()
 	for item in all:
 		if item is DotBotContact:
 			var c := item as DotBotContact
@@ -146,9 +147,12 @@ func _pack(all: Array) -> void:
 			teams.append(c.team)
 			alive.append(1 if c.alive else 0)
 			eyes.append(c.eye())
+			positions.append(c.position)
 	_senses.call(&"load_contacts", ids, points, teams, alive)
 	if _senses.has_method(&"load_eyes"):
 		_senses.call(&"load_eyes", eyes)
+	if _senses.has_method(&"load_positions"):
+		_senses.call(&"load_positions", positions)
 
 
 ## Sight LOD: a body farther than this (m) that was not seen keeps that answer for

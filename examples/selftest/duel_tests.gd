@@ -501,6 +501,27 @@ func _test_utility_grenades() -> void:
 
 func _test_sight_lod() -> void:
 	_section("sight LOD: a far unseen body keeps its answer longer, a seen one or the target never")
+	# The same checks on the script cache and, with dot_sim installed, on the native mind's cache.
+	var got := _sight_lod_case(false)
+	var probe := DotBotBrain.new(1, DotBotSettings.new())
+	var native := probe._mind != null and DotBotBrain._sight_lod_available()
+	if native:
+		var n := _sight_lod_case(true)
+		for i in got.size():
+			got[i] = got[i] and n[i]
+	var on := " (script and native)" if native else " (script)"
+	_check(got[0], "off by default: a far hidden body is traced again after SIGHT_REUSE" + on)
+	_check(got[1], "on: a far hidden body is not traced again within sight_far_reuse" + on)
+	_check(got[2], "and is traced again once it ends" + on)
+	_check(got[3], "a near hidden body is traced as before" + on)
+	_check(got[4], "the bot's own target is traced as before" + on)
+	_check(got[5], "a far body in the open is seen" + on)
+	_check(got[6], "a seen far body is traced again after SIGHT_REUSE, never held as seen" + on)
+	_done()
+
+
+## The sight LOD checks of [method _test_sight_lod] on one brain, script cache or native mind's.
+func _sight_lod_case(native: bool) -> Array[bool]:
 	var me := DotBotContact.make(1, Vector3.ZERO)
 	var far := DotBotContact.make(2, Vector3(0, 0, -30))
 	var near := DotBotContact.make(3, Vector3(0, 0, -8))
@@ -510,26 +531,28 @@ func _test_sight_lod() -> void:
 		state["rays"] += 1
 		return not state["wall"]
 	var brain := DotBotBrain.new(1, DotBotSettings.new())
-	brain.leave_native()
+	if not native:
+		brain.leave_native()
 	var eye := me.eye()
 	var rays_at := func(c: DotBotContact, t: float) -> int:
 		var before: int = state["rays"]
 		var _s := brain._sees(world, eye, c, t)
 		return state["rays"] - before
-	_check(rays_at.call(far, 0.0) == 2 and rays_at.call(far, 0.06) == 2, "off by default: a far hidden body is traced again after SIGHT_REUSE")
+	var out: Array[bool] = []
+	out.append(rays_at.call(far, 0.0) == 2 and rays_at.call(far, 0.06) == 2)
 	world.sight_far = 20.0
 	world.sight_far_reuse = 0.15
-	_check(rays_at.call(far, 0.3) == 2 and rays_at.call(far, 0.36) == 0 and rays_at.call(far, 0.44) == 0, "on: a far hidden body is not traced again within sight_far_reuse")
-	_check(rays_at.call(far, 0.46) == 2, "and is traced again once it ends")
-	_check(rays_at.call(near, 0.5) == 2 and rays_at.call(near, 0.56) == 2, "a near hidden body is traced as before")
+	out.append(rays_at.call(far, 0.3) == 2 and rays_at.call(far, 0.36) == 0 and rays_at.call(far, 0.44) == 0)
+	out.append(rays_at.call(far, 0.46) == 2)
+	out.append(rays_at.call(near, 0.5) == 2 and rays_at.call(near, 0.56) == 2)
 	brain.target_id = 2
-	_check(rays_at.call(far, 0.52) == 2, "the bot's own target is traced as before")
+	out.append(rays_at.call(far, 0.52) == 2)
 	brain.target_id = -1
 	state["wall"] = false
-	_check(brain._sees(world, eye, far, 0.7), "a far body in the open is seen")
+	out.append(brain._sees(world, eye, far, 0.7))
 	state["wall"] = true
-	_check(rays_at.call(far, 0.76) == 2 and not brain._sees(world, eye, far, 0.77), "a seen far body is traced again after SIGHT_REUSE, never held as seen")
-	_done()
+	out.append(rays_at.call(far, 0.76) == 2 and not brain._sees(world, eye, far, 0.77))
+	return out
 
 
 func _pickup_scene(drop_at: Vector3, drop_value: float, held: Dictionary, with_enemy: bool = false) -> Array:

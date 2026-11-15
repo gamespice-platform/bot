@@ -58,6 +58,10 @@ static var _lap_at := 0
 ## sight cache, and perceives when the world packed a native scan this tick. Null: all in script.
 var _mind: Object = null
 var _los := Callable()
+static var _sight_lod_known := -1
+## The sight LOD last handed to [member _mind] (DotBotWorld.sight_far, sight_far_reuse).
+var _lod_far := 0.0
+var _lod_reuse := 0.0
 
 
 func _init(p_id: int = 0, p_settings: DotBotSettings = null) -> void:
@@ -252,6 +256,10 @@ func _perceive(me: DotBotContact, all: Array, world: DotBotWorld, p: DotBotProfi
 	if senses != null and _mind != null:
 		if _los.get_object() != world:
 			_los = Callable(world, &"line_of_sight")
+		if _sight_lod_available() and (world.sight_far != _lod_far or world.sight_far_reuse != _lod_reuse):
+			_lod_far = world.sight_far
+			_lod_reuse = world.sight_far_reuse
+			_mind.set_sight_lod(_lod_far, _lod_reuse)
 		var r: PackedInt32Array = _mind.perceive(senses, me.id, me.team, eye, aim.yaw, aim.pitch, half, p.sight, target_id, (1 if _visible else 0) | (2 if through else 0), now, world.sight_stamp(), _los)
 		if r.size() == 2:
 			picked = true
@@ -290,6 +298,13 @@ static func _perceive_available() -> bool:
 	if _perceive_known < 0:
 		_perceive_known = 1 if ClassDB.class_exists(DotBotAim.MIND_CLASS) and ClassDB.class_has_method(DotBotAim.MIND_CLASS, &"perceive") else 0
 	return native_perceive and _perceive_known == 1
+
+
+## Whether the dot_sim extension's DotSimBotMind applies the sight LOD itself (sight_cached_far, set_sight_lod).
+static func _sight_lod_available() -> bool:
+	if _sight_lod_known < 0:
+		_sight_lod_known = 1 if ClassDB.class_exists(DotBotAim.MIND_CLASS) and ClassDB.class_has_method(DotBotAim.MIND_CLASS, &"sight_cached_far") else 0
+	return _sight_lod_known == 1
 
 
 ## [method _perceive]'s choice in script: the current target while it is in sight, else the best
@@ -390,7 +405,15 @@ func _sees(world: DotBotWorld, eye: Vector3, c: DotBotContact, now: float) -> bo
 	var stamp := world.sight_stamp()
 	if _mind != null:
 		# The cache lives in the mind, which may perceive natively next tick.
-		var h: int = _mind.sight_cached(c.id, now, stamp)
+		var h: int
+		if _sight_lod_available():
+			# The same sight LOD as the script cache below, decided here so the distance is the script's.
+			var reuse := 0.0
+			if world.sight_far > 0.0 and c.id != target_id and eye.distance_squared_to(c.position) > world.sight_far * world.sight_far:
+				reuse = world.sight_far_reuse
+			h = _mind.sight_cached_far(c.id, now, stamp, reuse)
+		else:
+			h = _mind.sight_cached(c.id, now, stamp)
 		if h >= 0:
 			return h == 1
 		var seen_n := world.line_of_sight(eye, c.aim_point()) or world.line_of_sight(eye, c.eye())
