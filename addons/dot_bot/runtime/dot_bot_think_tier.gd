@@ -28,7 +28,8 @@ var idle_view_every: int = 2
 ## it, 1 is the periods as set. Full-rate bots stay full rate, and no period passes [member max_period].
 var load_scale: float = 1.0
 ## The longest period [member load_scale] may stretch a tier to: a bot that sits out more ticks than this cannot steer. 0 = no limit.
-## [constant DEFAULT_MAX_PERIOD] by default. Another value runs the GDScript tier, because the native one (dot-sim, `tier.rs`) still holds 8.
+## [constant DEFAULT_MAX_PERIOD] by default. The native tier (dot-sim) takes it too; a dot-sim library from before API 30 holds 8 and
+## runs the GDScript tier for any other value. A negative value is refused (error) and the GDScript tier answers.
 var max_period: int = DEFAULT_MAX_PERIOD
 const DEFAULT_MAX_PERIOD := 8
 ## Kept for callers that read the old constant.
@@ -70,6 +71,7 @@ var native: bool = true
 var _native: Object = null
 var _use: bool = false
 var _native_pinned: int = 0
+var _warned := false
 const _REASONS: Array[StringName] = [&"off", &"engaged", &"pinned", &"close", &"view", &"idle_view", &"engaged_far", &"near", &"far"]
 
 
@@ -97,10 +99,14 @@ func begin(players: int, eyes: PackedVector3Array, looks: PackedVector3Array, bo
 	_looks = looks
 	_pinned.clear()
 	_flush()
-	_use = native and _native != null and max_period == DEFAULT_MAX_PERIOD
+	if max_period < 0 and not _warned:
+		_warned = true
+		push_error("DotBotThinkTier.max_period %d is negative (0 is unlimited); the periods are held to nothing" % max_period)
+	_use = native and _native != null and (max_period == DEFAULT_MAX_PERIOD or _native.has_method(&"max_period"))
 	if _use:
-		_native.configure(PackedFloat64Array([above, near_every, far_every, far_range, close_range, nearest, engaged_far_every,
-			engaged_range, idle_view_every, load_scale, view_range, _view_cos, body_near_every, body_far_every, body_above]))
+		_use = _native.configure(PackedFloat64Array([above, near_every, far_every, far_range, close_range, nearest, engaged_far_every,
+			engaged_range, idle_view_every, load_scale, view_range, _view_cos, body_near_every, body_far_every, body_above, max_period])) != false
+	if _use:
 		_native_pinned = _native.begin(players, eyes, looks, bot_ids, bot_positions)
 		return
 	if not _on or nearest <= 0:

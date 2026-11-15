@@ -46,5 +46,6 @@ extends RefCounted
 # 27: DotBotThinkTier.schedule, native, is_native (one think's period, beat and body period from one classification; dot-sim's DotSimThinkTier answers when loaded).
 # 28: DotBotProfile.is_hard_max; set_field refuses under the minimum and over a fact-maximum, allows over a guide maximum with a warning (was a silent clamp).
 # 29: DotBotWorld.sounds_into; DotBotBrain.phase_timers, PHASES, phase_us (a think's time per phase); DotBotPickup.NONE; profile row replan_every (0, every think, unchanged).
-const LEVEL := 29
+# 30: DotBotThinkTier.max_period reaches dot-sim's native tier (any value, 0 unlimited; a negative one is an error); a native library older than this runs the script tier for a non-default value.
+const LEVEL := 30
 const OLDEST := 1
