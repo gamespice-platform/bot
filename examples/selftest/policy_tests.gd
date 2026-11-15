@@ -76,9 +76,9 @@ func _test_policy() -> void:
 ## The rest of [method _test_policy]: with the policy on, the net drives the bot, held to the turn rate, and only a share of the bots.
 func _test_policy_on(s: DotBotSettings, pol: DotBotPolicy) -> void:
 	# On: the net's action is the intent, held to the turn rate, and fire needs a target.
-	brain = DotBotBrain.new(1, s)
+	var brain := DotBotBrain.new(1, s)
 	brain.policy = pol
-	sc = _scene(Vector3(0, 0, -6.0))
+	var sc := _scene(Vector3(0, 0, -6.0))
 	var on := _run_bot(brain, sc[0], sc[2], 1.0)
 	var moved := true
 	var fastest := 0.0
