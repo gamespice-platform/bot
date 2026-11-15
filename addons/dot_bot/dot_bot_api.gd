@@ -45,5 +45,6 @@ extends RefCounted
 # 26: DotBotLinks.join_step, DotBotNav.held, begin_edges, step_edges (a map's drop, hop and stitch search over several frames, the nav held unready until done; join unchanged).
 # 27: DotBotThinkTier.schedule, native, is_native (one think's period, beat and body period from one classification; dot-sim's DotSimThinkTier answers when loaded).
 # 28: DotBotProfile.is_hard_max; set_field refuses under the minimum and over a fact-maximum, allows over a guide maximum with a warning (was a silent clamp).
-const LEVEL := 28
+# 29: DotBotWorld.sounds_into; DotBotBrain.phase_timers, PHASES, phase_us (a think's time per phase); DotBotPickup.NONE; profile row replan_every (0, every think, unchanged).
+const LEVEL := 29
 const OLDEST := 1

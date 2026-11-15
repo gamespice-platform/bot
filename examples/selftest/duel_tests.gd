@@ -544,6 +544,24 @@ func _pickup_scene(drop_at: Vector3, drop_value: float, held: Dictionary, with_e
 	return sc
 
 
+## How many sight rays a quiet bot's pickup asks in two seconds of thinks at 64 Hz, for a drop it never sees.
+func _pickup_looks(replan_every: float) -> int:
+	var me := DotBotContact.new()
+	me.loadout = {1: {"value": 0.3, "ammo": 1.0}}
+	var world := DotBotWorld.new()
+	world.drops_fn = func() -> Array: return [{"id": 7, "position": Vector3(3, 0, 0), "slot": 1, "value": 0.8, "ammo": 1.0}]
+	var rays := [0]
+	world.line_of_sight_fn = func(_a: Vector3, _b: Vector3) -> bool:
+		rays[0] += 1
+		return false
+	var p := _pickup_settings().profile
+	p.replan_every = replan_every
+	var pickup := DotBotPickup.new()
+	for i in 128:
+		var _plan := pickup.step(me, world, p, i * TICK, true)
+	return rays[0]
+
+
 func _pickup_settings(on: float = 1.0) -> DotBotSettings:
 	var s := DotBotSettings.new()
 	s.set_difficulty("nightmare")
@@ -595,6 +613,9 @@ func _test_pickup() -> void:
 	var tries := _run_bot(gaveup, sc[0], sc[2], 6.0)
 	var presses := tries.filter(func(i: DotBotIntent) -> bool: return i.use)
 	_check(presses.size() * TICK < 2.0 and tries.slice(-50).all(func(i: DotBotIntent) -> bool: return not i.use), "a weapon that stays put after a try is given up on, not pressed forever")
+
+	# bot_replan_every: the look over the drops (a sight ray each) every so many seconds; 0 every think.
+	_check(_pickup_looks(0.0) == 128 and _pickup_looks(0.5) == 4, "bot_replan_every 0 looks every think, 0.5 four times in two seconds")
 	_done()
 
 

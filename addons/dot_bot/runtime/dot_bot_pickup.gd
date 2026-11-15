@@ -16,6 +16,8 @@ const GIVE_UP := 12.0
 const RETRY := 20.0
 ## Seconds without a step after which the plan is forgotten (a fight came between).
 const STALE := 0.5
+## What [method step] gives with nothing to fetch: one read-only empty plan rather than a new one every think.
+const NONE := {}
 
 ## Seconds the use key stays down: past the game's hold-to-swap time.
 var hold_time: float = 0.8
@@ -25,6 +27,8 @@ var _noticed_at: float = 0.0
 var _pressed_at: float = -1.0
 var _last: float = -INF
 var _skip: Dictionary = {}
+## When a quiet bot next looks over the drops ([member DotBotProfile.replan_every]).
+var _look_next: float = -INF
 
 
 ## The plan this tick: [code]{position, use}[/code], or empty when the bot has nothing to fetch.
@@ -35,22 +39,26 @@ func step(me: DotBotContact, world: DotBotWorld, p: DotBotProfile, now: float, q
 	_last = now
 	if not quiet or p.pickup_weapons < 0.5 or world == null:
 		cancel()
-		return {}
+		return NONE
 	var drops := world.drops()
 	var drop := _find(drops, _goal)
 	if _goal != -1 and drop.is_empty():
 		cancel()
-		return {}
+		return NONE
 	if drop.is_empty():
+		if p.replan_every > 0.0:
+			if now < _look_next:
+				return NONE
+			_look_next = now + p.replan_every
 		drop = _choose(me, world, p, drops, now)
 		if drop.is_empty():
-			return {}
+			return NONE
 		_goal = int(drop["id"])
 		_noticed_at = now
 	if now - _noticed_at > GIVE_UP:
 		return _drop(now)
 	if now - _noticed_at < p.reaction:
-		return {}
+		return NONE
 	var at: Vector3 = drop["position"]
 	var plan := {"position": at, "use": false}
 	if absf(at.y - me.position.y) < 2.0 and Vector2(at.x - me.position.x, at.z - me.position.z).length() < REACH:
@@ -87,7 +95,7 @@ func goal() -> int:
 func _drop(now: float) -> Dictionary:
 	_skip[_goal] = now + RETRY
 	cancel()
-	return {}
+	return NONE
 
 
 func _choose(me: DotBotContact, world: DotBotWorld, p: DotBotProfile, drops: Array, now: float) -> Dictionary:
@@ -116,4 +124,4 @@ static func _find(drops: Array, id: int) -> Dictionary:
 	for d: Dictionary in drops:
 		if int(d["id"]) == id:
 			return d
-	return {}
+	return NONE

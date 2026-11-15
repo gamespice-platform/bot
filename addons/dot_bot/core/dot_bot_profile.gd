@@ -76,6 +76,7 @@ const SPEC := [
 	["map_knowledge", 0.0, 1.0, 0.1, 0.4, 0.7, 1.0, "Chance a roaming bot heads where it last knew of an enemy instead of anywhere."],
 	["pickup_weapons", 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, "1 lets a quiet bot walk to a better weapon lying about and take it with the use key; 0 never."],
 	["pickup_range", 1.0, 100.0, 6.0, 9.0, 12.0, 16.0, "Farthest a bot notices a weapon lying about, metres (it must also see it)."],
+	["replan_every", 0.0, 10.0, 0.0, 0.0, 0.0, 0.0, "Seconds between a quiet bot's looks over the weapons lying about, each a sight ray per one in range (0 looks every think)."],
 	# Objective: team games that hand the bots a DotBotObjective (capture the flag).
 	["role_defend", 0.0, 1.0, 0.3, 0.3, 0.3, 0.3, "Share of a team's bots that guard their own flag."],
 	["role_attack", 0.0, 1.0, 0.4, 0.4, 0.4, 0.4, "Share of a team's bots that go for the enemy flag and bring it home."],
@@ -147,6 +148,7 @@ const COL_HELP := 7
 @export var map_knowledge: float = 0.4
 @export var pickup_weapons: float = 1.0
 @export var pickup_range: float = 9.0
+@export var replan_every: float = 0.0
 @export var policy: float = 0.0
 
 @export_group("Objective")

@@ -79,6 +79,8 @@ var _heard_pos: Vector3 = Vector3.INF
 var _heard_at: float = -INF
 var _chase_sound: bool = false
 var _heard_seq: int = 0
+## The sounds of the last hearing, one array kept for every think.
+var _heard: Array[Dictionary] = []
 var _hurt_from: Vector3 = Vector3.INF
 var _hurt_at: float = -INF
 var _hurt_pending_at: float = INF

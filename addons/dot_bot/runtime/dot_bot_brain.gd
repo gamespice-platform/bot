@@ -47,6 +47,13 @@ static var target_first: bool = true
 static var native_perceive := true
 static var _perceive_known := -1
 
+## Per-phase microseconds of [method think] while [member phase_timers] is on (main thread only): [constant PHASES].
+## Off by default: each lap is two clock reads. A profile tool turns it on and reads, then clears, [member phase_us].
+static var phase_timers := false
+const PHASES: Array[StringName] = [&"bb_setup", &"bb_perceive", &"bb_hear", &"bb_goal", &"bb_act", &"bb_tricks", &"bb_unstick"]
+static var phase_us := PackedInt64Array([0, 0, 0, 0, 0, 0, 0])
+static var _lap_at := 0
+
 ## This brain's DotSimBotMind (the aim's, kept when the aim falls back to script): it holds the
 ## sight cache, and perceives when the world packed a native scan this tick. Null: all in script.
 var _mind: Object = null
@@ -75,33 +82,17 @@ func leave_native() -> void:
 
 ## What this bot does this tick.
 func think(me: DotBotContact, world: DotBotWorld, now: float) -> DotBotIntent:
+	if phase_timers:
+		_lap_at = Time.get_ticks_usec()
 	var p := settings.profile
 	var dt := 0.0 if is_nan(_now) else clampf(now - _now, 0.0, MAX_STEP)
 	_now = now
 	var out := DotBotIntent.new()
 
 	if me == null or not me.alive:
-		_was_alive = false
-		_forget_target()
-		tricks.reset()
-		out.state = &"dead"
-		out.yaw = aim.yaw
-		out.pitch = aim.pitch
-		last = out
-		return out
-
+		return _dead(out)
 	if not _was_alive:
-		# A respawn: a new life starts with no target, no plan and the view the spawn gave.
-		_was_alive = true
-		_forget_target()
-		_waypoint = Vector3.INF
-		_route_goal = Vector3.INF
-		_ride_reached = -1
-		_climb = null
-		_heard_at = -INF
-		_hurt_at = -INF
-		_hurt_pending_at = INF
-		goal.reset()
+		_respawned()
 
 	aim.view_from(me.view_yaw, me.view_pitch)
 
@@ -115,11 +106,19 @@ func think(me: DotBotContact, world: DotBotWorld, now: float) -> DotBotIntent:
 	if world != null:
 		world.prune_sight_blockers(now)
 	var all := world.contacts() if world != null else []
+	if phase_timers:
+		_lap(0)
 	var seen := _perceive(me, all, world, p, now)
+	if phase_timers:
+		_lap(1)
 	if world != null:
 		_hear(me, all, world, p, now)
+		if phase_timers:
+			_lap(2)
 		if world.objective != null and goal.due(now):
 			goal.plan(me, world.objective, world, p, _rng, now)
+	if phase_timers:
+		_lap(3)
 	# A carrier runs home and a defender keeps to its post rather than chase what it lost.
 	var tethered := goal.urgent or goal.strays(me.position)
 
@@ -138,6 +137,8 @@ func think(me: DotBotContact, world: DotBotWorld, now: float) -> DotBotIntent:
 
 	out.yaw = aim.yaw
 	out.pitch = aim.pitch
+	if phase_timers:
+		_lap(4)
 	tricks.apply(me, world, p, _rng, _scene, _scene_up, aim.yaw, now, dt, out)
 	out.target_id = target_id if _visible else -1
 	if policy != null and _climb == null and _ride_reached < 0 and policy.active(p, id):
@@ -145,15 +146,50 @@ func think(me: DotBotContact, world: DotBotWorld, now: float) -> DotBotIntent:
 		# The view stays the brain's: its aim carries on from where the policy turned it.
 		aim.yaw = out.yaw
 		aim.pitch = out.pitch
+	if phase_timers:
+		_lap(5)
 	if _climb != null:
 		_climb_step(me, now, out)
 		_unstick.reset(me.position, now)
 	else:
 		_free_if_stuck(me, world, now, out)
+	if phase_timers:
+		_lap(6)
 	out.ride = _ride_reached
 	_ride_reached = -1
 	last = out
 	return out
+
+
+func _dead(out: DotBotIntent) -> DotBotIntent:
+	_was_alive = false
+	_forget_target()
+	tricks.reset()
+	out.state = &"dead"
+	out.yaw = aim.yaw
+	out.pitch = aim.pitch
+	last = out
+	return out
+
+
+# A respawn: a new life starts with no target, no plan and the view the spawn gave.
+func _respawned() -> void:
+	_was_alive = true
+	_forget_target()
+	_waypoint = Vector3.INF
+	_route_goal = Vector3.INF
+	_ride_reached = -1
+	_climb = null
+	_heard_at = -INF
+	_hurt_at = -INF
+	_hurt_pending_at = INF
+	goal.reset()
+
+
+static func _lap(phase: int) -> void:
+	var t := Time.get_ticks_usec()
+	phase_us[phase] += t - _lap_at
+	_lap_at = t
 
 
 ## The game's rider is done with a ride ([member DotBotIntent.ride]): [param arrived] or not, the
@@ -405,12 +441,12 @@ func _hear(me: DotBotContact, all: Array, world: DotBotWorld, p: DotBotProfile, 
 	var newest := world.last_sound()
 	if newest == _heard_seq:
 		return
-	var heard := world.sounds_after(_heard_seq, now)
+	world.sounds_into(_heard_seq, now, _heard)
 	_heard_seq = newest
 	var my_id := me.id
 	var here := me.position
 	var reach := p.hearing
-	for s in heard:
+	for s in _heard:
 		var source := int(s.get("source", 0))
 		if source == my_id:
 			continue

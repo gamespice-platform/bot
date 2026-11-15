@@ -140,6 +140,7 @@ game-hide-n-seek's `game/hs_bots.gd` is the worked example.
 | `bot_map_knowledge` | 0.1 | 0.4 | 0.7 | 1 | 0 to 1 | Chance a roaming bot heads where it last knew of an enemy instead of anywhere. |
 | `bot_pickup_weapons` | 1 | 1 | 1 | 1 | 0 or 1 | 1 lets a quiet bot walk to a better weapon lying about and take it with the use key; 0 never. |
 | `bot_pickup_range` | 6 | 9 | 12 | 16 | 1 to 100 m | Farthest a bot notices a weapon lying about (it must also see it). |
+| `bot_replan_every` | 0 | 0 | 0 | 0 | 0 or more s | Seconds between a quiet bot's looks over the weapons lying about, each a sight ray per one in range; 0 looks every think. |
 | `bot_role_defend` | 0.3 | 0.3 | 0.3 | 0.3 | 0 to 1 | Share of a team's bots that guard their flag in a flag mode. |
 | `bot_role_attack` | 0.4 | 0.4 | 0.4 | 0.4 | 0 to 1 | Share that go for the enemy flag. |
 | `bot_role_support` | 0.3 | 0.3 | 0.3 | 0.3 | 0 to 1 | Share that escort a carrier or hold the middle. All three 0: every bot roams. |
