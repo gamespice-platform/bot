@@ -1,4 +1,4 @@
-Player bots for Godot 4.7+. A brain that plays like a person, difficulty presets, a pool of bot names and a roster that keeps the bot count right. Part of the [dot-*](https://github.com/modcommunity) family and needs only [dot-core](https://github.com/modcommunity/dot-core).
+Player bots for Godot 4.7+. A brain that plays like a person, difficulty presets, a pool of bot names and a roster that keeps the bot count right. Part of the [dot-*](https://github.com/gamespice-platform) family and needs only [dot-core](https://github.com/gamespice-platform/core).
 
 ## What it does
 A bot here is a player. Each tick the brain decides what a person would press (where to look, how to move, whether to shoot, crouch, jump or throw) and your game turns that into the same movement and weapon commands a client sends. The bot walks through your movement code and shoots through your weapons, so it can never do something a player could not.
@@ -10,9 +10,9 @@ How well it does all that is a profile of about forty numbers. Four presets (`ea
 It also has a pool of bot names, so a scoreboard never shows "Bot 2", and a roster that adds or removes bots to reach a count (dot-server's `DotBotQuota` says what the count is).
 
 ## Install
-You need [Godot 4.7](https://godotengine.org/download). The easiest way to get this addon and the ones it needs is [dot-bootstrap](https://github.com/modcommunity/dot-bootstrap), which clones every project and links the addons into each one.
+You need [Godot 4.7](https://godotengine.org/download). The easiest way to get this addon and the ones it needs is [dot-bootstrap](https://github.com/gamespice-platform/bootstrap), which clones every project and links the addons into each one.
 
-To add it to your own project by hand, copy `addons/dot_bot/` and [dot-core](https://github.com/modcommunity/dot-core)'s `addons/dot_core/` into it and enable dot-bot in **Project → Project Settings → Plugins**. dot-core is the only dependency.
+To add it to your own project by hand, copy `addons/dot_bot/` and [dot-core](https://github.com/gamespice-platform/core)'s `addons/dot_core/` into it and enable dot-bot in **Project → Project Settings → Plugins**. dot-core is the only dependency.
 
 ## Using it
 
