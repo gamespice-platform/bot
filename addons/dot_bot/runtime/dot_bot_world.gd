@@ -112,8 +112,9 @@ static func native_available() -> bool:
 
 
 ## The native sight scan over [param all] packed once for this [member contacts_version], or null
-## (no extension, the game does not bump the version, or a worker thread: brains thinking on threads
-## scan in script, since the scan keeps its last answer); [method sensed] maps its indices back.
+## (no extension, the game does not bump the version, or a worker thread: the scan keeps its last
+## answer, so a brain on a worker reads the handle [method DotBotBrain.par_ready] took on the main
+## thread, or scans in script); [method sensed] maps its indices back.
 func senses(all: Array) -> Object:
 	if contacts_version < 0 or not native_available() or OS.get_thread_caller_id() != OS.get_main_thread_id():
 		return null

@@ -62,6 +62,9 @@ static var _sight_lod_known := -1
 ## The sight LOD last handed to [member _mind] (DotBotWorld.sight_far, sight_far_reuse).
 var _lod_far := 0.0
 var _lod_reuse := 0.0
+## The [member DotBotWorld.contacts_version] whose packed scan [member _mind] holds ([method par_ready]); -1 none.
+var _held_version := -1
+static var _held_known := -1
 
 
 func _init(p_id: int = 0, p_settings: DotBotSettings = null) -> void:
@@ -78,11 +81,32 @@ func _init(p_id: int = 0, p_settings: DotBotSettings = null) -> void:
 
 
 ## Moves this brain wholly into script (the aim's state, and no native perceive or sight cache from
-## here on). Call it on the main thread before the brain first thinks on a worker thread: godot-rust
-## objects may only be touched from the main thread, so a brain that thinks on workers runs in script.
+## here on). [method par_ready] does this itself when the dot_sim library cannot think on workers.
 func leave_native() -> void:
 	aim._demote()
 	_mind = null
+	_held_version = -1
+
+
+## Gets this brain ready to think on a worker thread this tick; call it on the main thread after the
+## world's contacts for the tick are in ([member DotBotWorld.contacts_version] bumped) and before
+## [method think]. The native mind stays (its state is this brain's alone, touched by one thread at a
+## time) and takes a handle on the world's packed sight scan, which a worker must not bind while
+## others do; it then perceives on the worker to the bit as it would on the main thread. A dot_sim
+## library without that handle (DotSimBotMind.hold_senses) moves the brain into script instead, as
+## [method leave_native].
+func par_ready(world: DotBotWorld) -> void:
+	_held_version = -1
+	if not _held_available():
+		leave_native()
+		return
+	if _mind == null or world == null:
+		return
+	var senses := world.senses(world.contacts())
+	if senses == null:
+		return
+	_mind.hold_senses(senses)
+	_held_version = world.contacts_version
 
 
 ## What this bot does this tick.
@@ -266,17 +290,24 @@ func _perceive(me: DotBotContact, all: Array, world: DotBotWorld, p: DotBotProfi
 	var through := p.through_walls >= 0.5 or world == null
 	# The native mind scans, keeps or picks and asks sight in one call when the world packed this
 	# tick's bodies for the native scan (main thread only); else the script does it all.
+	# On a worker the world hands out no scan; the mind then reads the one [method par_ready] held.
 	var senses := world.senses(all) if world != null and _mind != null else null
+	var held := senses == null and _mind != null and world != null and _held_version >= 0 and _held_version == world.contacts_version
 	var chosen: DotBotContact = null
 	var picked := false
-	if senses != null and _mind != null:
+	if senses != null or held:
 		if _los.get_object() != world:
 			_los = Callable(world, &"line_of_sight")
 		if _sight_lod_available() and (world.sight_far != _lod_far or world.sight_far_reuse != _lod_reuse):
 			_lod_far = world.sight_far
 			_lod_reuse = world.sight_far_reuse
 			_mind.set_sight_lod(_lod_far, _lod_reuse)
-		var r: PackedInt32Array = _mind.perceive(senses, me.id, me.team, eye, aim.yaw, aim.pitch, half, p.sight, target_id, (1 if _visible else 0) | (2 if through else 0), now, world.sight_stamp(), _los)
+		var flags := (1 if _visible else 0) | (2 if through else 0)
+		var r: PackedInt32Array
+		if held:
+			r = _mind.perceive_held(me.id, me.team, eye, aim.yaw, aim.pitch, half, p.sight, target_id, flags, now, world.sight_stamp(), _los)
+		else:
+			r = _mind.perceive(senses, me.id, me.team, eye, aim.yaw, aim.pitch, half, p.sight, target_id, flags, now, world.sight_stamp(), _los)
 		if r.size() == 2:
 			picked = true
 			if r[1] != 0:
@@ -315,6 +346,18 @@ static func _perceive_available() -> bool:
 	if _perceive_known < 0:
 		_perceive_known = 1 if ClassDB.class_exists(DotBotAim.MIND_CLASS) and ClassDB.class_has_method(DotBotAim.MIND_CLASS, &"perceive") else 0
 	return native_perceive and _perceive_known == 1
+
+
+## Whether the dot_sim extension's DotSimBotMind can perceive on a worker over a held scan (hold_senses,
+## perceive_held) and its objects may be called off the main thread at all (worker_safe: not on the web).
+static func _held_available() -> bool:
+	if _held_known < 0:
+		_held_known = 0
+		if ClassDB.class_exists(DotBotAim.MIND_CLASS) and ClassDB.class_has_method(DotBotAim.MIND_CLASS, &"perceive_held") \
+				and ClassDB.class_has_method(DotBotAim.MIND_CLASS, &"worker_safe") \
+				and ClassDB.class_call_static(DotBotAim.MIND_CLASS, &"worker_safe"):
+			_held_known = 1
+	return _held_known == 1
 
 
 ## Whether the dot_sim extension's DotSimBotMind applies the sight LOD itself (sight_cached_far, set_sight_lod).

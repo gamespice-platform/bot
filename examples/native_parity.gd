@@ -1,6 +1,7 @@
 extends Node
 
 ## Native against script brains (`godot --headless --path . res://examples/native_parity.tscn`): two brains with the same id in two copies of the same scripted fights, one thinking through dot_sim's DotSimBotMind and one in GDScript, compared to the bit every tick (intent, view, engagement, strafe, the random streams and the aim's private state).
+## A third copy thinks natively on a worker thread (DotBotBrain.par_ready on the main thread first, then think through WorkerThreadPool), as a game's threaded bots do, and must match the same rows.
 ## Needs the dot_sim extension; without it there is nothing to compare and the scene says so and passes. The native side's world also bumps contacts_version every tick, so it perceives through DotSimBotMind.perceive over the native sight scan, with bystanders to choose among and the target killed late in some rounds.
 
 const TICK := 1.0 / 30.0
@@ -13,7 +14,9 @@ var _ticks := 0
 var _fights := 0
 var _fires := 0
 var _failed := ""
-var _usec := [0, 0]
+var _usec := [0, 0, 0]
+## Whether the dot_sim library can perceive on a worker (DotSimBotMind.perceive_held); older ones skip the worker copy.
+var _held := false
 
 
 func _ready() -> void:
@@ -29,6 +32,7 @@ func _run() -> void:
 	# `-- --script-perceive`: the native side perceives in script, to time the native perceive.
 	if "--script-perceive" in OS.get_cmdline_user_args():
 		DotBotBrain.native_perceive = false
+	_held = DotBotBrain._held_available()
 	var presets := ["easy", "medium", "hard", "nightmare"]
 	for round_ in ROUNDS:
 		_round(round_, presets[round_ % presets.size()])
@@ -40,7 +44,7 @@ func _run() -> void:
 		print("native parity: FAIL ", _failed)
 		get_tree().quit(1)
 		return
-	print("native parity: ok, %d ticks over %d rounds (%d fighting, %d firing), native and script identical; think %.1f us native (perceive %s), %.1f us script" % [_ticks, ROUNDS, _fights, _fires, float(_usec[0]) / _ticks, "native" if DotBotBrain.native_perceive else "script", float(_usec[1]) / _ticks])
+	print("native parity: ok, %d ticks over %d rounds (%d fighting, %d firing), native and script identical%s; think %.1f us native (perceive %s), %.1f us script" % [_ticks, ROUNDS, _fights, _fires, ", and native on a worker" if _held else " (no worker copy: library without perceive_held)", float(_usec[0]) / _ticks, "native" if DotBotBrain.native_perceive else "script", float(_usec[1]) / _ticks])
 	get_tree().quit(0)
 
 
@@ -70,7 +74,9 @@ func _round(round_: int, preset: String) -> void:
 		var a := deg_to_rad(rng.next_range_f(-180.0, 180.0))
 		spots.append(Vector3(-sin(a), 0.0, -cos(a)) * rng.next_range_f(3.0, 60.0))
 	var sides: Array = []
-	for native in [true, false]:
+	for mode in ([0, 1, 2] if _held else [0, 1]):
+		# 0 native on the main thread, 1 script, 2 native on a worker.
+		var native: bool = mode != 1
 		var me := DotBotContact.make(1, Vector3.ZERO)
 		var them := DotBotContact.make(2, start)
 		var all: Array = [me, them]
@@ -85,8 +91,8 @@ func _round(round_: int, preset: String) -> void:
 		if not native:
 			brain.aim._demote()
 			brain._mind = null
-		sides.append({"me": me, "them": them, "world": world, "wall": wall, "brain": brain, "native": native})
-	if not (sides[0].brain as DotBotBrain).aim.is_native() or (sides[1].brain as DotBotBrain).aim.is_native() or DotBotBrain.native_perceive and (sides[0].brain as DotBotBrain)._mind == null:
+		sides.append({"me": me, "them": them, "world": world, "wall": wall, "brain": brain, "native": native, "worker": mode == 2})
+	if not (sides[0].brain as DotBotBrain).aim.is_native() or (sides[1].brain as DotBotBrain).aim.is_native() or DotBotBrain.native_perceive and (sides[0].brain as DotBotBrain)._mind == null or _held and (sides[2].brain as DotBotBrain)._mind == null:
 		_failed = "round %d: could not set up one native and one script brain" % round_
 		return
 
@@ -113,7 +119,18 @@ func _round(round_: int, preset: String) -> void:
 				brain.hurt(them.eye(), t)
 				me.health = 0.3 if t > 8.0 else 0.6
 			var t0 := Time.get_ticks_usec()
-			var intent := brain.think(me, side.world, t)
+			var intent: DotBotIntent
+			if side.worker:
+				brain.par_ready(side.world)
+				if DotBotBrain.native_perceive and brain._held_version != tick:
+					_failed = "round %d: par_ready held no scan" % round_
+					return
+				var box := [null]
+				var task := WorkerThreadPool.add_task(func() -> void: box[0] = brain.think(me, side.world, t))
+				WorkerThreadPool.wait_for_task_completion(task)
+				intent = box[0]
+			else:
+				intent = brain.think(me, side.world, t)
 			_usec[k] += Time.get_ticks_usec() - t0
 			me.view_yaw = intent.yaw
 			me.view_pitch = intent.pitch
@@ -130,6 +147,10 @@ func _round(round_: int, preset: String) -> void:
 				_failed = "round %d: the native side never packed a native scan" % round_
 				return
 		var why := _differs(rows[0], rows[1])
+		if why == "" and rows.size() > 2:
+			why = _differs(rows[2], rows[1])
+			if why != "":
+				why = "worker: " + why
 		if why != "":
 			_failed = "round %d (%s) t=%.3f: %s" % [round_, preset, t, why]
 			return
