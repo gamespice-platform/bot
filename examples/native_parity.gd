@@ -73,25 +73,7 @@ func _round(round_: int, preset: String) -> void:
 	for b in BYSTANDERS:
 		var a := deg_to_rad(rng.next_range_f(-180.0, 180.0))
 		spots.append(Vector3(-sin(a), 0.0, -cos(a)) * rng.next_range_f(3.0, 60.0))
-	var sides: Array = []
-	for mode in ([0, 1, 2] if _held else [0, 1]):
-		# 0 native on the main thread, 1 script, 2 native on a worker.
-		var native: bool = mode != 1
-		var me := DotBotContact.make(1, Vector3.ZERO)
-		var them := DotBotContact.make(2, start)
-		var all: Array = [me, them]
-		for b in BYSTANDERS:
-			all.append(DotBotContact.make(10 + b, spots[b]))
-		var world := DotBotWorld.new()
-		var wall := [false]
-		world.contacts_fn = func() -> Array: return all
-		# The wall hides the target, and the far side of the field from the near.
-		world.line_of_sight_fn = func(a: Vector3, b: Vector3) -> bool: return not wall[0] and (a.distance_to(b) < 30.0 or b.x > a.x)
-		var brain := DotBotBrain.new(round_ * 13 + 5, _settings(preset, round_))
-		if not native:
-			brain.aim._demote()
-			brain._mind = null
-		sides.append({"me": me, "them": them, "world": world, "wall": wall, "brain": brain, "native": native, "worker": mode == 2})
+	var sides := _make_sides(round_, preset, start, spots)
 	if not (sides[0].brain as DotBotBrain).aim.is_native() or (sides[1].brain as DotBotBrain).aim.is_native() or DotBotBrain.native_perceive and (sides[0].brain as DotBotBrain)._mind == null or _held and (sides[2].brain as DotBotBrain)._mind == null:
 		_failed = "round %d: could not set up one native and one script brain" % round_
 		return
@@ -160,6 +142,30 @@ func _round(round_: int, preset: String) -> void:
 		if (sides[0].brain as DotBotBrain).last.fire:
 			_fires += 1
 		t += TICK
+
+
+## One bot world and brain per mode: native on the main thread, script, and (held) native on a worker.
+func _make_sides(round_: int, preset: String, start: Vector3, spots: Array[Vector3]) -> Array:
+	var sides: Array = []
+	for mode in ([0, 1, 2] if _held else [0, 1]):
+		# 0 native on the main thread, 1 script, 2 native on a worker.
+		var native: bool = mode != 1
+		var me := DotBotContact.make(1, Vector3.ZERO)
+		var them := DotBotContact.make(2, start)
+		var all: Array = [me, them]
+		for b in BYSTANDERS:
+			all.append(DotBotContact.make(10 + b, spots[b]))
+		var world := DotBotWorld.new()
+		var wall := [false]
+		world.contacts_fn = func() -> Array: return all
+		# The wall hides the target, and the far side of the field from the near.
+		world.line_of_sight_fn = func(a: Vector3, b: Vector3) -> bool: return not wall[0] and (a.distance_to(b) < 30.0 or b.x > a.x)
+		var brain := DotBotBrain.new(round_ * 13 + 5, _settings(preset, round_))
+		if not native:
+			brain.aim._demote()
+			brain._mind = null
+		sides.append({"me": me, "them": them, "world": world, "wall": wall, "brain": brain, "native": native, "worker": mode == 2})
+	return sides
 
 
 func _row(brain: DotBotBrain, intent: DotBotIntent) -> Array:
