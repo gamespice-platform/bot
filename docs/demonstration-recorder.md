@@ -88,7 +88,7 @@ One interface, `DotBotDemoStore` (`RefCounted`, every method returns `DotResult`
 
 ### Recording a ride
 
-The game (game-fatal-contact's `arena_surf.gd`) declares the `ride` schema: observation `position` (3), `velocity` (3); action `yaw`, `move` (2), `jump`. A ride begins when a player who stood on an island (`DotBotNav.island_at`) is in the air above no island, with the full motor state as `start`; it ends `landed` when they stand on another island (the key becomes `"from>to"`), and is cancelled by a teleport, a death or a fall onto a teleport floor. A ride back onto its own island is not kept.
+The game (game-fatal-contact's `fc_surf.gd`) declares the `ride` schema: observation `position` (3), `velocity` (3); action `yaw`, `move` (2), `jump`. A ride begins when a player who stood on an island (`DotBotNav.island_at`) is in the air above no island, with the full motor state as `start`; it ends `landed` when they stand on another island (the key becomes `"from>to"`), and is cancelled by a teleport, a death or a fall onto a teleport floor. A ride back onto its own island is not kept.
 
 ### Verifying it
 
@@ -118,9 +118,9 @@ Limit: a job step checks its 2 ms budget between replays, and a piloted replay w
 
 ### Host wiring for game-fatal-contact (design note, not built: the repo was held)
 
-Four additions to `arena_surf_rides.gd`, all optional, none changing the existing `replay_*` methods:
+Four additions to `fc_surf_rides.gd`, all optional, none changing the existing `replay_*` methods:
 
-1. `pilot_setup(pilot, ep)`: `var c := course_for_key(ep.key)`; `pilot.reference_yaw` as the bot pilot gets it for that edge (not checked against arena_surf.gd; `c.start_yaw` is the likely source); `pilot.score = c.score`. Whatever `ArenaSurf` gives a bot's pilot for this edge (the same course object, `sim` is already the edge's simulator with its `oracle` returning course events) is what the harvest must see, so reuse that builder rather than a second copy.
+1. `pilot_setup(pilot, ep)`: `var c := course_for_key(ep.key)`; `pilot.reference_yaw` as the bot pilot gets it for that edge (not checked against fc_surf.gd; `c.start_yaw` is the likely source); `pilot.score = c.score`. Whatever `FcSurf` gives a bot's pilot for this edge (the same course object, `sim` is already the edge's simulator with its `oracle` returning course events) is what the harvest must see, so reuse that builder rather than a second copy.
 2. `_sim` must be the edge's `DotFpsSimulator` with the course oracle set before the job starts (the existing `_replay_course.current` trick does this for `landing`; the veto needs the oracle too, because it reads `step`'s event).
 3. `harvest_edge` calls `book.load_edge(store, KIND, key, schema, tick_rate, <the same reference yaw>)` so the bot gets the cache; the `decode` callable stays as the fallback for books loaded without a yaw.
 4. `tools/surf_rides.tscn --harvest` prints `harvest.describe()["piloted_replays"]` and writes the merged cache from `book.ranked(key)` entries' `data["cache"]` (rows already in metres; `DotBotSurfPilot.entries_to_rows`), which also closes the "writes no merged cache file" gap in arena-ride-recording.
@@ -139,7 +139,7 @@ A game's `tools/surf_rides.tscn` keeps `--explore`, `--plan` and `--measure`, an
 
 | dot-bot (nothing surf- or game-specific beyond `runtime/surf/`) | game-fatal-contact |
 | --- | --- |
-| `DotBotDemoSchema`, `DotBotDemoEpisode`, `DotBotDemoRecorder`, `DotBotDemoConfig`, the three stores, `DotBotRideHarvest`, ride choice in `DotBotSurfRide`, the suite sections on a toy simulator | the `ride` schema, `begin`/`sample`/`end` from the island tests it already has, the map id and version from its session, the store from its config, the arena's surf tuning in the simulator it hands over, `tools/surf_rides.tscn --harvest`, `headless_imported` riding a recorded edge |
+| `DotBotDemoSchema`, `DotBotDemoEpisode`, `DotBotDemoRecorder`, `DotBotDemoConfig`, the three stores, `DotBotRideHarvest`, ride choice in `DotBotSurfRide`, the suite sections on a toy simulator | the `ride` schema, `begin`/`sample`/`end` from the island tests it already has, the map id and version from its session, the store from its config, the FC's surf tuning in the simulator it hands over, `tools/surf_rides.tscn --harvest`, `headless_imported` riding a recorded edge |
 
 Another game with ramps or trick movement uses the same pieces with its own schema and segmenting.
 
@@ -162,12 +162,12 @@ A small network copies what people do in a state, for the parts no search or rul
 - **Inference** (`DotBotMlp`, dot-bot): a forward pass over `PackedFloat32Array`, no allocation per call. A 16-64-64-6 net is about 5,500 multiply-adds, roughly 0.2 to 0.4 ms in GDScript; at the dot-npc-ai scheduler's tiers (every tick for a bot near a player, every Nth otherwise; `DotNpcAiScheduler.admit`) and a 16 Hz think, that is under 1% of a core per bot. The action is held between thinks, as the pilot already holds its actions.
 - **Evaluation gate** (`tools/demo_eval.gd`): replay the held-out episodes' start states on the game's simulator, once with the policy and once with the fixed baseline it would replace (the pilot for rides, the scripted brain for roaming), with seeded perturbations. The policy is only switched on by default (`bot_policy` cvar, default `0`) for a kind when it beats the baseline on that kind's own metric (landing rate, reaching the next waypoint, time alive) by a margin over the seeds' spread, on every map in the held-out set, and the gate's report is committed beside the weights. A policy that loses on one map is off on that map. Built as `DotBotEvalGate` (`tools/demo_eval.gd` is its command line): the host is duck typed (`eval_start(start, seed)`, `eval_observe`, `eval_baseline`, `eval_step`, `eval_done`, `eval_score`), each held-out start is replayed under every seed for both sides with the same seed, and a map passes when the mean per-seed gain is at least `max(min_margin, spread_k` times the standard deviation of the gain across seeds`)`, the policy's own score clears `min_policy_score` and the map has `min_episodes` held-out episodes. The report is deterministic (no times, sorted keys) and lists `policy_on`.
 
-## Arena host for the gate and the policy (design)
+## FC host for the gate and the policy (design)
 
 Built here: `DotBotPolicy` (the intent writer) and `bot_policy`. Not built, because game-fatal-contact was held by the demo-stats slice: the host script. game-fatal-contact adds `tools/bc_eval_host.gd` (a script the `tools/demo_eval.gd` command takes) and three lines in its bot wiring.
 
 - **Kind and schema.** The first kind is `engage` (the aim and strafe of a fight), the one `arena-demo-stats` records; the schema is the recorder's own, so `DotBotPolicy.set_net(net, schema)` reads the action layout from it. Action fields the policy may use by name: `move`, `look`, `fire`, `crouch`, `jump`; anything else in the schema is recorded but ignored.
-- **`eval_start(start, seed)`**: build a headless Arena world (the `headless_bots` rig) on the start's map, place the subject and the recorded opponent at the start state's positions and views, seed the opponent's aim error and the world's `DotRandomStream` from `seed`, and return the state (the rig plus a tick counter).
+- **`eval_start(start, seed)`**: build a headless FC world (the `headless_bots` rig) on the start's map, place the subject and the recorded opponent at the start state's positions and views, seed the opponent's aim error and the world's `DotRandomStream` from `seed`, and return the state (the rig plus a tick counter).
 - **`eval_observe(state)`**: the schema's observation for the subject, built by the same function the recorder samples with (one function, so training and replay can not drift apart); returns a `PackedFloat32Array`.
 - **`eval_baseline(state)`**: the action row the scripted `DotBotBrain` would give this tick for the same observation, packed in the schema's order (`DotBotPolicy.write` is the inverse of this packing).
 - **`eval_step(state, action)`**: write the row into the subject's `DotFpsCommand`/`DotWeaponCommand` through `DotBotIntent.write_move`/`write_fire` and step the world one think (1/16 s).
@@ -197,13 +197,13 @@ Each piece is one repository, sized S (an hour or two of a builder, under 300 li
 | `deploy-demo-cfg` | dot-server-deploy | `cfg/bot_record.yml` documenting every key and the rules text, read into the game's `DotBotDemoConfig` by the host the way `replay.yml` is | S | `demo-rec-core` |
 | `demo-heatmap` | dot-bot | `DotBotDemoHeatmap` (kind `place`, grid, decay, minimum count) and a `waypoints_fn` weighting helper; suite | M | `demo-rec-stores` |
 | `demo-aim-stats` | dot-bot | `DotBotAimStats` (kind `engage`, percentile sketches, cheat floor, `suggest` onto `SPEC`) and a tool that prints a suggested preset table; suite | M | `demo-rec-stores` |
-| `arena-demo-stats` | game-fatal-contact | `place` and `engage` episodes from the arena's sight and hit events; roaming weighted by the heatmap; `headless_bots` still passes | M | `demo-heatmap`, `demo-aim-stats` |
+| `arena-demo-stats` | game-fatal-contact | `place` and `engage` episodes from the FC's sight and hit events; roaming weighted by the heatmap; `headless_bots` still passes | M | `demo-heatmap`, `demo-aim-stats` |
 | `npc-character-from-stats` | dot-npc-ai | `DotNpcAiCharacter.from_percentiles(dict)`, duck typed; suite | S | `demo-aim-stats` |
 | `bc-export` | dot-bot | `tools/demo_export.gd`: manifest and float32 shards, split by episode; suite reads a shard back | S | `demo-rec-stores` |
 | `bc-train` | dot-bot | `tools/bc/train.py` (PyTorch, MLP, DAgger hook), `.dotmlp` writer, run once on staging02 through `gpu.sh py` on a toy export | M | `bc-export` |
 | `bc-mlp-runtime` | dot-bot | `DotBotMlp` (load, schema check, allocation-free forward), a policy intent writer, the `bot_policy` cvar default off; suite: matches the trainer's output on fixed inputs to 1e-5, cost measured | M | `bc-train` |
 | `bc-eval-gate` | dot-bot | `tools/demo_eval.gd`: held-out starts, policy against baseline on a host's simulator, seeded, per-map verdict and report | M | `bc-mlp-runtime` |
-| `arena-bc-trial` | game-fatal-contact | the first cloned policy (rides or roaming), trained on recorded arena episodes, gated by `bc-eval-gate`; stays off unless the gate passes | L | `bc-eval-gate`, `arena-ride-recording` |
+| `arena-bc-trial` | game-fatal-contact | the first cloned policy (rides or roaming), trained on recorded FC episodes, gated by `bc-eval-gate`; stays off unless the gate passes | L | `bc-eval-gate`, `arena-ride-recording` |
 
 Stage 1 is the first five, and is `bot-recorded-rides-1`'s "done when". Stages 2 and 3 can start once `demo-rec-stores` lands and do not block it.
 
