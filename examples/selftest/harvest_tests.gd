@@ -126,7 +126,7 @@ func _test_harvest_verify() -> void:
 	strict.settle_ticks = 0
 	strict.perturb_metres = 6.0
 	_check(not _ride_harvest(strict).verify([_ride_episode("1>2", 20.0)])[0]["ok"], "a ride under min_score is rejected")
-	var job := h.make_job([_ride_episode("1>2", 20.0), _ride_episode("1>2", 5.0)])
+	var job: RefCounted = h.make_job([_ride_episode("1>2", 20.0), _ride_episode("1>2", 5.0)])
 	var steps := 0
 	while job.step():
 		steps += 1

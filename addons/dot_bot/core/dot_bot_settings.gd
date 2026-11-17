@@ -161,7 +161,18 @@ func is_overridden(field: String) -> bool:
 func style_table() -> Dictionary:
 	if _base != null:
 		return _base.style_table()
-	return DotBotStyle.DEFAULTS if _style_table.is_empty() else _style_table
+	return _style_script().DEFAULTS if _style_table.is_empty() else _style_table
+
+
+# DotBotStyle by uid, not by name: it names this class back, and a script loop stays in memory
+# for good (Godot 4.7).
+static var _style: Script = null
+
+
+static func _style_script() -> Script:
+	if _style == null:
+		_style = load("uid://chpm2f8woxf3x")
+	return _style
 
 
 ## Bumped when the table changes; a [DotBotStyle] compares it.
@@ -178,7 +189,8 @@ func set_style_config(file: String, weights: String) -> DotResult:
 		if not FileAccess.file_exists(path):
 			return DotResult.fail(DotError.CODE_INVALID, "bot_style_file: no file '%s'." % path)
 		text = FileAccess.get_file_as_string(path)
-	var built := DotBotStyle.build_table(DotBotStyle.DEFAULTS, text, weights.strip_edges())
+	var style := _style_script()
+	var built: Dictionary = style.build_table(style.DEFAULTS, text, weights.strip_edges())
 	if not bool(built["ok"]):
 		DotLog.warn(CHANNEL, "bot styles not changed", {"error": built["error"]})
 		return DotResult.fail(DotError.CODE_INVALID, String(built["error"]))

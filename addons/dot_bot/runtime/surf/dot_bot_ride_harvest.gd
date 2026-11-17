@@ -151,14 +151,16 @@ func replay_open(ep: Variant, state: Variant) -> int:
 
 
 ## A job that replays [param episodes] a slice at a time; its result is the Array of verdicts.
-func make_job(episodes: Array) -> DotBotRideHarvestJob:
-	return DotBotRideHarvestJob.new(self, episodes)
+## A [DotBotRideHarvestJob], typed by its base and loaded by uid: the job names this class back,
+## and a script loop stays in memory for good (Godot 4.7).
+func make_job(episodes: Array) -> DotJob:
+	return load("uid://dv3phitj43ioq").new(self, episodes)
 
 
 ## Replays [param episodes] to the end now, for tools and tests; the verdicts, see [DotBotRideHarvestJob].
 func verify(episodes: Array) -> Array:
-	var job := make_job(episodes)
-	var _r := job.run_to_completion()
+	var job: RefCounted = make_job(episodes)
+	var _r: DotResult = job.run_to_completion()
 	return job.verdicts
 
 

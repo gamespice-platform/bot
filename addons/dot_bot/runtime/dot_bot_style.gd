@@ -328,8 +328,10 @@ func on_kill() -> void:
 
 # --- Steering ---------------------------------------------------------------------
 
+# [param b] is the DotBotBrain, typed by its base: the brain names this class, and a script loop
+# stays in memory for good (Godot 4.7).
 ## After the brain's fight: the style's own legs over the generic ones.
-func after_fight(b: DotBotBrain, me: DotBotContact, c: DotBotContact, world: DotBotWorld, now: float, dt: float, out: DotBotIntent) -> void:
+func after_fight(b: RefCounted, me: DotBotContact, c: DotBotContact, world: DotBotWorld, now: float, dt: float, out: DotBotIntent) -> void:
 	var flat := Vector2(c.position.x - me.position.x, c.position.z - me.position.z)
 	var dist := flat.length()
 	if phase == HIDE:
@@ -368,7 +370,7 @@ func after_fight(b: DotBotBrain, me: DotBotContact, c: DotBotContact, world: Dot
 
 ## With nothing in sight: true when a phase takes this tick (the brain then skips its search,
 ## listen and roam). [param free] is false while an objective or a pickup has the bot.
-func lead(b: DotBotBrain, me: DotBotContact, world: DotBotWorld, now: float, dt: float, out: DotBotIntent, free: bool) -> bool:
+func lead(b: RefCounted, me: DotBotContact, world: DotBotWorld, now: float, dt: float, out: DotBotIntent, free: bool) -> bool:
 	_exposed_since = -INF
 	_shots = 0
 	if world == null:
@@ -397,7 +399,7 @@ func lead(b: DotBotBrain, me: DotBotContact, world: DotBotWorld, now: float, dt:
 	return false
 
 
-func _lead_hide(b: DotBotBrain, me: DotBotContact, world: DotBotWorld, now: float, dt: float, out: DotBotIntent, free: bool, eye: Vector3) -> bool:
+func _lead_hide(b: RefCounted, me: DotBotContact, world: DotBotWorld, now: float, dt: float, out: DotBotIntent, free: bool, eye: Vector3) -> bool:
 	if now >= phase_until and (_at(me, spot) or now > phase_since + TRAVEL_MAX):
 		if _killed or _rng.next_unit() < float(row["reposition"]):
 			_to_vantage(me, world, now, peek_spot)
@@ -413,13 +415,13 @@ func _lead_hide(b: DotBotBrain, me: DotBotContact, world: DotBotWorld, now: floa
 		out.crouch = _hold_crouch
 	if threat != Vector3.INF:
 		# Pre-aimed at where it will come out.
-		var _v := b.aim.look_at_point(eye, threat + Vector3.UP * 1.25, dt)
+		var _v: Vector2 = b.aim.look_at_point(eye, threat + Vector3.UP * 1.25, dt)
 	out.state = &"cover"
 	b._scene = &"cover" if there else &"flee"
 	return true
 
 
-func _lead_return(b: DotBotBrain, me: DotBotContact, world: DotBotWorld, now: float, dt: float, out: DotBotIntent, free: bool, eye: Vector3) -> bool:
+func _lead_return(b: RefCounted, me: DotBotContact, world: DotBotWorld, now: float, dt: float, out: DotBotIntent, free: bool, eye: Vector3) -> bool:
 	if _at(me, spot) or now >= phase_until:
 		if row["roam"] == "camp" and free:
 			_begin(HOLD, now, now + _between(row["patience"]) * _j_patience)
@@ -429,13 +431,13 @@ func _lead_return(b: DotBotBrain, me: DotBotContact, world: DotBotWorld, now: fl
 		return false
 	_go(b, me, world, spot, true, out)
 	if threat != Vector3.INF:
-		var _v := b.aim.look_at_point(eye, threat + Vector3.UP * 1.25, dt)
+		var _v: Vector2 = b.aim.look_at_point(eye, threat + Vector3.UP * 1.25, dt)
 	out.state = &"peek"
 	b._scene = &"cover"
 	return true
 
 
-func _lead_move(b: DotBotBrain, me: DotBotContact, world: DotBotWorld, now: float, dt: float, out: DotBotIntent, free: bool, eye: Vector3) -> bool:
+func _lead_move(b: RefCounted, me: DotBotContact, world: DotBotWorld, now: float, dt: float, out: DotBotIntent, free: bool, eye: Vector3) -> bool:
 	if not free:
 		_end()
 		return false
@@ -446,16 +448,16 @@ func _lead_move(b: DotBotBrain, me: DotBotContact, world: DotBotWorld, now: floa
 		_end()
 		return false
 	var dir := _go(b, me, world, spot, _sneak, out)
-	var _v := b.aim.look_at_point(eye, eye + Vector3(dir.x, 0.0, dir.y), dt)
+	var _v: Vector2 = b.aim.look_at_point(eye, eye + Vector3(dir.x, 0.0, dir.y), dt)
 	out.state = &"sneak" if _sneak else &"reposition"
 	b._scene = &"cover"
 	return true
 
 
-func _lead_hold(b: DotBotBrain, me: DotBotContact, world: DotBotWorld, now: float, dt: float, out: DotBotIntent, free: bool, eye: Vector3) -> bool:
+func _lead_hold(b: RefCounted, me: DotBotContact, world: DotBotWorld, now: float, dt: float, out: DotBotIntent, free: bool, eye: Vector3) -> bool:
 	if not free or b._hurt_at > phase_since:
 		# Shot from somewhere it is not watching: this angle is burnt.
-		var burnt := b._hurt_at > phase_since
+		var burnt: bool = b._hurt_at > phase_since
 		_end()
 		if burnt and free and row["roam"] == "camp":
 			_to_vantage(me, world, now, me.position)
@@ -474,9 +476,9 @@ func _lead_hold(b: DotBotBrain, me: DotBotContact, world: DotBotWorld, now: floa
 		look = b._heard_pos
 	if look != Vector3.INF:
 		var at := look + Vector3.UP * 1.25
-		var sweep := 18.0 * sin(now * 0.4 + float(b.id % 83))
+		var sweep: float = 18.0 * sin(now * 0.4 + float(b.id % 83))
 		var dir := (at - eye).rotated(Vector3.UP, deg_to_rad(sweep))
-		var _v := b.aim.look_at_point(eye, eye + dir, dt)
+		var _v: Vector2 = b.aim.look_at_point(eye, eye + dir, dt)
 	else:
 		b._drift(15.0, dt)
 	out.state = &"vantage"
@@ -502,7 +504,7 @@ func _end() -> void:
 
 
 ## Back out of [param c]'s sight to cover near by, remembering where it peeked from.
-func _hide(b: DotBotBrain, me: DotBotContact, c: DotBotContact, world: DotBotWorld, now: float, dt: float, out: DotBotIntent, why: StringName) -> void:
+func _hide(b: RefCounted, me: DotBotContact, c: DotBotContact, world: DotBotWorld, now: float, dt: float, out: DotBotIntent, why: StringName) -> void:
 	var at := cover_near(me.position, c.position, c.eye(), world, _rng)
 	peek_spot = me.position
 	threat = c.position
@@ -531,8 +533,8 @@ func _to_vantage(me: DotBotContact, world: DotBotWorld, now: float, away_from: V
 
 
 ## Walks toward [param dest] (quietly when [param quiet]); the flat direction taken.
-func _go(b: DotBotBrain, me: DotBotContact, world: DotBotWorld, dest: Vector3, quiet: bool, out: DotBotIntent) -> Vector2:
-	var dir := b._toward(me, world, dest)
+func _go(b: RefCounted, me: DotBotContact, world: DotBotWorld, dest: Vector3, quiet: bool, out: DotBotIntent) -> Vector2:
+	var dir: Vector2 = b._toward(me, world, dest)
 	b._set_move(out, dir)
 	out.walk = quiet
 	return dir

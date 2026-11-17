@@ -259,12 +259,12 @@ func _test_ride_tracking_agrees() -> void:
 
 func _job_ticks(host: CountingHost, cfg: DotBotRideConfig, eps: Array) -> Dictionary:
 	var h := _pilot_harvest(host, cfg)
-	var job := h.make_job(eps)
+	var job: RefCounted = h.make_job(eps)
 	var ticks := 0
 	var worst := 0
 	while true:
 		var before := host.landings
-		var more := job.step()
+		var more: bool = job.step()
 		worst = maxi(worst, host.landings - before)
 		ticks += 1
 		if not more or ticks > 100000:
