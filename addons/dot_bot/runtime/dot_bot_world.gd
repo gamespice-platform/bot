@@ -176,6 +176,14 @@ func line_of_sight(from: Vector3, to: Vector3) -> bool:
 	return bool(line_of_sight_fn.call(from, to)) if line_of_sight_fn.is_valid() else true
 
 
+## What a native mind asks sight through (`(from, to) -> bool`): [method line_of_sight] here. A game whose
+## line_of_sight is one engine ray may hand a native one instead (dot-sim's `DotSimSightRay.clear`), which the mind
+## then asks with no call into script; it must answer to the bit as the game's line_of_sight does. Asked once per
+## native perceive, so the game may switch it from tick to tick.
+func sight_callable() -> Callable:
+	return Callable(self, &"line_of_sight")
+
+
 ## Changes whenever a sight blocker is added or removed, so cached sight results can be dropped.
 func sight_stamp() -> int:
 	return _blocker_seq * 4096 + sight_blockers.size()

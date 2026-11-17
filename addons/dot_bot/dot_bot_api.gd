@@ -51,5 +51,6 @@ extends RefCounted
 # 32: Weapon play styles: DotBotStyle, a weighted table of styles per weapon class (sniper, marksman, rifle, smg, shotgun, pistol, heavy, launcher, melee, throw); DotBotContact weapon_class and magazine; cvars bot_styles, bot_style_file, bot_style_weights (0 styles is the generic bot to the bit); describe() reports style and style_phase.
 # 33: DotBotNav sets its map's edge-merge cell (agent key `merge_scale`, a share of the mesh cell from 0.01 to 0.1, 0 the engine's default 0.1 that the project setting does not reach; outside the range fails loudly); merge_scale_used; describe() reports merge_scale.
 # 34: DotBotBrain.par_ready (a brain about to think on a worker keeps its native mind, which perceives over a scan handle taken on the main thread; replaces leave_native for threaded callers).
-const LEVEL := 34
+# 35: DotBotWorld.sight_callable (what a native mind asks sight through, line_of_sight unless a game hands one answering the same; DotBotBrain asks it every native perceive).
+const LEVEL := 35
 const OLDEST := 1

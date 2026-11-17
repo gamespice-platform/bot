@@ -57,7 +57,6 @@ static var _lap_at := 0
 ## This brain's DotSimBotMind (the aim's, kept when the aim falls back to script): it holds the
 ## sight cache, and perceives when the world packed a native scan this tick. Null: all in script.
 var _mind: Object = null
-var _los := Callable()
 static var _sight_lod_known := -1
 ## The sight LOD last handed to [member _mind] (DotBotWorld.sight_far, sight_far_reuse).
 var _lod_far := 0.0
@@ -296,8 +295,7 @@ func _perceive(me: DotBotContact, all: Array, world: DotBotWorld, p: DotBotProfi
 	var chosen: DotBotContact = null
 	var picked := false
 	if senses != null or held:
-		if _los.get_object() != world:
-			_los = Callable(world, &"line_of_sight")
+		var los := world.sight_callable()
 		if _sight_lod_available() and (world.sight_far != _lod_far or world.sight_far_reuse != _lod_reuse):
 			_lod_far = world.sight_far
 			_lod_reuse = world.sight_far_reuse
@@ -305,9 +303,9 @@ func _perceive(me: DotBotContact, all: Array, world: DotBotWorld, p: DotBotProfi
 		var flags := (1 if _visible else 0) | (2 if through else 0)
 		var r: PackedInt32Array
 		if held:
-			r = _mind.perceive_held(me.id, me.team, eye, aim.yaw, aim.pitch, half, p.sight, target_id, flags, now, world.sight_stamp(), _los)
+			r = _mind.perceive_held(me.id, me.team, eye, aim.yaw, aim.pitch, half, p.sight, target_id, flags, now, world.sight_stamp(), los)
 		else:
-			r = _mind.perceive(senses, me.id, me.team, eye, aim.yaw, aim.pitch, half, p.sight, target_id, flags, now, world.sight_stamp(), _los)
+			r = _mind.perceive(senses, me.id, me.team, eye, aim.yaw, aim.pitch, half, p.sight, target_id, flags, now, world.sight_stamp(), los)
 		if r.size() == 2:
 			picked = true
 			if r[1] != 0:
