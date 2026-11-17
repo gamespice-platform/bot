@@ -488,9 +488,12 @@ var _batch_dirty := false
 ## route is laid over a half-joined mesh, and bots start once it is cleared. [method clear] clears it.
 var held := false:
 	set(on):
+		var was := held
 		held = on
 		# joined() snaps through closest() only when ready, so a graph cached while held is stale
 		_ride_graph = null
+		if was and not on:
+			_link_pending()
 
 # Polygons per open-border edge key, counted once per bake for every edge search, from polygon _uses_at on.
 var _uses := {}
@@ -502,7 +505,9 @@ func add_ride(from: Vector3, to: Vector3, id: int, cost: float = 1.0) -> void:
 	var ride := {"id": id, "from": from, "to": to, "cost": cost, "rid": RID()}
 	_rides.append(ride)
 	_ride_graph = null
-	if _map.is_valid():
+	# Held: the rides wait unlinked and go to the server together when the hold ends, as each link added
+	# dirties the map and the server re-syncs all of it in the next physics step, a frame's worth of work per slice.
+	if _map.is_valid() and not held:
 		_link(ride)
 		if _batching:
 			_batch_dirty = true
@@ -536,6 +541,20 @@ func clear_rides() -> void:
 	_rides.clear()
 	if _map.is_valid():
 		NavigationServer3D.map_force_update(_map)
+
+
+## Sends the server the rides added while [member held], in one map update.
+func _link_pending() -> void:
+	if not _map.is_valid():
+		return
+	var any := false
+	for ride in _rides:
+		if not (ride["rid"] as RID).is_valid():
+			_link(ride)
+			any = true
+	if any:
+		NavigationServer3D.map_force_update(_map)
+	_batch_dirty = false
 
 
 func _link(ride: Dictionary) -> void:

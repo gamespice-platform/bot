@@ -127,6 +127,9 @@ func _test_join_sliced() -> void:
 	_check(calls > 3 and held and sliced.is_ready(), "sliced: many calls, no route between them, ready after", str(calls))
 	_check(links.joined == at_once and sliced.rides() == whole.rides(), "sliced: the same stats and the same edges, ids and order",
 		"%s vs %s, %d vs %d edges" % [links.joined, at_once, sliced.rides().size(), whole.rides().size()])
+	# Rides found while held reach the server together when the hold ends: every one a live link.
+	_check(sliced._ride_of_link.size() == sliced.rides().size() and not sliced.rides().is_empty(), "sliced: every edge is a link on the server once the hold ends",
+		"%d links, %d edges" % [sliced._ride_of_link.size(), sliced.rides().size()])
 	# The finders called on a nav never held: the search must not see its own hold (closest() then answers its input).
 	var plain := DotBotNav.new()
 	var _plain_baked := plain.bake(made[0], agent, 0, [made[1]])
