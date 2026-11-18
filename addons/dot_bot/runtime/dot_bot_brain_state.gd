@@ -347,8 +347,11 @@ func _toward(me: DotBotContact, world: DotBotWorld, goal: Vector3) -> Vector2:
 func _free_if_stuck(me: DotBotContact, world: DotBotWorld, now: float, out: DotBotIntent) -> void:
 	# A duel strafes on the spot by design; only travelling can be stuck.
 	var pushing := out.move.length() > 0.3 and out.state != &"dead" and out.state != &"fight" and out.state != &"retreat"
-	if _unstick.step(me.position, pushing, now, world) == 0:
+	if _unstick.step(me.position, pushing, now, world, settings.profile.stranded_sec) == 0:
 		return
+	if _unstick.stranded:
+		out.stranded = true
+		DotLog.warn(CHANNEL, "bot stranded: stuck with every unstick step tried, the game should respawn it", {"bot": id, "at": me.position, "after": settings.profile.stranded_sec})
 	if _unstick.replan:
 		_waypoint = Vector3.INF
 		_route_goal = Vector3.INF

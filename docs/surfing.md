@@ -75,3 +75,7 @@ Rides a surf ramp from what [DotBotSurfPlanner] found: it does what the nearest 
 - A cache is only as fresh as the movement and collision it was planned on: replan after either changes.
 
 `DotBotSurfPlanner.stall_seconds` (8 s) ends a search whose best score has not improved for that long. A search with no goal otherwise runs all of `seconds` (a 30 s budget cost 165 s of CPU per hopeless start on a 26 m ride), and every pilot failure triggers up to three of them. Set it to 0 for the old behaviour.
+
+## Sealed islands
+
+A surf map with no ride cache has platforms the bot can land on and never leave. The brain's unstick ladder cannot help there, so after `bot_stranded_sec` (default 6, 0 never) stuck with every step tried it sets `DotBotIntent.stranded` for one think and logs a warning on the `dot.bot` channel; it raises it again every interval while the game does nothing. The game owns the answer (respawn or teleport to a spawn); the brain only reports.

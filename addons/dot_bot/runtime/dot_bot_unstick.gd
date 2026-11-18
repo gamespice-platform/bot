@@ -18,6 +18,10 @@ var replan := false
 var nudge_to := Vector3.INF
 ## Times a window ended stuck, over the bot's life.
 var total: int = 0
+## True for the one step [param after] of [method step] fires.
+var stranded := false
+
+var _stuck_since: float = INF
 
 var _anchor: Vector3 = Vector3.INF
 var _anchor_at: float = 0.0
@@ -31,13 +35,14 @@ func _init(p_rng: DotRandomStream = null) -> void:
 	_rng = p_rng
 
 
-## [param pushing] is whether the intent walks this tick. Returns the level, 0 when free.
-func step(position: Vector3, pushing: bool, now: float, world: DotBotWorld) -> int:
+## [param pushing] is whether the intent walks this tick. [param after] is `bot_stranded_sec` (0 never): stuck that long past the nudge level sets [member stranded] for one step. Returns the level, 0 when free.
+func step(position: Vector3, pushing: bool, now: float, world: DotBotWorld, after: float = 0.0) -> int:
 	jump = false
 	crouch = false
 	strafe = 0.0
 	replan = false
 	nudge_to = Vector3.INF
+	stranded = false
 	if _anchor == Vector3.INF:
 		reset(position, now)
 	_seen += 1.0
@@ -45,17 +50,24 @@ func step(position: Vector3, pushing: bool, now: float, world: DotBotWorld) -> i
 	if now - _anchor_at >= WINDOW:
 		var moved := position.distance_to(_anchor)
 		if _pushed / maxf(_seen, 1.0) > 0.6 and moved < PROGRESS:
+			if level == 0:
+				_stuck_since = _anchor_at
 			level += 1
 			total += 1
 			_side = -_side
 		elif moved >= PROGRESS * 2.0:
 			level = 0
+			_stuck_since = INF
 		_anchor = position
 		_anchor_at = now
 		_pushed = 0.0
 		_seen = 0.0
 	if level == 0 or not pushing:
 		return level
+	if after > 0.0 and level >= NUDGE_LEVEL and now - _stuck_since >= after:
+		# Every step has been tried for [param after] seconds: report once, then wait another interval in case the game does nothing.
+		stranded = true
+		_stuck_since = now
 	replan = true
 	jump = true
 	if level >= 2:
@@ -74,6 +86,7 @@ func step(position: Vector3, pushing: bool, now: float, world: DotBotWorld) -> i
 ## Forget the history: a respawn, a teleport, a finished ride or ladder.
 func reset(position: Vector3 = Vector3.INF, now: float = 0.0) -> void:
 	level = 0
+	_stuck_since = INF
 	_anchor = position
 	_anchor_at = now
 	_pushed = 0.0

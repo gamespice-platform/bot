@@ -41,6 +41,11 @@ var use: bool = false
 ## ([method DotBotBrain.ride_ended]).
 var ride: int = -1
 
+## The bot has been stuck for `bot_stranded_sec` with every unstick step tried: it is on an island with
+## no way off (a surf map without a ride cache). The game should respawn or teleport it to a spawn;
+## the brain logs it loudly and, if the game does nothing, raises it again after another interval.
+var stranded: bool = false
+
 ## Whom the bot is fighting, or -1.
 var target_id: int = -1
 
@@ -106,5 +111,5 @@ static func direction(p_yaw: float, p_pitch: float) -> Vector3:
 func describe() -> Dictionary:
 	return {
 		"state": state, "target": target_id, "yaw": snappedf(yaw, 0.1), "pitch": snappedf(pitch, 0.1),
-		"move": move, "fire": fire, "crouch": crouch, "jump": jump, "throw": throw, "use": use, "ride": ride,
+		"move": move, "fire": fire, "crouch": crouch, "jump": jump, "throw": throw, "use": use, "ride": ride, "stranded": stranded,
 	}

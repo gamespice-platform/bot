@@ -468,6 +468,45 @@ func _test_unstick() -> void:
 	_done()
 
 
+func _test_stranded() -> void:
+	_section("stranded: stuck on a sealed island for bot_stranded_sec reports once per interval; moving or 0 never does")
+	var world := DotBotWorld.new()
+	world.walkable_fn = func(_at: Vector3) -> Vector3: return Vector3.INF
+	var un := DotBotUnstick.new(DotRandomStream.new(1))
+	var fired: Array[float] = []
+	for i in 20 * 64:
+		var t := float(i) / 64.0
+		un.step(Vector3.ZERO, true, t, world, 6.0)
+		if un.stranded:
+			fired.append(t)
+	_check(fired.size() >= 2 and fired[0] > 5.0 and fired[0] < 9.0, "reported once the interval passed", str(fired))
+	_check(fired.size() >= 2 and absf((fired[1] - fired[0]) - 6.0) < 0.1, "and again a full interval later if the game did nothing", str(fired))
+	var off := DotBotUnstick.new(DotRandomStream.new(1))
+	var any_off := false
+	for i in 20 * 64:
+		off.step(Vector3.ZERO, true, float(i) / 64.0, world, 0.0)
+		any_off = any_off or off.stranded
+	_check(not any_off, "stranded_sec 0 never reports")
+	var walker := DotBotUnstick.new(DotRandomStream.new(1))
+	var any_walk := false
+	for i in 20 * 64:
+		walker.step(Vector3(float(i) * 0.05, 0.0, 0.0), true, float(i) / 64.0, world, 6.0)
+		any_walk = any_walk or walker.stranded
+	_check(not any_walk, "a bot that moves is not stranded")
+	# The body never moves (a wall, a sealed island): the brain must carry the flag on the intent.
+	var sealed := DotBotWorld.new()
+	sealed.waypoints_fn = func() -> PackedVector3Array: return PackedVector3Array([Vector3(10.0, 0.0, 0.0)])
+	var me := DotBotContact.make(7, Vector3.ZERO)
+	sealed.contacts_fn = func() -> Array: return [me]
+	var brain := DotBotBrain.new(7)
+	var seen := 0
+	for i in 20 * 64:
+		var intent := brain.think(me, sealed, float(i) / 64.0)
+		seen += 1 if intent.stranded else 0
+	_check(seen >= 2, "the brain sets DotBotIntent.stranded when held still", str(seen))
+	_done()
+
+
 func _test_search() -> void:
 	_section("searching: likely places first, crossed off once seen, a sound brings them back")
 	var search := DotBotSearch.new()
