@@ -1,7 +1,7 @@
 extends "res://examples/selftest/objective_tests.gd"
 ## The profile, settings, cvar, console, names and roster sections of the bot suite.
 
-## A command shaped like dot-player-controller's, for write_move.
+## A command shaped like GameSpice Player Controller's, for write_move.
 class FakeMove:
 	extends RefCounted
 	const BUTTON_JUMP := 1 << 0
@@ -16,7 +16,7 @@ class FakeMove:
 		buttons = (buttons | button) if pressed else (buttons & ~button)
 
 
-## A command shaped like dot-weapon's, for write_fire.
+## A command shaped like GameSpice Weapon's, for write_fire.
 class FakeFire:
 	extends RefCounted
 	const BUTTON_ATTACK := 1 << 0
@@ -29,7 +29,7 @@ class FakeFire:
 		buttons = (buttons | button) if pressed else (buttons & ~button)
 
 
-## A cvar shaped like dot-server's DotConVar.
+## A cvar shaped like GameSpice Server's DotConVar.
 class FakeCvar:
 	extends RefCounted
 	signal changed(old_value: String, new_value: String)
@@ -69,7 +69,7 @@ class FakeCvar:
 			changed.emit(old, value)
 
 
-## A console shaped like dot-console's DotConsoleLocal.
+## A console shaped like GameSpice Console's DotConsoleLocal.
 class FakeLocal:
 	extends RefCounted
 	var vars := {}

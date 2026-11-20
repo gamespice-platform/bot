@@ -14,7 +14,7 @@ var override: Dictionary = {}
 var _given: Dictionary = {}
 
 
-## Replaces the personas with those of [param set] (a dot-profile set of kind `bot`, reached by duck typing); disabled ones are left out.
+## Replaces the personas with those of [param set] (a GameSpice Profile set of kind `bot`, reached by duck typing); disabled ones are left out.
 func load_from(set: Object) -> int:
 	personas.clear()
 	if set != null:

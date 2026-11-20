@@ -1,4 +1,4 @@
-# dot-bot docs
+# GameSpice Bot docs
 
 | File | What it covers |
 | --- | --- |

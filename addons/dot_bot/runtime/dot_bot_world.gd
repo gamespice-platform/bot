@@ -88,7 +88,7 @@ var _seq: int = 0
 ## At -1, the default, the sight scan stays in script: see [method senses].
 var contacts_version: int = -1
 
-## The native sight scan's class (dot-sim). Absent, every bot scans in script, as before.
+## The native sight scan's class (GameSpice Sim). Absent, every bot scans in script, as before.
 const SENSES_CLASS := &"DotSimBotSenses"
 
 ## Whether the native sight scan is used when present; a suite turns it off to compare.
@@ -104,7 +104,7 @@ func contacts() -> Array:
 	return contacts_fn.call() if contacts_fn.is_valid() else []
 
 
-## Whether dot-sim's native sight scan is loaded (never on the web, where no extension is).
+## Whether GameSpice Sim's native sight scan is loaded (never on the web, where no extension is).
 static func native_available() -> bool:
 	if _native_known < 0:
 		_native_known = 1 if ClassDB.class_exists(SENSES_CLASS) else 0
@@ -177,7 +177,7 @@ func line_of_sight(from: Vector3, to: Vector3) -> bool:
 
 
 ## What a native mind asks sight through (`(from, to) -> bool`): [method line_of_sight] here. A game whose
-## line_of_sight is one engine ray may hand a native one instead (dot-sim's `DotSimSightRay.clear`), which the mind
+## line_of_sight is one engine ray may hand a native one instead (GameSpice Sim's `DotSimSightRay.clear`), which the mind
 ## then asks with no call into script; it must answer to the bit as the game's line_of_sight does. Asked once per
 ## native perceive, so the game may switch it from tick to tick.
 func sight_callable() -> Callable:

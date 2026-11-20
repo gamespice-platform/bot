@@ -10,7 +10,7 @@ extends "dot_bot_surf_pilot_cache.gd"
 ## [member rolling] keeps that future instead of recomputing it. Numbers and reasoning:
 ## docs/surfing.md, "The pilot".
 ##
-## A simulator is duck typed (dot-player-controller's [code]DotFpsSimulator[/code]):
+## A simulator is duck typed (GameSpice Player Controller's [code]DotFpsSimulator[/code]):
 ## `step(state, command) -> int`, `command(yaw, move, jump)`, `delta`; states have
 ## `position`, `velocity`, `duplicate_state()`. So this addon names no other.
 ## The cache, its lookup and the actions are in dot_bot_surf_pilot_cache.gd, split out for file size.

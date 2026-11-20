@@ -5,7 +5,7 @@ extends RefCounted
 ##
 ## [b]A bot is a player driven by the commands a client sends.[/b] So this is nothing but the
 ## content of those commands, and [method write_move] and [method write_fire] copy it into the
-## game's own (dot-player-controller's [code]DotFpsCommand[/code], dot-weapon's
+## game's own (GameSpice Player Controller's [code]DotFpsCommand[/code], GameSpice Weapon's
 ## [code]DotWeaponCommand[/code]) by duck typing, reading the button bits from the command's
 ## own script so this addon names neither. A bot can then never do anything a person could
 ## not: it walks through the same motor, shoots through the same arsenal, and is refused by

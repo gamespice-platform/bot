@@ -142,7 +142,7 @@ func percentile(metric: String, pct: float, label: String = "") -> float:
 	return float(METRICS[metric])
 
 
-## Every measure at the 20th, 50th and 80th percentile, for a consumer that wants numbers rather than presets (dot-npc-ai's `from_percentiles`, duck typed).
+## Every measure at the 20th, 50th and 80th percentile, for a consumer that wants numbers rather than presets (GameSpice NPC AI's `from_percentiles`, duck typed).
 func percentiles(label: String = "") -> Dictionary:
 	var out := {}
 	for metric: String in METRICS:

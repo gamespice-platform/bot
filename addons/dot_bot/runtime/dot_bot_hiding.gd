@@ -16,7 +16,7 @@ extends RefCounted
 ## every spot already taken near it, and down again for being near where the seekers start.
 ##
 ## [b]The skill is how far down the list it looks.[/b] A good player knows the best spots; a new
-## one takes the first cupboard it sees. [param skill] (0..1, dot-bot's `bot_map_knowledge`)
+## one takes the first cupboard it sees. [param skill] (0..1, GameSpice Bot's `bot_map_knowledge`)
 ## picks among the best two at 1 and among the better third at 0, always from the bot's own
 ## [DotRandomStream].
 ##

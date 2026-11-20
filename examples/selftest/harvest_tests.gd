@@ -20,7 +20,7 @@ func _demo_episode(map_id: String, version: String, kind: String, key: String, s
 	return e
 
 
-# The simulator and host are toys (a point accelerating along x): dot-player-controller is not linked here, so the harvest runs through its duck-typed interface.
+# The simulator and host are toys (a point accelerating along x): GameSpice Player Controller is not linked here, so the harvest runs through its duck-typed interface.
 
 class RideToyState:
 	extends RefCounted

@@ -5,7 +5,7 @@ extends "res://examples/selftest/style_tests.gd"
 
 const CHECKS := 694
 
-## Of CHECKS, the ones that need dot-sql and the SQLite extension linked into this project.
+## Of CHECKS, the ones that need GameSpice SQL and the SQLite extension linked into this project.
 const SQL_CHECKS := 0
 
 ## Sections entered against sections that ran to their last line. A runtime error inside a

@@ -13,7 +13,7 @@ The full table with every value is in the [README](../README.md#settings), gener
 
 Two measurements hold the presets, and both run on every change.
 
-**dot-bot's suite** (`examples/bot_selftest.tscn`) measures the brain alone. A stationary target appears 15 m away anywhere in the view cone, forty times per preset:
+**GameSpice Bot's suite** (`examples/bot_selftest.tscn`) measures the brain alone. A stationary target appears 15 m away anywhere in the view cone, forty times per preset:
 
 | Preset | Reaction (setting) | First-shot error | Error after 2.5 s | Fastest turn |
 | --- | --- | --- | --- | --- |
@@ -28,7 +28,7 @@ Then 100 one-on-one duels per preset against a hand-scripted opponent in a world
 
 **game-fatal-contact's `headless_bots`** plays each preset for 300 s of one-on-one on dm_box against a reference player whose settings are pinned in the suite (an ordinary player), with FC's real weapons, movement and trace: K/D easy 0.45, medium 1.20, hard 1.72, nightmare 2.75, never a shot without line of sight, never a turn above `bot_turn_rate`. A real map compresses the spread: spawns, corners and who sees whom first decide a lot of fights.
 
-**game-fatal-contact's `headless_bottricks`** plays easy and nightmare for 240 s on dm_atrium and dm_pit against another bot with the air-jump on, and counts the real motor's slides, wall runs and launches: easy 22 slides, 0 wall runs, 0 launches and 743 ticks ducking (after the 2026-10-31 retune of crouch, slide, wall_run and cover_crouch for easy, medium and hard); nightmare 112, 10, 22 and 4095. With the air-jump off in the game, a nightmare bot never presses it. dot-bot's suite holds the same shape on a toy motor.
+**game-fatal-contact's `headless_bottricks`** plays easy and nightmare for 240 s on dm_atrium and dm_pit against another bot with the air-jump on, and counts the real motor's slides, wall runs and launches: easy 22 slides, 0 wall runs, 0 launches and 743 ticks ducking (after the 2026-10-31 retune of crouch, slide, wall_run and cover_crouch for easy, medium and hard); nightmare 112, 10, 22 and 4095. With the air-jump off in the game, a nightmare bot never presses it. GameSpice Bot's suite holds the same shape on a toy motor.
 
 Neither reaches whether a bot *looks* human. game-fatal-contact's `tools/render_bots.sh [preset]` photographs one over its shoulder every 0.4 s and logs its state, target, line of sight and trigger.
 

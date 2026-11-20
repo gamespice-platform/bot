@@ -4,7 +4,7 @@ extends RefCounted
 ## Puts the number of bots right: adds named ones while there are too few, removes the newest
 ## while there are too many.
 ##
-## [b]The count is the game's or dot-server's, never this.[/b] dot-server's [code]DotBotQuota[/code]
+## [b]The count is the game's or GameSpice Server's, never this.[/b] GameSpice Server's [code]DotBotQuota[/code]
 ## says how many bots a server wants for the people on it (`bot_quota`, `bot_quota_mode`); a
 ## solo game asks the same rule with one person ([method solo_wanted]). This only gets from
 ## the number there are to the number wanted, which every game wrote by hand with its own

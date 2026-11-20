@@ -3,7 +3,7 @@ extends RefCounted
 
 ## What a converted map's own entities add to [DotBotNav]: teleports the mesh can use, kill volumes it must keep clear of, and touch doors a body opens by walking into them.
 ##
-## [method read] takes a built map world by duck typing (dot-map's `DotMapWorld`), so no other addon is named. A teleport is an edge (id at or above [constant TELEPORT_ID]), not a ride; only what a runner can fire now is used. Usage: docs/design.md.
+## [method read] takes a built map world by duck typing (GameSpice Map's `DotMapWorld`), so no other addon is named. A teleport is an edge (id at or above [constant TELEPORT_ID]), not a ride; only what a runner can fire now is used. Usage: docs/design.md.
 
 const CHANNEL := "dot.bot.links"
 
@@ -95,7 +95,7 @@ var unlock_doors: Array[Dictionary] = []
 
 
 ## Reads [param world]'s teleports, kill volumes and touch doors. [param options]: `lethal`, `margin`, and `nav_export`
-## (dot-map's `DotMapNavLinks.read(world)`, which [method apply_export] takes; a game that passes none is unchanged).
+## (GameSpice Map's `DotMapNavLinks.read(world)`, which [method apply_export] takes; a game that passes none is unchanged).
 static func read(world: Object, options: Dictionary = {}) -> DotBotLinks:
 	var links := DotBotLinks.new()
 	links.lethal = float(options.get("lethal", links.lethal))
@@ -125,7 +125,7 @@ static func read(world: Object, options: Dictionary = {}) -> DotBotLinks:
 	return links
 
 
-## Takes dot-map's door and teleport export (`DotMapNavLinks.read`): every opener of a closed door or disabled teleport becomes a gadget (a shot button is kind `"shoot"`) with the entities it reaches in `feeds`.
+## Takes GameSpice Map's door and teleport export (`DotMapNavLinks.read`): every opener of a closed door or disabled teleport becomes a gadget (a shot button is kind `"shoot"`) with the entities it reaches in `feeds`.
 ## [member unlock_doors] keeps `{"entity", "box", "opened_by"}` per openable door. Plain data in.
 func apply_export(export: Dictionary) -> void:
 	var by_index := {}

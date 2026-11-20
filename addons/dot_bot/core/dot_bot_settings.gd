@@ -17,9 +17,9 @@ extends RefCounted
 ## they set stay, and `bot_settings_reset` is how they go back. The cvars themselves always
 ## hold the value the bots use, so `bot_reaction` typed alone answers truthfully.
 ##
-## [b]Server and solo, one object.[/b] [method bind_cvars] takes dot-server's
-## `DotModule.add_cvar` and [method bind_console] dot-console's `DotConsoleLocal`, both by
-## duck typing, so this addon depends on dot-core alone and a solo game with no server in
+## [b]Server and solo, one object.[/b] [method bind_cvars] takes GameSpice Server's
+## `DotModule.add_cvar` and [method bind_console] GameSpice Console's `DotConsoleLocal`, both by
+## duck typing, so this addon depends on GameSpice Core alone and a solo game with no server in
 ## the process has the same names.
 ##
 ## [b]Per game, never per process.[/b] [method attach] puts it on a node as metadata, never
@@ -205,7 +205,7 @@ func set_style_config(file: String, weights: String) -> DotResult:
 # --- Server cvars ---------------------------------------------------------------
 
 ## Registers `bot_difficulty` and every `bot_<field>` through [param add], which is called as
-## [code]add(name, default, description, flags)[/code] and returns the cvar (dot-server's
+## [code]add(name, default, description, flags)[/code] and returns the cvar (GameSpice Server's
 ## [code]DotModule.add_cvar[/code]), and the two commands through [param add_command] when it
 ## is valid ([code]add_command(name, handler, description)[/code], the handler taking a
 ## context with [code]reply[/code]). Returns the cvars made.
@@ -354,7 +354,7 @@ func _force(cv: Object, text: String) -> void:
 # --- Solo console ---------------------------------------------------------------
 
 ## Adds `bot_difficulty`, every `bot_<field>` and the two commands to [param local], anything
-## with dot-console's [code]add_var(name, help, get, set)[/code] and
+## with GameSpice Console's [code]add_var(name, help, get, set)[/code] and
 ## [code]add_command(name, help, fn)[/code]. False when it has neither.
 func bind_console(local: Object) -> bool:
 	if local == null or not local.has_method(&"add_var"):

@@ -2,7 +2,7 @@ class_name DotBotArms
 extends RefCounted
 
 ## The generic half of feeding [DotBotPickup]: rates weapons by damage per second and builds a contact's [member DotBotContact.loadout] and the world's [member DotBotWorld.drops_fn]
-## from a dot-weapon arsenal and drop set. Duck typed (no dot-weapon class is named), so dot-bot compiles without it.
+## from a GameSpice Weapon arsenal and drop set. Duck typed (no GameSpice Weapon class is named), so GameSpice Bot compiles without it.
 ## Wire it with [code]DotBotArms.wire(world, drops_fn, arsenal_fn)[/code] and [code]contact.loadout = DotBotArms.loadout_of(player.arsenal)[/code].
 
 ## Damage per second that rates 1.0.

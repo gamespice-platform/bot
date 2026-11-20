@@ -4,9 +4,9 @@
 
 A bot here is a **player**: it has a session id, a loadout, a score, a body that moves through the game's own movement code and a gun that fires through the game's own arsenal. Each tick it decides what a person would press, and the game turns that into the same commands a client sends. That is a different thing from an NPC, which dot-npc places, paths and budgets and dot-npc-ai's behaviour trees decide for.
 
-dot-npc-ai was the alternative, and it already has the shape to borrow (a character table, a turn-rate limit, aim error, reaction time, `npc_skill`). It was not used because it depends on dot-npc, and a game whose bots are players (every game in the family that has bots) would then have to install the NPC runtime to get them; and because the two difficulty knobs answer different questions. `npc_skill` moves a horde of monsters toward easier or harder; `bot_difficulty` is how good the players you are matched against are, setting by setting, which a server owner wants to tune one number at a time. They stay separate cvars on purpose.
+GameSpice NPC AI was the alternative, and it already has the shape to borrow (a character table, a turn-rate limit, aim error, reaction time, `npc_skill`). It was not used because it depends on GameSpice NPC, and a game whose bots are players (every game in the family that has bots) would then have to install the NPC runtime to get them; and because the two difficulty knobs answer different questions. `npc_skill` moves a horde of monsters toward easier or harder; `bot_difficulty` is how good the players you are matched against are, setting by setting, which a server owner wants to tune one number at a time. They stay separate cvars on purpose.
 
-So dot-bot depends on dot-core alone and names no other addon: dot-server's cvars (`bind_cvars` takes `DotModule.add_cvar`), dot-console's console (`bind_console` takes anything with `add_var`), and the command classes (`DotBotIntent.write_move` reads the button bits from the command's own constants) are all reached by duck typing.
+So GameSpice Bot depends on GameSpice Core alone and names no other addon: GameSpice Server's cvars (`bind_cvars` takes `DotModule.add_cvar`), GameSpice Console's console (`bind_console` takes anything with `add_var`), and the command classes (`DotBotIntent.write_move` reads the button bits from the command's own constants) are all reached by duck typing.
 
 ## The brain is pure
 
@@ -25,7 +25,7 @@ Everything is in `DotBotWorld`: the bodies, a line-of-sight answer, places to wa
 
 ### Flashes and smoke (API level 8)
 
-`DotBotBrain.blind_for(now, seconds, from)` makes a bot see nothing for its seconds: it loses a visible target, while hearing and pain still work, and `from` (where the flash went off, or `Vector3.INF`) is where it turns afterwards. `is_blind(now)` asks. `DotBotWorld.add_sight_blocker(center, radius, until)` makes `line_of_sight` refuse any segment through that sphere until game time `until` (smoke) and returns an id for `remove_sight_blocker(id)`; the brain prunes ended ones each think through `prune_sight_blockers(now)`. A game's grenade code calls these; the addon names no grenade. A consumer that must still load against an older dot-bot guards with `DotAddonApi.build_level("dot_bot") >= 8`.
+`DotBotBrain.blind_for(now, seconds, from)` makes a bot see nothing for its seconds: it loses a visible target, while hearing and pain still work, and `from` (where the flash went off, or `Vector3.INF`) is where it turns afterwards. `is_blind(now)` asks. `DotBotWorld.add_sight_blocker(center, radius, until)` makes `line_of_sight` refuse any segment through that sphere until game time `until` (smoke) and returns an id for `remove_sight_blocker(id)`; the brain prunes ended ones each think through `prune_sight_blockers(now)`. A game's grenade code calls these; the addon names no grenade. A consumer that must still load against an older GameSpice Bot guards with `DotAddonApi.build_level("dot_bot") >= 8`.
 
 ## The states
 

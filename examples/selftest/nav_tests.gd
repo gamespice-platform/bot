@@ -197,7 +197,7 @@ func _test_links() -> void:
 
 
 ## One roaming bot on a toy body for [param seconds]: ground below x 0, a platform 4 m up from x 0, a ladder on its face.
-## The body climbs as dot-player-controller's ladder mode does: forward into the ladder's face is up.
+## The body climbs as GameSpice Player Controller's ladder mode does: forward into the ladder's face is up.
 ## With [param links] and [param door_x], a touch door stands across the corridor at that x and holds the body back until [method DotBotLinks.doors_touched] names it.
 func _ladder_run(world: DotBotWorld, ladder: AABB, seconds: float, links: DotBotLinks = null, door_x: float = 0.0, start_x: float = -6.0) -> Dictionary:
 	var me := DotBotContact.make(1, Vector3(start_x, 0.0, 0.0))
@@ -349,7 +349,7 @@ func _test_door_then_ladder() -> void:
 	_done()
 
 
-## A shot button from dot-map's export is a gadget only when a game applies the export.
+## A shot button from GameSpice Map's export is a gadget only when a game applies the export.
 func _test_unlock_export() -> void:
 	_section("unlock export: opt-in shoot gadgets and door hints")
 	var made := await _floors([Vector3(0.0, 0.0, 0.0)], Vector3(20.0, 0.0, 6.0))

@@ -18,12 +18,12 @@ extends RefCounted
 ## adds it. A ride whose line bends far from the straight one (a 180-degree turn) wants
 ## [member guide], a polyline the progress is measured along instead.
 ##
-## Units are metres and the state is whatever the game's simulator steps (dot-player-
+## Units are metres and the state is whatever the game's simulator steps (GameSpice Player-
 ## controller's [code]DotFpsState[/code]): read by duck typing, `position` and `velocity`.
 
 # No log channel: answers questions.
 
-## What a state is in, by number. The same numbers as dot-player-controller's
+## What a state is in, by number. The same numbers as GameSpice Player Controller's
 ## [code]DotFpsSimulator.EVENT_*[/code], so an oracle can return either.
 const EVENT_NONE := 0
 const EVENT_GOAL := 1

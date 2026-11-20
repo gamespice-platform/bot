@@ -3,7 +3,7 @@ extends RefCounted
 
 ## Think-rate tiers for a crowd of bots: which bots run their brain every tick and which every few ticks. A bot a person can see, is fighting, or is near runs every tick, so the aim a person meets is the full one. The rest (bots fighting bots out of sight, bots roaming) think every [member near_every] ticks within [member far_range] of a person and every [member far_every] beyond, up to the beat [method until_beat] gives, so the thinkers spread over the ticks. Plain data in, a period out: the game's loop and a native brain share it.
 ## What a thinned bot skips is its brain, never its body: the game moves it every tick on the commands of its last think (held buttons, the view carried towards where it last looked), so its walk, its hitboxes and lag compensation are the same at any period. A bot a person was just hurt by, or that turns on a person, is full rate on its next think. Body tiers (API 22; on by default above [member body_above] players since API 23) go one step further for the bots nobody can meet: [method body_period] is how many ticks apart the game may run the motor of a bot that is near or far by the rules above (not seen, not fighting a person, not close or nearest), the game making the ticks up in one longer motor tick. Such a bot walks in steps and its hitboxes jump, which no person sees; anything the game cannot carry over (a jump, a push, the air) is its call.
-## Native (API 27): where dot-sim's library is loaded (class [code]DotSimThinkTier[/code]), [method begin], [method period], [method body_period] and [method schedule] run there, with the same answers and counts (dot-sim's selftest compares the two); [member native] false, or no library (the web build), keeps this script. [method schedule] is one think's [method period], [method until_beat] and [method body_period] from one look at the people.
+## Native (API 27): where GameSpice Sim's library is loaded (class [code]DotSimThinkTier[/code]), [method begin], [method period], [method body_period] and [method schedule] run there, with the same answers and counts (GameSpice Sim's selftest compares the two); [member native] false, or no library (the web build), keeps this script. [method schedule] is one think's [method period], [method until_beat] and [method body_period] from one look at the people.
 
 ## Players above which tiers apply; at or below it every bot thinks every tick. Negative: never.
 var above: int = 16
@@ -28,7 +28,7 @@ var idle_view_every: int = 2
 ## it, 1 is the periods as set. Full-rate bots stay full rate, and no period passes [member max_period].
 var load_scale: float = 1.0
 ## The longest period [member load_scale] may stretch a tier to: a bot that sits out more ticks than this cannot steer. 0 = no limit.
-## [constant DEFAULT_MAX_PERIOD] by default. The native tier (dot-sim) takes it too; a dot-sim library from before API 30 holds 8 and
+## [constant DEFAULT_MAX_PERIOD] by default. The native tier (GameSpice Sim) takes it too; a GameSpice Sim library from before API 30 holds 8 and
 ## runs the GDScript tier for any other value. A negative value is refused (error) and the GDScript tier answers.
 var max_period: int = DEFAULT_MAX_PERIOD
 const DEFAULT_MAX_PERIOD := 8
@@ -65,7 +65,7 @@ var body_counts: Dictionary = {}
 var _reason: StringName = &"off"
 var _best_sq: float = INF
 var _seen: bool = false
-## Whether [method begin] hands the tick to dot-sim's [code]DotSimThinkTier[/code] when the library is loaded.
+## Whether [method begin] hands the tick to GameSpice Sim's [code]DotSimThinkTier[/code] when the library is loaded.
 var native: bool = true
 ## The native tier, when the library is loaded; [member _use] when the last [method begin] gave it the tick.
 var _native: Object = null

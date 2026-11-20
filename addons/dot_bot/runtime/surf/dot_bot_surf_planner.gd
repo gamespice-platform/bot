@@ -17,7 +17,7 @@ extends RefCounted
 ## grid), speed and whether they are on the ground, and only the best of each bucket survives,
 ## which keeps the other face and the slower, higher lines alive long enough to be needed.
 ##
-## [b]Why search, and not learn.[/b] The simulator is the motor (dot-player-controller's
+## [b]Why search, and not learn.[/b] The simulator is the motor (GameSpice Player Controller's
 ## [code]DotFpsSimulator[/code]) and the motor is deterministic, so a found sequence of actions
 ## is a proof that the ramp can be ridden, not an estimate; the cost is paid once per map by a
 ## tool, not per bot. [method build]'s repair rounds are the learning: they search again from the

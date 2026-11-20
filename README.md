@@ -1,6 +1,6 @@
 [![Bot - GameSpice addon](docs/banner.png)](https://moddingcommunity.com/a/96-gs-bot)
 
-Player bots for Godot 4.7+. A brain that plays like a person, difficulty presets, a pool of bot names and a roster that keeps the bot count right. Part of the [dot-*](https://github.com/gamespice-platform) family and needs only [dot-core](https://github.com/gamespice-platform/core).
+Player bots for Godot 4.7+. A brain that plays like a person, difficulty presets, a pool of bot names and a roster that keeps the bot count right. Part of the [GameSpice](https://github.com/gamespice-platform) family and needs only [GameSpice Core](https://github.com/gamespice-platform/core).
 
 ## What it does
 A bot here is a player. Each tick the brain decides what a person would press (where to look, how to move, whether to shoot, crouch, jump or throw) and your game turns that into the same movement and weapon commands a client sends. The bot walks through your movement code and shoots through your weapons, so it can never do something a player could not.
@@ -9,12 +9,12 @@ The brain sees only what is inside its view cone and in line of sight, and hears
 
 How well it does all that is a profile of about forty numbers. Four presets (`easy`, `medium`, `hard`, `nightmare`) fill them in, and every number is its own cvar, so a server owner can pick a preset and then change any single setting.
 
-It also has a pool of bot names, so a scoreboard never shows "Bot 2", and a roster that adds or removes bots to reach a count (dot-server's `DotBotQuota` says what the count is).
+It also has a pool of bot names, so a scoreboard never shows "Bot 2", and a roster that adds or removes bots to reach a count (GameSpice Server's `DotBotQuota` says what the count is).
 
 ## Install
-You need [Godot 4.7](https://godotengine.org/download). The easiest way to get this addon and the ones it needs is [dot-bootstrap](https://github.com/gamespice-platform/bootstrap), which clones every project and links the addons into each one.
+You need [Godot 4.7](https://godotengine.org/download). The easiest way to get this addon and the ones it needs is [GameSpice Bootstrap](https://github.com/gamespice-platform/bootstrap), which clones every project and links the addons into each one.
 
-To add it to your own project by hand, copy `addons/dot_bot/` and [dot-core](https://github.com/gamespice-platform/core)'s `addons/dot_core/` into it and enable dot-bot in **Project → Project Settings → Plugins**. dot-core is the only dependency.
+To add it to your own project by hand, copy `addons/dot_bot/` and [GameSpice Core](https://github.com/gamespice-platform/core)'s `addons/dot_core/` into it and enable dot-bot in **Project → Project Settings → Plugins**. dot-core is the only dependency.
 
 ## Using it
 
@@ -45,7 +45,7 @@ intent.write_fire(fire_command)     # yaw, pitch, attack
 brain.hurt(attacker_eye_position, now)
 ```
 
-`write_move` and `write_fire` read the button bits from your command's own constants (`BUTTON_ATTACK`, `BUTTON_CROUCH`, `BUTTON_JUMP`), so dot-player-controller's `DotFpsCommand` and dot-weapon's `DotWeaponCommand` work as they are.
+`write_move` and `write_fire` read the button bits from your command's own constants (`BUTTON_ATTACK`, `BUTTON_CROUCH`, `BUTTON_JUMP`), so GameSpice Player Controller's `DotFpsCommand` and GameSpice Weapon's `DotWeaponCommand` work as they are.
 
 A game that already decides what its bots do can use just the aiming part, so its bots still turn, miss and react like the presets say:
 
@@ -166,7 +166,7 @@ A server can record anonymous movement (where players move, how they ride ramps,
 
 > This server records anonymous movement (where players move and how they ride ramps, and how quickly they react in a fight) to teach its bots. No names, account ids, addresses or chat are recorded, and recordings are stored by map and date only. The server owner can turn this off with `bot_record 0`.
 
-Stores: JSON files (the default, `bot_record_path`), SQLite, or PostgreSQL and MySQL through a dot-sql gateway (`bot_record_url`; `bot_record_token` is read from the config file only, never the environment or the command line).
+Stores: JSON files (the default, `bot_record_path`), SQLite, or PostgreSQL and MySQL through a GameSpice SQL gateway (`bot_record_url`; `bot_record_token` is read from the config file only, never the environment or the command line).
 
 ## Test
 ```bash

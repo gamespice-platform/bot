@@ -4,7 +4,7 @@ extends RefCounted
 
 ## One kind of bot character: how often it picks each behaviour with nothing in front of it, how likely a server is to give it out, and how well it shoots.
 ##
-## Idle is never a behaviour: the next of [constant BEHAVIOURS] is drawn from this mix. The data is a profile (kind `bot`, [method schema]), editable live in dot-workbench.
+## Idle is never a behaviour: the next of [constant BEHAVIOURS] is drawn from this mix. The data is a profile (kind `bot`, [method schema]), editable live in GameSpice Workbench.
 
 const KIND := "bot"
 const HUNT := &"hunt"
@@ -34,7 +34,7 @@ var spread: float = 0.0
 const SPREAD_FIELDS: PackedStringArray = ["reaction", "aim_error", "aim_floor", "aim_settle", "turn_smooth", "prediction", "react_jitter", "track_lag"]
 
 
-## The `bot` profile schema as plain dictionaries (the shape of dot-profile's field()), so dot-bot needs no dot-profile.
+## The `bot` profile schema as plain dictionaries (the shape of GameSpice Profile's field()), so GameSpice Bot needs no GameSpice Profile.
 static func schema() -> Array:
 	var out: Array = [
 		{"name": "name", "type": "string", "default": ""},
@@ -50,7 +50,7 @@ static func schema() -> Array:
 	return out
 
 
-## Kind to schema for dot-profile's profile_check.
+## Kind to schema for GameSpice Profile's profile_check.
 static func profile_schemas() -> Dictionary:
 	return {KIND: {"schema": schema(), "children": {}}}
 

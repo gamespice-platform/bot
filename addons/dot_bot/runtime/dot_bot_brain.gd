@@ -443,7 +443,7 @@ func _candidates(me: DotBotContact, all: Array, p: DotBotProfile, eye: Vector3, 
 	return cand
 
 
-## [method _candidates] by dot-sim's native scan over the tick's packed bodies: the same list, scores and forgetting.
+## [method _candidates] by GameSpice Sim's native scan over the tick's packed bodies: the same list, scores and forgetting.
 func _candidates_native(senses: Object, world: DotBotWorld, me: DotBotContact, p: DotBotProfile, eye: Vector3, forward: Vector3, half: float, scores: PackedFloat32Array) -> Array[DotBotContact]:
 	var cand: Array[DotBotContact] = []
 	var idx: PackedInt32Array = senses.call(&"candidates", me.id, me.team, eye, forward, half, p.sight, CLOSE_NOTICE, target_id, _visible)

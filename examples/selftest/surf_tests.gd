@@ -2,7 +2,7 @@ extends "res://examples/selftest/harness.gd"
 ## The surf sections of the bot suite.
 
 
-## A body shaped like dot-player-controller's state, with a toy motor (a point accelerating along the wish), so the planner and pilot are tested without that addon; the real motor is in the games' suites.
+## A body shaped like GameSpice Player Controller's state, with a toy motor (a point accelerating along the wish), so the planner and pilot are tested without that addon; the real motor is in the games' suites.
 class ToyState:
 	extends RefCounted
 	var position := Vector3.ZERO
