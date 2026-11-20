@@ -1,4 +1,4 @@
-[![Bot - GameSpice addon](docs/banner.png)](https://moddingcommunity.com/a/266-dot-bot)
+[![Bot - GameSpice addon](docs/banner.png)](https://moddingcommunity.com/a/96-gs-bot)
 
 Player bots for Godot 4.7+. A brain that plays like a person, difficulty presets, a pool of bot names and a roster that keeps the bot count right. Part of the [dot-*](https://github.com/gamespice-platform) family and needs only [dot-core](https://github.com/gamespice-platform/core).
 
