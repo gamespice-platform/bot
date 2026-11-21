@@ -6,7 +6,7 @@ extends RefCounted
 ## Nothing that identifies a person is written: the episode ids are the store's counters. [method load_manifest] and [method read_shard] treat the directory as untrusted: every size, name, count and float is checked before it is believed.
 
 const CHANNEL := "bot.demo.export"
-const FORMAT := "dotbot-bc"
+const FORMAT := "gsbot-bc"
 const VERSION := 1
 const MANIFEST := "manifest.json"
 const SPLIT_TRAIN := "train"

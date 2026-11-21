@@ -24,10 +24,10 @@ extends RefCounted
 ##
 ## [b]Cheap.[/b] Per tick: a string compare and a few branches. Cover is looked for once per peek
 ## (up to six rays), a vantage once per hold (up to eighteen rays), from this bot's own
-## [GSRandomStream] ([code]dot_bot_style[/code]), so the brain's own stream is untouched and a bot
+## [GSRandomStream] ([code]gs_bot_style[/code]), so the brain's own stream is untouched and a bot
 ## with no weapon class, or `bot_styles 0`, plays exactly as before.
 
-const CHANNEL := "dot.bot"
+const CHANNEL := "gs.bot"
 
 ## Phases.
 const NONE := 0
@@ -231,7 +231,7 @@ var _vantage_next: float = -INF
 
 
 func _init(id: int = 0) -> void:
-	_rng = GSRandomStream.new(id).stream(&"dot_bot_style")
+	_rng = GSRandomStream.new(id).stream(&"gs_bot_style")
 
 
 func label() -> String:

@@ -34,7 +34,7 @@ extends GSConfig
 
 
 func env_prefix() -> String:
-	return "DOT_SOAK_"
+	return "GS_SOAK_"
 
 
 func cli_prefix() -> String:

@@ -1,6 +1,6 @@
 extends RefCounted
 
-## dot-bot's API level. The rule for bumping it is on [GSAddonApi].
+## gs-bot's API level. The rule for bumping it is on [GSAddonApi].
 ##
 ## LEVEL rises by one for anything a game could call that did not exist before. OLDEST is
 ## raised to LEVEL when something a game could have called is removed or changes meaning,
@@ -18,9 +18,9 @@ extends RefCounted
 #    GSBotBrain.ride_ended; GSBotSurfCourse.unsupported_fn, toward_goal; GSBotSurfPlanner.trace.
 # 5: the demonstration recorder. GSBotDemoSchema, GSBotDemoEpisode, GSBotDemoRecorder,
 #    GSBotDemoConfig (bind_cvars), GSBotDemoStore, GSBotDemoStoreMemory.
-# 6: the recorder (the level-5 GSBotDemo* classes) moved to the addon dot-bot-record with the same
+# 6: the recorder (the level-5 GSBotDemo* classes) moved to the addon gs-bot-record with the same
 #    names. Level 5 was never delivered to a game, so OLDEST stays 1: nothing built at 1 to 4 names
-#    a recorder class. A game that records links dot-bot-record (its own requires entry).
+#    a recorder class. A game that records links gs-bot-record (its own requires entry).
 # 7: GSBotNav.joined (whether a walk between two points can exist, from the islands and rides,
 #    without a path query that errors between islands).
 # 8: GSBotBrain.blind_for, is_blind (a flashed bot sees nothing for its seconds); GSBotWorld.add_sight_blocker,
@@ -31,7 +31,7 @@ extends RefCounted
 # 12: GSBotUnstick (no-progress detection and escalation, in the brain for every state); GSBotWorld.walkable_fn and walkable_near.
 # 13: GSBotNav.spread_points and GSBotWorld.extra_waypoints (waypoints from the mesh); roaming bots hunt toward the nearest enemy.
 # 14: GSBotThinkTier (think-rate tiers: which bots think every tick and which every few, for a crowd).
-# 15: GSBotWorld.contacts_version, native_enabled, native_available, senses (the sight scan in dot-sim when loaded).
+# 15: GSBotWorld.contacts_version, native_enabled, native_available, senses (the sight scan in gs-sim when loaded).
 # 16: GSBotThinkTier.engaged_far_every, engaged_range, load_scale (fighting bots out of sight thin out; the tiers stretch under load).
 # 17: GSBotBrain.target_first (a bot that sees its target tests it before scanning every body; same choice, a switch for comparing).
 # 18: GSBotWorld.contact_of (the contact for an id out of this tick's list; a world that indexes its contacts overrides it, the brain asks it instead of walking the list).
@@ -43,10 +43,10 @@ extends RefCounted
 # 24: GSBotThinkTier.body_above; body tiers on by default (body_near_every 2, body_far_every 4) above 24 players.
 # 25: GSBotWorld.sight_far, sight_far_reuse (sight LOD: a far body not seen keeps that answer longer; off by default).
 # 26: GSBotLinks.join_step, GSBotNav.held, begin_edges, step_edges (a map's drop, hop and stitch search over several frames, the nav held unready until done; join unchanged).
-# 27: GSBotThinkTier.schedule, native, is_native (one think's period, beat and body period from one classification; dot-sim's GSSimThinkTier answers when loaded).
+# 27: GSBotThinkTier.schedule, native, is_native (one think's period, beat and body period from one classification; gs-sim's GSSimThinkTier answers when loaded).
 # 28: GSBotProfile.is_hard_max; set_field refuses under the minimum and over a fact-maximum, allows over a guide maximum with a warning (was a silent clamp).
 # 29: GSBotWorld.sounds_into; GSBotBrain.phase_timers, PHASES, phase_us (a think's time per phase); GSBotPickup.NONE; profile row replan_every (0, every think, unchanged).
-# 30: GSBotThinkTier.max_period reaches dot-sim's native tier (any value, 0 unlimited; a negative one is an error); a native library older than this runs the script tier for a non-default value.
+# 30: GSBotThinkTier.max_period reaches gs-sim's native tier (any value, 0 unlimited; a negative one is an error); a native library older than this runs the script tier for a non-default value.
 # 31: GSBotNav bakes a map over the engine's 30 million cell limit in tiles joined into one mesh (agent key `tile`, metres, 0 auto; a bad size fails loudly); GSBotNavTiles; describe() reports tiles and tile.
 # 32: Weapon play styles: GSBotStyle, a weighted table of styles per weapon class (sniper, marksman, rifle, smg, shotgun, pistol, heavy, launcher, melee, throw); GSBotContact weapon_class and magazine; cvars bot_styles, bot_style_file, bot_style_weights (0 styles is the generic bot to the bit); describe() reports style and style_phase.
 # 33: GSBotNav sets its map's edge-merge cell (agent key `merge_scale`, a share of the mesh cell from 0.01 to 0.1, 0 the engine's default 0.1 that the project setting does not reach; outside the range fails loudly); merge_scale_used; describe() reports merge_scale.

@@ -1,8 +1,8 @@
 extends Node
 
-## Native against script brains (`godot --headless --path . res://examples/native_parity.tscn`): two brains with the same id in two copies of the same scripted fights, one thinking through dot_sim's GSSimBotMind and one in GDScript, compared to the bit every tick (intent, view, engagement, strafe, the random streams and the aim's private state).
+## Native against script brains (`godot --headless --path . res://examples/native_parity.tscn`): two brains with the same id in two copies of the same scripted fights, one thinking through gs_sim's GSSimBotMind and one in GDScript, compared to the bit every tick (intent, view, engagement, strafe, the random streams and the aim's private state).
 ## A third copy thinks natively on a worker thread (GSBotBrain.par_ready on the main thread first, then think through WorkerThreadPool), as a game's threaded bots do, and must match the same rows.
-## Needs the dot_sim extension; without it there is nothing to compare and the scene says so and passes. The native side's world also bumps contacts_version every tick, so it perceives through GSSimBotMind.perceive over the native sight scan, with bystanders to choose among and the target killed late in some rounds.
+## Needs the gs_sim extension; without it there is nothing to compare and the scene says so and passes. The native side's world also bumps contacts_version every tick, so it perceives through GSSimBotMind.perceive over the native sight scan, with bystanders to choose among and the target killed late in some rounds.
 
 const TICK := 1.0 / 30.0
 const ROUNDS := 12
@@ -15,7 +15,7 @@ var _fights := 0
 var _fires := 0
 var _failed := ""
 var _usec := [0, 0, 0]
-## Whether the dot_sim library can perceive on a worker (GSSimBotMind.perceive_held); older ones skip the worker copy.
+## Whether the gs_sim library can perceive on a worker (GSSimBotMind.perceive_held); older ones skip the worker copy.
 var _held := false
 
 

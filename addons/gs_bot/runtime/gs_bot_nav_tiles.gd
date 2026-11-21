@@ -14,7 +14,7 @@ extends RefCounted
 ## Nothing is clamped: a size the engine would refuse, or a negative one, is a failed [GSResult] with the reason.
 ## [GSBotNav] owns one of these; a game sets the bake's agent key `tile`, it names this class never.
 
-const CHANNEL := "dot.bot.nav"
+const CHANNEL := "gs.bot.nav"
 
 ## The engine's refusal line (nav_mesh_generator_3d.cpp, `use_crash_prevention_checks`): a fact of the engine, not a limit of ours.
 const ENGINE_MAX_CELLS := 30000000

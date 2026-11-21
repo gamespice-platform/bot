@@ -5,7 +5,7 @@ extends RefCounted
 ##
 ## [method read] takes a built map world by duck typing (GameSpice Map's `GSMapWorld`), so no other addon is named. A teleport is an edge (id at or above [constant TELEPORT_ID]), not a ride; only what a runner can fire now is used. Usage: docs/design.md.
 
-const CHANNEL := "dot.bot.links"
+const CHANNEL := "gs.bot.links"
 
 ## Ride ids from here up are teleports, so a game's own ride ids (surf edges) are never confused with them.
 const TELEPORT_ID := 1000000

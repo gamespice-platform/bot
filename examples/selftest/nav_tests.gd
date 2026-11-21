@@ -638,7 +638,7 @@ func _test_nav() -> void:
 
 func _test_nav_cache() -> void:
 	_section("nav cache: off by default, hit on the same geometry, invalidated when it changes")
-	var dir := "user://dot_bot_nav_cache_test"
+	var dir := "user://gs_bot_nav_cache_test"
 	var agent := {"radius": 0.35, "height": 1.0, "climb": 0.4}
 	var root := Node3D.new()
 	add_child(root)
@@ -736,7 +736,7 @@ func _test_nav_cell() -> void:
 	_check(plain.path_length(from, to) == INF, "and a 1.2 m door is shut to it", str(plain.path_length(from, to)))
 
 	var fine := GSBotNav.new()
-	var dir := "user://dot_bot_nav_cell_test"
+	var dir := "user://gs_bot_nav_cell_test"
 	fine.cache_dir = dir
 	fine.cache_id = "door"
 	DirAccess.remove_absolute(fine.cache_path())

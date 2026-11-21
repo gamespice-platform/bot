@@ -161,17 +161,17 @@ func _test_mlp_untrusted(header: Dictionary, bytes: PackedByteArray) -> void:
 ## The end of [method _test_mlp]: loading a net from its header and weights files.
 func _test_mlp_files(net: Dictionary, bytes: PackedByteArray) -> void:
 	# Through files: header and weights are siblings; a missing or oversized sibling is refused.
-	var dir := "user://dot_bot_mlp_%d" % randi()
+	var dir := "user://gs_bot_mlp_%d" % randi()
 	DirAccess.make_dir_recursive_absolute(dir)
 	var stem := dir.path_join("ride")
-	var hf := FileAccess.open(stem + ".dotmlp", FileAccess.WRITE)
+	var hf := FileAccess.open(stem + ".gsmlp", FileAccess.WRITE)
 	hf.store_string(JSON.stringify(net["header"]))
 	hf.close()
 	_check(not GSBotMlp.load_file(stem).ok, "a header with no weights file is refused")
 	var wf := FileAccess.open(stem + ".f32", FileAccess.WRITE)
 	wf.store_buffer(bytes)
 	wf.close()
-	var from_file: GSResult = GSBotMlp.load_file(stem + ".dotmlp")
+	var from_file: GSResult = GSBotMlp.load_file(stem + ".gsmlp")
 	_check(from_file.ok, "a header and weights on disk load", from_file.error.message if not from_file.ok else "")
 	if from_file.ok:
 		_check(((from_file.value as GSBotMlp).forward(_mlp_obs(2)) as PackedFloat32Array).size() == 3 and absf(from_file.value.forward(_mlp_obs(2))[2] - float(MLP_EXPECTED[2][2])) < 1e-5, "the loaded file gives the reference output")
@@ -182,6 +182,6 @@ func _test_mlp_files(net: Dictionary, bytes: PackedByteArray) -> void:
 		wf.store_buffer(chunk)
 	wf.close()
 	_check(not GSBotMlp.load_file(stem).ok, "weights over the size limit are refused")
-	DirAccess.remove_absolute(stem + ".dotmlp")
+	DirAccess.remove_absolute(stem + ".gsmlp")
 	DirAccess.remove_absolute(stem + ".f32")
 	DirAccess.remove_absolute(dir)

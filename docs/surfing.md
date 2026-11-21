@@ -11,7 +11,7 @@ A bot that rides surf ramps learns each ramp from the map alone: a search on the
 | `GSBotSurfPilot` | The run-time policy: the action of the nearest cached entry (position plus a quarter-second of velocity, on a 2.4 m grid), a veto (the policy's own future, 192 ticks; when it falls, the action whose future survives), optional tracking for a sparse cache. `ACTIONS`, `command_for`, `move_toward` |
 | `GSBotSurfRide` | One bot on one ride edge: the pilot's legs written into the brain's intent for the brain's own view, until the course says it landed or fell |
 
-dot-bot names no other addon, so the simulator is duck typed: dot-player-controller's `GSFpsSimulator` (`step(state, command) -> int`, `command(yaw, move, jump)`, `delta`) and its states (`position`, `velocity`, `duplicate_state()`, `is_grounded()`). The event numbers (`EVENT_NONE`, `GOAL`, `PIT`, `BELOW`) are the same on both. `bot_selftest`'s surf sections ride a toy simulator; the real motor is game-airdrift's `headless_imported` and game-fatal-contact's `headless_imported`.
+gs-bot names no other addon, so the simulator is duck typed: gs-player-controller's `GSFpsSimulator` (`step(state, command) -> int`, `command(yaw, move, jump)`, `delta`) and its states (`position`, `velocity`, `duplicate_state()`, `is_grounded()`). The event numbers (`EVENT_NONE`, `GOAL`, `PIT`, `BELOW`) are the same on both. `bot_selftest`'s surf sections ride a toy simulator; the real motor is game-airdrift's `headless_imported` and game-fatal-contact's `headless_imported`.
 
 ## Why a search and a cache
 
@@ -66,7 +66,7 @@ Rides a surf ramp from what [GSBotSurfPlanner] found: it does what the nearest r
 
 **The future is kept, not recomputed** (`rolling`, on by default). The simulator is the motor, so while the bot's real state is the state the future predicted for this tick, everything after it is still exactly what was simulated, and the only new tick to look at is one more at the far end. A ride that goes as foreseen then costs one motor tick a ridden tick (the far end) instead of `horizon` every `check_every` (eight at the defaults); a ride that is pushed off the forecast (another player, a booster the simulation did not run, a view the game rotated) recomputes it. Off, the future is run afresh every `check_every` ticks, which is what the study measured.
 
-**A simulator is duck typed** (dot-player-controller's `GSFpsSimulator`): `step(state, command) -> int`, `command(yaw, move, jump)`, `delta`. States are its states: `position`, `velocity`, `duplicate_state()`. So this addon names no other.
+**A simulator is duck typed** (gs-player-controller's `GSFpsSimulator`): `step(state, command) -> int`, `command(yaw, move, jump)`, `delta`. States are its states: `position`, `velocity`, `duplicate_state()`. So this addon names no other.
 
 ## Traps
 
@@ -78,4 +78,4 @@ Rides a surf ramp from what [GSBotSurfPlanner] found: it does what the nearest r
 
 ## Sealed islands
 
-A surf map with no ride cache has platforms the bot can land on and never leave. The brain's unstick ladder cannot help there, so after `bot_stranded_sec` (default 6, 0 never) stuck with every step tried it sets `GSBotIntent.stranded` for one think and logs a warning on the `dot.bot` channel; it raises it again every interval while the game does nothing. The game owns the answer (respawn or teleport to a spawn); the brain only reports.
+A surf map with no ride cache has platforms the bot can land on and never leave. The brain's unstick ladder cannot help there, so after `bot_stranded_sec` (default 6, 0 never) stuck with every step tried it sets `GSBotIntent.stranded` for one think and logs a warning on the `gs.bot` channel; it raises it again every interval while the game does nothing. The game owns the answer (respawn or teleport to a spawn); the brain only reports.

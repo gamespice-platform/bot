@@ -119,7 +119,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-bot soak self-test")
+	print("gs-bot soak self-test")
 	_test_clean()
 	_test_stuck()
 	_test_fell_out()
@@ -332,6 +332,6 @@ func _test_config() -> void:
 	cfg.apply_dictionary({"max-stuck-sec": 2.5, "minutes": 3.0, "bots": 12})
 	_check(is_equal_approx(cfg.max_stuck_sec, 2.5), "dictionary sets a threshold")
 	_check(cfg.bots == 12 and is_equal_approx(cfg.minutes, 3.0), "dictionary sets the run")
-	_check(cfg.env_prefix() == "DOT_SOAK_" and cfg.cli_prefix() == "--soak-", "prefixes")
+	_check(cfg.env_prefix() == "GS_SOAK_" and cfg.cli_prefix() == "--soak-", "prefixes")
 	_check(cfg.validate().ok, "default config validates")
 	_completed += 1

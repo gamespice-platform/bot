@@ -78,7 +78,7 @@ func active(p: GSBotProfile, bot_id: int) -> bool:
 
 ## A fixed number in [0, 1) per bot, so a share always picks the same bots.
 static func _draw(bot_id: int) -> float:
-	return float(hash(["dotbot-policy", bot_id]) & 0xFFFF) / 65536.0
+	return float(hash(["gsbot-policy", bot_id]) & 0xFFFF) / 65536.0
 
 
 ## Runs the net for [param me] and writes its action into [param out]. [param dt] is the think's step in seconds.

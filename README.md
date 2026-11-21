@@ -14,7 +14,7 @@ It also has a pool of bot names, so a scoreboard never shows "Bot 2", and a rost
 ## Install
 You need [Godot 4.7](https://godotengine.org/download). The easiest way to get this addon and the ones it needs is [GameSpice Bootstrap](https://github.com/gamespice-platform/bootstrap), which clones every project and links the addons into each one.
 
-To add it to your own project by hand, copy `addons/dot_bot/` and [GameSpice Core](https://github.com/gamespice-platform/core)'s `addons/dot_core/` into it and enable dot-bot in **Project → Project Settings → Plugins**. dot-core is the only dependency.
+To add it to your own project by hand, copy `addons/gs_bot/` and [GameSpice Core](https://github.com/gamespice-platform/core)'s `addons/gs_core/` into it and enable gs-bot in **Project → Project Settings → Plugins**. gs-core is the only dependency.
 
 ## Using it
 
@@ -62,8 +62,8 @@ fire = aim.trigger(now, eye.distance_to(target_chest))
 On a server, register the cvars on your module. In a solo game, add them to the player's console:
 
 ```gdscript
-GSBotSettings.of(game).bind_cvars(add_cvar, GSConVar.FLAG_NOTIFY, add_command)   # dot-server module
-GSBotSettings.of(game).bind_console(local_console)                                 # dot-console's GSConsoleLocal
+GSBotSettings.of(game).bind_cvars(add_cvar, GSConVar.FLAG_NOTIFY, add_command)   # gs-server module
+GSBotSettings.of(game).bind_console(local_console)                                 # gs-console's GSConsoleLocal
 ```
 
 Names and the bot count:
@@ -82,7 +82,7 @@ roster.keep(quota.wanted(humans, max_players), bot_ids,
 - `world.add_sight_blocker(center, radius, until)` makes line of sight through a sphere fail until `until`. It returns an id for `remove_sight_blocker`.
 - Ladders: call `links.link_ladders(nav, boxes)` and assign `world.ladder_fn = links.ladder_of`. The brain faces the ladder, holds forward and hops off at the top. For a game that steers its own bots, `GSBotClimb.begin(...)` then `step(feet, now)` each tick returns `{yaw, move, jump, done}`.
 
-A consumer that must run against older builds can guard with `GSAddonApi.build_level("dot_bot")`. These features need level 8 (blind and smoke) and level 9 to 11 (ladders). See [docs/design.md](docs/design.md).
+A consumer that must run against older builds can guard with `GSAddonApi.build_level("gs_bot")`. These features need level 8 (blind and smoke) and level 9 to 11 (ladders). See [docs/design.md](docs/design.md).
 
 ### Hiding, searching and walking a map
 For games where bots hide and seek rather than fight, three helpers sit beside the brain. `GSBotNav` bakes a navigation mesh from your map's colliders when the map is built (pass the bodies that never move, so a door baked shut is not a wall) and gives paths and seeded random points. `GSBotHiding` scores places by how many of the map's sight lines reach them, picks one apart from the other hiders, and finds somewhere out of a seeker's sight to run to. `GSBotSearch` is a seeker's memory: the likely places first, crossed off once looked at, and the places near a sound put back on the list.

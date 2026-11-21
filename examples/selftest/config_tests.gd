@@ -416,7 +416,7 @@ func _test_think_tier() -> void:
 	_section("think-rate tiers: watched, fighting and nearest bots every tick, the rest every few")
 
 	var t := GSBotThinkTier.new()
-	t.native = false  # this script's own answers; dot-sim's selftest compares the native tier with them
+	t.native = false  # this script's own answers; gs-sim's selftest compares the native tier with them
 	var eyes := PackedVector3Array([Vector3.ZERO])
 	var looks := PackedVector3Array([Vector3(0, 0, -1)])
 	var ids := PackedInt32Array([1, 2, 3, 4, 5])

@@ -8,7 +8,7 @@ func _trick_run(preset: String, scenario: StringName, seconds: float, ready: boo
 	var s := GSBotSettings.new()
 	s.set_difficulty(preset)
 	var tricks := GSBotTricks.new()
-	var rng := GSRandomStream.new(7).stream(&"dot_bot")
+	var rng := GSRandomStream.new(7).stream(&"gs_bot")
 	var world := GSBotWorld.new()
 	world.wall_fn = func(_from: Vector3, dir: Vector3, reach: float) -> Dictionary:
 		return {"normal": Vector3(-dir.x, 0.0, -dir.z), "distance": 1.0} if dir.x > 0.5 and reach > 1.0 else {}

@@ -501,7 +501,7 @@ func _test_utility_grenades() -> void:
 
 func _test_sight_lod() -> void:
 	_section("sight LOD: a far unseen body keeps its answer longer, a seen one or the target never")
-	# The same checks on the script cache and, with dot_sim installed, on the native mind's cache.
+	# The same checks on the script cache and, with gs_sim installed, on the native mind's cache.
 	var got := _sight_lod_case(false)
 	var probe := GSBotBrain.new(1, GSBotSettings.new())
 	var native := probe._mind != null and GSBotBrain._sight_lod_available()

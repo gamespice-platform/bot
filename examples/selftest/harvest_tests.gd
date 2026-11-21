@@ -176,7 +176,7 @@ func _test_harvest_store() -> void:
 	var _g: GSResult = await _ride_harvest(keep).harvest(kept_store, "surf_toy", "v1", "ride", "1>2")
 	_check(kept_store.episodes.size() == 1 and kept_store.episodes[0].score == GSBotRideHarvest.REJECTED_SCORE and not kept_store.episodes[0].verified
 		and GSBotRideHarvest.unchecked(kept_store.episodes).is_empty(), "keep_rejected marks a rejected ride and it is not replayed again")
-	var dir := "user://dot_bot_ride_%d" % randi()
+	var dir := "user://gs_bot_ride_%d" % randi()
 	var json := GSBotDemoStoreJson.new(dir)
 	var _o := await json.open()
 	var _p := await json.append([_ride_episode("1>2", 20.0), _ride_episode("1>2", 2.0)])
@@ -440,7 +440,7 @@ func _bc_tamper(src: String, dst: String, edit: Callable) -> void:
 
 func _test_bc_export() -> void:
 	_section("bc export: manifest and float32 shards, split by episode, read back, untrusted loads")
-	var root := "user://dot_bot_bc_%d" % randi()
+	var root := "user://gs_bot_bc_%d" % randi()
 	var schema := _bc_schema()
 	var ex := GSBotDemoExport.new(schema)
 	ex.max_shard_rows = 30

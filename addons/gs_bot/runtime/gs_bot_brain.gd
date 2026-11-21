@@ -1,5 +1,5 @@
 class_name GSBotBrain
-extends "dot_bot_brain_state.gd"
+extends "gs_bot_brain_state.gd"
 
 ## One bot's decisions: whom it sees, where it looks, when it pulls the trigger and how it
 ## moves, as a [GSBotIntent] each tick.
@@ -70,7 +70,7 @@ func _init(p_id: int = 0, p_settings: GSBotSettings = null) -> void:
 	id = p_id
 	settings = p_settings if p_settings != null else GSBotSettings.new()
 	aim = GSBotAim.new(p_id, settings)
-	_rng = GSRandomStream.new(p_id).stream(&"dot_bot")
+	_rng = GSRandomStream.new(p_id).stream(&"gs_bot")
 	aim._set_brain_key(_rng._key)
 	if aim._n != null and _perceive_available():
 		_mind = aim._n
@@ -80,7 +80,7 @@ func _init(p_id: int = 0, p_settings: GSBotSettings = null) -> void:
 
 
 ## Moves this brain wholly into script (the aim's state, and no native perceive or sight cache from
-## here on). [method par_ready] does this itself when the dot_sim library cannot think on workers.
+## here on). [method par_ready] does this itself when the gs_sim library cannot think on workers.
 func leave_native() -> void:
 	aim._demote()
 	_mind = null
@@ -91,7 +91,7 @@ func leave_native() -> void:
 ## world's contacts for the tick are in ([member GSBotWorld.contacts_version] bumped) and before
 ## [method think]. The native mind stays (its state is this brain's alone, touched by one thread at a
 ## time) and takes a handle on the world's packed sight scan, which a worker must not bind while
-## others do; it then perceives on the worker to the bit as it would on the main thread. A dot_sim
+## others do; it then perceives on the worker to the bit as it would on the main thread. A gs_sim
 ## library without that handle (GSSimBotMind.hold_senses) moves the brain into script instead, as
 ## [method leave_native].
 func par_ready(world: GSBotWorld) -> void:
@@ -339,14 +339,14 @@ func _perceive(me: GSBotContact, all: Array, world: GSBotWorld, p: GSBotProfile,
 	return chosen
 
 
-## Whether the dot_sim extension's GSSimBotMind perceives (and [member native_perceive] lets it).
+## Whether the gs_sim extension's GSSimBotMind perceives (and [member native_perceive] lets it).
 static func _perceive_available() -> bool:
 	if _perceive_known < 0:
 		_perceive_known = 1 if ClassDB.class_exists(GSBotAim.MIND_CLASS) and ClassDB.class_has_method(GSBotAim.MIND_CLASS, &"perceive") else 0
 	return native_perceive and _perceive_known == 1
 
 
-## Whether the dot_sim extension's GSSimBotMind can perceive on a worker over a held scan (hold_senses,
+## Whether the gs_sim extension's GSSimBotMind can perceive on a worker over a held scan (hold_senses,
 ## perceive_held) and its objects may be called off the main thread at all (worker_safe: not on the web).
 static func _held_available() -> bool:
 	if _held_known < 0:
@@ -358,7 +358,7 @@ static func _held_available() -> bool:
 	return _held_known == 1
 
 
-## Whether the dot_sim extension's GSSimBotMind applies the sight LOD itself (sight_cached_far, set_sight_lod).
+## Whether the gs_sim extension's GSSimBotMind applies the sight LOD itself (sight_cached_far, set_sight_lod).
 static func _sight_lod_available() -> bool:
 	if _sight_lod_known < 0:
 		_sight_lod_known = 1 if ClassDB.class_exists(GSBotAim.MIND_CLASS) and ClassDB.class_has_method(GSBotAim.MIND_CLASS, &"sight_cached_far") else 0

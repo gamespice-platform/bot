@@ -21,7 +21,7 @@ extends RefCounted
 ## [b]Newest out first[/b], so a person joining takes the place of the bot that came last and
 ## the longest-standing bots keep their scores.
 
-const CHANNEL := "dot.bot"
+const CHANNEL := "gs.bot"
 
 ## Names a game uses instead of [constant GSBotNames.POOL]; empty for the pool.
 var pool: Array = []

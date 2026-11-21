@@ -1,7 +1,7 @@
 @tool
 extends EditorPlugin
 
-## Editor entry point for dot-bot.
+## Editor entry point for gs-bot.
 ##
 ## It registers nothing. Everything here is a [RefCounted] a game builds in code, or a
 ## [Resource] ([GSBotProfile]) that Godot already offers by its [code]class_name[/code]. It

@@ -1,5 +1,5 @@
 class_name GSBotSurfPilot
-extends "dot_bot_surf_pilot_cache.gd"
+extends "gs_bot_surf_pilot_cache.gd"
 
 ## Rides a surf ramp from what [GSBotSurfPlanner] found: it does what the nearest remembered
 ## state did, and looks a second and a half ahead before trusting that.
@@ -13,7 +13,7 @@ extends "dot_bot_surf_pilot_cache.gd"
 ## A simulator is duck typed (GameSpice Player Controller's [code]GSFpsSimulator[/code]):
 ## `step(state, command) -> int`, `command(yaw, move, jump)`, `delta`; states have
 ## `position`, `velocity`, `duplicate_state()`. So this addon names no other.
-## The cache, its lookup and the actions are in dot_bot_surf_pilot_cache.gd, split out for file size.
+## The cache, its lookup and the actions are in gs_bot_surf_pilot_cache.gd, split out for file size.
 
 # No log channel: the game that rides says what happened.
 

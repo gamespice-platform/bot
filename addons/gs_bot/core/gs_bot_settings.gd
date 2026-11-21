@@ -26,10 +26,10 @@ extends RefCounted
 ## in [GSRegistry], because this family runs two servers in one process in its suites and
 ## they must not share a difficulty.
 
-const CHANNEL := "dot.bot"
+const CHANNEL := "gs.bot"
 
 ## Where [method attach] keeps this on a node.
-const META := &"dot_bot_settings"
+const META := &"gs_bot_settings"
 
 const CVAR_DIFFICULTY := "bot_difficulty"
 const COMMAND_SHOW := "bot_settings"

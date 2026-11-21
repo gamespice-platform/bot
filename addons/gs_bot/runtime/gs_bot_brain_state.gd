@@ -1,12 +1,12 @@
 extends RefCounted
 
 ## [GSBotBrain]'s state and its movement: the fields every decision reads, and how a bot walks, roams, searches and climbs.
-## Split out of dot_bot_brain.gd for file size; nothing outside the brain names this script.
+## Split out of gs_bot_brain.gd for file size; nothing outside the brain names this script.
 
 ## A hunting bot heads for the place nearest its prey, or the prey itself if no place is this close.
 const HUNT_PLACE_NEAR := 6.0
 
-const CHANNEL := "dot.bot"
+const CHANNEL := "gs.bot"
 
 ## Within this distance a body is noticed whatever way the bot faces: somebody touching you.
 const CLOSE_NOTICE := 2.0

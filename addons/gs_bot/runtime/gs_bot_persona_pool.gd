@@ -5,7 +5,7 @@ extends RefCounted
 ##
 ## Each `weight` is a chance; an operator override (`id:weight,...`, [method parse_override]) replaces the weights and drops personas it does not name. With none at all the pool holds one balanced character.
 
-const CHANNEL := "dot.bot"
+const CHANNEL := "gs.bot"
 
 var personas: Array[GSBotPersona] = []
 ## id -> weight from [method parse_override]; empty for the personas' own.

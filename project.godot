@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="dot-bot"
+config/name="gs-bot"
 run/main_scene="res://examples/bot_selftest.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"

@@ -28,7 +28,7 @@ func _test_style_table() -> void:
 
 	var s := GSBotSettings.new()
 	var stamp := s.style_stamp()
-	var path := "user://dot_bot_style_test.json"
+	var path := "user://gs_bot_style_test.json"
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	f.store_string(json)
 	f.close()

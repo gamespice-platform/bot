@@ -82,10 +82,10 @@ var _burst_until: float = -INF
 var _pause_until: float = -INF
 var _rng: GSRandomStream = null
 
-## The dot_sim extension's class that runs this aim natively (and the brain's fight step).
+## The gs_sim extension's class that runs this aim natively (and the brain's fight step).
 const MIND_CLASS := &"GSSimBotMind"
 
-## Whether new aims think natively when the dot_sim extension is loaded (the default). Off, every
+## Whether new aims think natively when the gs_sim extension is loaded (the default). Off, every
 ## aim made from then on runs the script below; the two make the same decisions to the bit.
 static var native_enabled := true
 static var _native_known := -1
@@ -97,13 +97,13 @@ var _n: Object = null
 
 func _init(id: int = 0, p_settings: GSBotSettings = null) -> void:
 	settings = p_settings if p_settings != null else GSBotSettings.new()
-	_rng = GSRandomStream.new(id).stream(&"dot_bot_aim")
+	_rng = GSRandomStream.new(id).stream(&"gs_bot_aim")
 	if native_enabled and native_available():
 		_n = ClassDB.instantiate(MIND_CLASS)
 		_n.set_keys(_rng._key, 0)
 
 
-## Whether the dot_sim extension provides [constant MIND_CLASS].
+## Whether the gs_sim extension provides [constant MIND_CLASS].
 static func native_available() -> bool:
 	if _native_known < 0:
 		_native_known = 1 if ClassDB.class_exists(MIND_CLASS) else 0

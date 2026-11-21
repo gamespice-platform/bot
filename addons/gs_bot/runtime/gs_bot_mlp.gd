@@ -2,13 +2,13 @@ class_name GSBotMlp
 extends RefCounted
 
 ## A small multilayer perceptron run in GDScript: the behaviour-cloning policy's forward pass.
-## Weights are `<name>.dotmlp` (a JSON header) and a sibling `<name>.f32` (little-endian float32: per layer the weights row-major, [out][in], then the biases).
+## Weights are `<name>.gsmlp` (a JSON header) and a sibling `<name>.f32` (little-endian float32: per layer the weights row-major, [out][in], then the biases).
 ## Both are untrusted: sizes, the hash, every float and every shape are checked before use. [method forward] allocates nothing (the buffers are made at load) and gives the same result for the same input, every call.
 
 # No log channel: loading answers with a GSResult; its caller logs.
-const FORMAT := "dotbot-mlp"
+const FORMAT := "gsbot-mlp"
 const VERSION := 1
-const HEADER_EXT := "dotmlp"
+const HEADER_EXT := "gsmlp"
 const WEIGHTS_EXT := "f32"
 
 const MAX_HEADER_BYTES := 64 * 1024
@@ -59,7 +59,7 @@ func multiply_adds() -> int:
 	return n
 
 
-## Loads `<stem>.dotmlp` and its sibling `.f32` (pass the stem or either file). With a [param schema] (a GSBotDemoSchema, duck typed) the header's schema id and the input and output sizes must match it, or the file is refused.
+## Loads `<stem>.gsmlp` and its sibling `.f32` (pass the stem or either file). With a [param schema] (a GSBotDemoSchema, duck typed) the header's schema id and the input and output sizes must match it, or the file is refused.
 static func load_file(path: String, schema: Variant = null) -> GSResult:
 	var stem := path
 	if path.get_extension() == HEADER_EXT or path.get_extension() == WEIGHTS_EXT:

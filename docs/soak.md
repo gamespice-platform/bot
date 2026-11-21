@@ -2,7 +2,7 @@
 
 `GSBotSoak` drives a game's bots headless for N simulated minutes and answers one question: did anything go wrong that a short test would not show. It samples every `sample_sec`: stuck, fell-out, off-nav and unreachable movers, kills, deaths and damage, tick cost, and object and static-memory growth. At the end it judges the run against thresholds and returns a report with `ok` and a list of `reasons`.
 
-It depends on dot-core only. Stuck, fell-out, off-nav and unreachable detection come from dot-spawn's `GSSpawnWatch`, reached by duck typing: assign any object with `report(id, position, kind, has_goal)`, `advance(delta)` returning verdicts (`id`, `category`, `seconds`) and optionally `set_players` and `describe_lines`. Without a watch those checks are skipped and the report says `"watch": false`. A game that wants them enables the watch's rules (`rules.enabled = true`) and sets its `nav_distance_fn` and `reachable_fn`.
+It depends on gs-core only. Stuck, fell-out, off-nav and unreachable detection come from gs-spawn's `GSSpawnWatch`, reached by duck typing: assign any object with `report(id, position, kind, has_goal)`, `advance(delta)` returning verdicts (`id`, `category`, `seconds`) and optionally `set_players` and `describe_lines`. Without a watch those checks are skipped and the report says `"watch": false`. A game that wants them enables the watch's rules (`rules.enabled = true`) and sets its `nav_distance_fn` and `reachable_fn`.
 
 ## Host integration
 
@@ -21,7 +21,7 @@ Optional hooks: `players_fn` (living players, for far and unreachable), `object_
 
 ## Thresholds
 
-`GSBotSoakConfig` is a `GSConfig`: defaults, JSON file, environment `DOT_SOAK_*`, command line `--soak-*`. `minutes`, `bots`, `sample_sec`, `warmup_sec`, `seed_value`, and `max_stuck_sec` (10), `max_fell_out` (0), `max_off_nav` and `max_unreachable` (-1, off), `max_object_growth_pct` (25), `max_memory_growth_pct` (50), `max_tick_p95_ms` (16), `require_kills_after_sec` (120; a run that long with no kills fails; unchecked without `stats_fn`). Growth is measured from the first sample after `warmup_sec`.
+`GSBotSoakConfig` is a `GSConfig`: defaults, JSON file, environment `GS_SOAK_*`, command line `--soak-*`. `minutes`, `bots`, `sample_sec`, `warmup_sec`, `seed_value`, and `max_stuck_sec` (10), `max_fell_out` (0), `max_off_nav` and `max_unreachable` (-1, off), `max_object_growth_pct` (25), `max_memory_growth_pct` (50), `max_tick_p95_ms` (16), `require_kills_after_sec` (120; a run that long with no kills fails; unchecked without `stats_fn`). Growth is measured from the first sample after `warmup_sec`.
 
 ## Report
 

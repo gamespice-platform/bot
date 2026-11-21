@@ -42,7 +42,7 @@ func _test_nav_tiles() -> void:
 	small_body.add_child(small_shape)
 	await get_tree().physics_frame
 
-	var dir := "user://dot_bot_nav_tiles_test"
+	var dir := "user://gs_bot_nav_tiles_test"
 	var fits := GSBotNav.new()
 	fits.cache_dir = dir
 	fits.cache_id = "tile fits"

@@ -6,7 +6,7 @@ extends RefCounted
 ## Pure and repeatable: the same net, manifest, host and config give the same report, byte for byte. [method evaluate] returns a success when every map passes and a failure otherwise; the report (the metrics in both cases) is in [member report].
 
 # No log channel: the verdict is the GSResult and [member report]; the tool that runs it logs.
-const FORMAT := "dotbot-eval"
+const FORMAT := "gsbot-eval"
 const VERSION := 1
 const MAX_SEEDS := 256
 const MAX_STEPS := 1 << 20

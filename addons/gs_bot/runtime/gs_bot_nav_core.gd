@@ -1,9 +1,9 @@
 extends RefCounted
 
-## [GSBotNav]'s bake, cache, routes, ride edges and islands. Split out of dot_bot_nav.gd for file size;
+## [GSBotNav]'s bake, cache, routes, ride edges and islands. Split out of gs_bot_nav.gd for file size;
 ## nothing outside the nav names this script.
 
-const CHANNEL := "dot.bot.nav"
+const CHANNEL := "gs.bot.nav"
 
 ## Default metres a cell of the mesh covers, flat and up (a bake's `cell` and `cell_height` override
 ## them). The radius rounds up to whole cells, so a body whose radius is not a multiple wants its own
@@ -44,7 +44,7 @@ const MERGE_SCALE_MIN := 0.01
 const MERGE_SCALE_MAX := 0.1
 
 const CACHE_FORMAT := 1
-const CACHE_META := &"dot_bot_nav_cache"
+const CACHE_META := &"gs_bot_nav_cache"
 
 var _cache_digest: String = ""
 var _started: int = 0
@@ -199,7 +199,7 @@ func _parse(root: Node3D, agent: Dictionary, mask: int, bodies: Array) -> GSResu
 	mesh.region_min_size = 2.0
 	mesh.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
 	mesh.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_ROOT_NODE_CHILDREN
-	var group := StringName("dot_bot_nav_%d" % get_instance_id())
+	var group := StringName("gs_bot_nav_%d" % get_instance_id())
 	if not bodies.is_empty():
 		mesh.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_GROUPS_WITH_CHILDREN
 		mesh.geometry_source_group_name = group

@@ -9,7 +9,7 @@ const GRAVITY := 9.8
 const MAX_TIME := 15.0
 
 
-## Reads muzzle_velocity, bullet_gravity and drag off [param tuning] by duck typing (a dot-weapon
+## Reads muzzle_velocity, bullet_gravity and drag off [param tuning] by duck typing (a gs-weapon
 ## GSWeaponBallistics fits, so does any Object or Dictionary with those names). Null or
 ## muzzle_velocity <= 0 means hitscan: [param target] comes back unchanged, as it does when no solution exists.
 static func solve(muzzle: Vector3, target: Vector3, velocity: Vector3, tuning: Variant) -> Vector3:

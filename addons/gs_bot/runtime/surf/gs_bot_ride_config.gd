@@ -52,7 +52,7 @@ extends GSConfig
 
 
 func env_prefix() -> String:
-	return "DOT_BOT_HARVEST_"
+	return "GS_BOT_HARVEST_"
 
 
 func cli_prefix() -> String:

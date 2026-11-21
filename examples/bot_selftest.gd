@@ -1,6 +1,6 @@
 extends "res://examples/selftest/style_tests.gd"
 
-## dot-bot's suite (`godot --headless --path . res://examples/bot_selftest.tscn`): presets, cvars, names, roster, and a bot's senses, aim and fights measured rather than read.
+## gs-bot's suite (`godot --headless --path . res://examples/bot_selftest.tscn`): presets, cvars, names, roster, and a bot's senses, aim and fights measured rather than read.
 ## The numbers a player feels are measured per preset (time to first shot, aim error, turn speed, K/D against one fixed opponent); the bands are what the presets promise.
 
 const CHECKS := 694
@@ -19,7 +19,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-bot self-test")
+	print("gs-bot self-test")
 	print("")
 
 	_test_profile()

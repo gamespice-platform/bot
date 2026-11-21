@@ -1,11 +1,11 @@
 class_name GSBotNav
-extends "dot_bot_nav_core.gd"
+extends "gs_bot_nav_core.gd"
 
 ## Where a bot can walk: a navigation mesh baked from a map's static colliders, and paths across it.
 ##
 ## Optional: the brain walks straight at waypoints otherwise. Pass only bodies that never move (a door baked shut is a wall). It owns its navigation map, so [method clear] frees all of it, and [method random_point] draws from the caller's [GSRandomStream]. Usage: docs/design.md.
 
-## The edge searches (drops, hops, stitches) are here; the bake, routes and islands are in dot_bot_nav_core.gd, split out for file size.
+## The edge searches (drops, hops, stitches) are here; the bake, routes and islands are in gs_bot_nav_core.gd, split out for file size.
 
 ## Adds one-way drop edges from the mesh's open borders down to lower floor, id [param first_id] up, one per [param spacing] metres of rim, at most [param limit]; returns how many.
 ## A landing is the nearest mesh point below the rim, kept only when it lies under the probe and physics rays out and down hit nothing.
