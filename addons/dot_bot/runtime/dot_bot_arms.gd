@@ -44,14 +44,17 @@ static func loadout_of(arsenal: Object, rater: Callable = Callable()) -> Diction
 	if arsenal == null:
 		return out
 	var ammo: Object = arsenal.call("ammo")
+	var custom := rater.is_valid()
 	for slot in range(1, 10):
 		var held: Object = arsenal.call("slot_at", slot)
-		if held == null or held.get("def") == null:
+		if held == null:
 			continue
 		var def: Object = held.get("def")
+		if def == null:
+			continue
 		var type: StringName = def.get("ammo_type")
 		var reserve: int = int(ammo.call("count", type)) if ammo != null and type != &"" else 0
-		out[slot] = {"value": rater.call(def) if rater.is_valid() else rate(def),
+		out[slot] = {"value": rater.call(def) if custom else rate(def),
 			"ammo": ammo_fraction(def, int(held.get("magazine")), reserve)}
 	return out
 
