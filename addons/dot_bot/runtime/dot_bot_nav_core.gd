@@ -1,6 +1,6 @@
 extends RefCounted
 
-## [DotBotNav]'s bake, cache, routes, ride edges and islands. Split out of dot_bot_nav.gd for file size;
+## [GSBotNav]'s bake, cache, routes, ride edges and islands. Split out of dot_bot_nav.gd for file size;
 ## nothing outside the nav names this script.
 
 const CHANNEL := "dot.bot.nav"
@@ -48,7 +48,7 @@ const CACHE_META := &"dot_bot_nav_cache"
 
 var _cache_digest: String = ""
 var _started: int = 0
-var _tiler: DotBotNavTiles = DotBotNavTiles.new()
+var _tiler: GSBotNavTiles = GSBotNavTiles.new()
 ## The root last baked, for [method find_drops]'s clearance rays.
 var _root: Node3D = null
 var _baking: bool = false
@@ -67,7 +67,7 @@ var _ride_of_link: Dictionary = {}
 ## Polygon index -> island, from [method islands]; empty until asked.
 var _island_of: PackedInt32Array = PackedInt32Array()
 var _islands: Array[Dictionary] = []
-## Polygon indices bucketed by [constant DotBotNavGeometry.ISLAND_CELL] cell over their bounds, built the first time [method polygon_at] asks.
+## Polygon indices bucketed by [constant GSBotNavGeometry.ISLAND_CELL] cell over their bounds, built the first time [method polygon_at] asks.
 var _poly_grid: Dictionary = {}
 var _poly_grid_for := Vector2i.ZERO
 ## Island -> islands one ride edge reaches, for [method joined]; null until asked.
@@ -81,9 +81,9 @@ var _total_area: float = 0.0
 ## Bakes the static colliders under [param root].
 ## [param agent]: `radius`, `height` (the lowest a body can go, crouched, so crawl spaces are on the mesh), `climb` (a step), `slope` (degrees), `cell` and `cell_height` (default [constant CELL], [constant CELL_HEIGHT]),
 ## `merge_scale` (the map's edge-merge cell over the mesh cell, [constant MERGE_SCALE_MIN] to [constant MERGE_SCALE_MAX]; default 0 leaves the engine's default for a new map, 0.1, which the project setting does not reach; outside the range fails);
-## `tile` (metres, default 0 = auto: one grid while the map fits the engine's 30 million cells, as always, else [constant DotBotNavTiles.AUTO_TILE] m tiles joined into one mesh; above 0 always tiles; a negative or engine-refused size fails with the reason, never clamped; see [DotBotNavTiles]);
+## `tile` (metres, default 0 = auto: one grid while the map fits the engine's 30 million cells, as always, else [constant GSBotNavTiles.AUTO_TILE] m tiles joined into one mesh; above 0 always tiles; a negative or engine-refused size fails with the reason, never clamped; see [GSBotNavTiles]);
 ## [param mask] the collision layers that count as ground and walls (0 for all). With [param bodies] (nodes under [param root]), only those and their children are parsed.
-func bake(root: Node3D, agent: Dictionary = {}, mask: int = 0, bodies: Array = []) -> DotResult:
+func bake(root: Node3D, agent: Dictionary = {}, mask: int = 0, bodies: Array = []) -> GSResult:
 	var parsed := _parse(root, agent, mask, bodies)
 	if not parsed.ok:
 		return parsed
@@ -93,7 +93,7 @@ func bake(root: Node3D, agent: Dictionary = {}, mask: int = 0, bodies: Array = [
 
 
 ## The synchronous bake of an already parsed [param source]: one grid, or the tiles baked in turn and joined.
-func _bake_now(source: NavigationMeshSourceGeometryData3D) -> DotResult:
+func _bake_now(source: NavigationMeshSourceGeometryData3D) -> GSResult:
 	if _tiler.count() == 0:
 		NavigationServer3D.bake_from_source_geometry_data(mesh, source)
 		return _take_in()
@@ -106,19 +106,19 @@ func _bake_now(source: NavigationMeshSourceGeometryData3D) -> DotResult:
 
 
 ## Joins the baked tile [param parts] into [member mesh] and takes it in.
-func _joined(parts: Array[NavigationMesh]) -> DotResult:
+func _joined(parts: Array[NavigationMesh]) -> GSResult:
 	_tiler.join(parts)
 	return _take_in()
 
 
 ## [method bake] with the mesh built on a worker thread, for a map too big to bake inside a tick: [param done] gets [method bake]'s result when it arrives; until then [method path] is empty and [method is_baking] true.
 ## When the mesh arrives depends on the machine, so a game replaying a seeded round must use [method bake]. Without threads this is [method bake].
-func bake_in_background(root: Node3D, agent: Dictionary = {}, mask: int = 0, bodies: Array = [], done: Callable = Callable()) -> DotResult:
+func bake_in_background(root: Node3D, agent: Dictionary = {}, mask: int = 0, bodies: Array = [], done: Callable = Callable()) -> GSResult:
 	var parsed := _parse(root, agent, mask, bodies)
 	if not parsed.ok:
 		return parsed
 	var cached := _cache_load(parsed.value)
-	if cached or not DotPlatform.has_threads():
+	if cached or not GSPlatform.has_threads():
 		var res := _take_in() if cached else _bake_now(parsed.value)
 		if done.is_valid():
 			done.call(res)
@@ -128,7 +128,7 @@ func bake_in_background(root: Node3D, agent: Dictionary = {}, mask: int = 0, bod
 	# is dropped instead of taken in over the map that replaced it.
 	if _tiler.count() == 0:
 		NavigationServer3D.bake_from_source_geometry_data_async(mesh, parsed.value, _on_baked.bind(_generation, mesh, done))
-		return DotResult.success(0)
+		return GSResult.success(0)
 	# Tiles side by side on the server's workers; the last to land joins them.
 	var parts: Array[NavigationMesh] = []
 	var landed := [0]
@@ -136,7 +136,7 @@ func bake_in_background(root: Node3D, agent: Dictionary = {}, mask: int = 0, bod
 		parts.append(_tiler.tile_mesh(box))
 	for part in parts:
 		NavigationServer3D.bake_from_source_geometry_data_async(part, parsed.value, _on_tile.bind(_generation, mesh, parts, landed, done))
-	return DotResult.success(0)
+	return GSResult.success(0)
 
 
 ## Whether a [method bake_in_background] has not landed yet.
@@ -166,11 +166,11 @@ func _on_tile(generation: int, base: NavigationMesh, parts: Array[NavigationMesh
 
 
 ## Clears, then sets [member mesh] up and parses the colliders into source geometry.
-func _parse(root: Node3D, agent: Dictionary, mask: int, bodies: Array) -> DotResult:
+func _parse(root: Node3D, agent: Dictionary, mask: int, bodies: Array) -> GSResult:
 	clear()
 
 	if root == null or not root.is_inside_tree():
-		return DotResult.fail(DotError.CODE_INVALID, "nothing to bake: the map is not in the tree")
+		return GSResult.fail(GSError.CODE_INVALID, "nothing to bake: the map is not in the tree")
 
 	_started = Time.get_ticks_usec()
 	_root = root
@@ -183,7 +183,7 @@ func _parse(root: Node3D, agent: Dictionary, mask: int, bodies: Array) -> DotRes
 	_poly_grid.clear()
 	var merge_scale := float(agent.get("merge_scale", 0.0))
 	if merge_scale != 0.0 and (merge_scale < MERGE_SCALE_MIN or merge_scale > MERGE_SCALE_MAX):
-		return DotResult.fail(DotError.CODE_INVALID, "the bake's merge_scale %s is outside the engine's %s to %s (0 for its default)" % [
+		return GSResult.fail(GSError.CODE_INVALID, "the bake's merge_scale %s is outside the engine's %s to %s (0 for its default)" % [
 			merge_scale, MERGE_SCALE_MIN, MERGE_SCALE_MAX])
 	merge_scale_used = merge_scale
 	var cell := maxf(float(agent.get("cell", CELL)), 0.01)
@@ -223,7 +223,7 @@ func _parse(root: Node3D, agent: Dictionary, mask: int, bodies: Array) -> DotRes
 		return planned
 	tiles_used = _tiler.count()
 	tile_used = _tiler.side_m
-	return DotResult.success(source)
+	return GSResult.success(source)
 
 
 ## Where this map's cache file lives, or "" when the cache is off.
@@ -262,12 +262,12 @@ func _cache_load(source: NavigationMeshSourceGeometryData3D) -> bool:
 	var found := ResourceLoader.load(path, "NavigationMesh", ResourceLoader.CACHE_MODE_IGNORE) as NavigationMesh
 	var meta: Variant = found.get_meta(CACHE_META, {}) if found != null else {}
 	if found == null or not meta is Dictionary or meta.get("digest", "") != _cache_digest or found.get_polygon_count() == 0:
-		DotLog.debug(CHANNEL, "bake cache stale", {"id": cache_id})
+		GSLog.debug(CHANNEL, "bake cache stale", {"id": cache_id})
 		DirAccess.remove_absolute(path)
 		return false
 	mesh = found
 	last_bake_cached = true
-	DotLog.debug(CHANNEL, "bake cache hit", {"id": cache_id})
+	GSLog.debug(CHANNEL, "bake cache hit", {"id": cache_id})
 	return true
 
 
@@ -280,16 +280,16 @@ func _cache_store() -> void:
 	var err := ResourceSaver.save(mesh, path) if made == OK else made
 	mesh.remove_meta(CACHE_META)
 	if err != OK:
-		DotLog.warn(CHANNEL, "bake cache not written", {"path": path, "error": error_string(err)})
+		GSLog.warn(CHANNEL, "bake cache not written", {"path": path, "error": error_string(err)})
 		return
-	DotWeb.sync_filesystem()
+	GSWeb.sync_filesystem()
 
 
 ## Hands the baked [member mesh] to a navigation map of its own.
-func _take_in() -> DotResult:
+func _take_in() -> GSResult:
 	if mesh.get_polygon_count() == 0:
 		bake_ms = (Time.get_ticks_usec() - _started) / 1000.0
-		return DotResult.fail(DotError.CODE_INVALID, "the bake found nowhere to walk")
+		return GSResult.fail(GSError.CODE_INVALID, "the bake found nowhere to walk")
 
 	_map = NavigationServer3D.map_create()
 	NavigationServer3D.map_set_cell_size(_map, mesh.cell_size)
@@ -313,8 +313,8 @@ func _take_in() -> DotResult:
 
 	_cache_store()
 	bake_ms = (Time.get_ticks_usec() - _started) / 1000.0
-	DotLog.debug(CHANNEL, "baked", {"polygons": mesh.get_polygon_count(), "ms": snappedf(bake_ms, 0.1)})
-	return DotResult.success(mesh.get_polygon_count())
+	GSLog.debug(CHANNEL, "baked", {"polygons": mesh.get_polygon_count(), "ms": snappedf(bake_ms, 0.1)})
+	return GSResult.success(mesh.get_polygon_count())
 
 
 ## Baked, and taken in by the navigation server, which happens on a later frame (it syncs its maps on the process frame), never during [method bake]: a query before then answers with the origin or fails.
@@ -368,7 +368,7 @@ func closest(at: Vector3) -> Vector3:
 
 
 ## A point on the mesh, drawn from [param stream] weighted by area.
-func random_point(stream: DotRandomStream) -> Vector3:
+func random_point(stream: GSRandomStream) -> Vector3:
 	if not is_baked():
 		return Vector3.ZERO
 	var pick := stream.next_range_f(0.0, _total_area)
@@ -397,7 +397,7 @@ func random_point(stream: DotRandomStream) -> Vector3:
 
 ## [param count] places spread over the mesh's largest island: farthest-point picks from random
 ## candidates, so rooms and corridors a spawn list never names get a waypoint. Empty when unbaked.
-func spread_points(count: int, stream: DotRandomStream, min_gap: float = 6.0) -> PackedVector3Array:
+func spread_points(count: int, stream: GSRandomStream, min_gap: float = 6.0) -> PackedVector3Array:
 	var out := PackedVector3Array()
 	if not is_baked() or count <= 0:
 		return out
@@ -619,7 +619,7 @@ func route(from: Vector3, to: Vector3) -> Dictionary:
 func islands() -> Array[Dictionary]:
 	if not _islands.is_empty() or mesh == null:
 		return _islands
-	_islands = DotBotNavGeometry.islands(mesh)
+	_islands = GSBotNavGeometry.islands(mesh)
 	_island_of = PackedInt32Array()
 	_island_of.resize(mesh.get_polygon_count())
 	for island in _islands:
@@ -638,7 +638,7 @@ func island_at(at: Vector3, reach: float = 1.0) -> int:
 
 
 ## Whether [param at] is over island [param index] (inside one of its triangles seen from above, within [param reach] metres up or down).
-## Fast enough to ask every simulated tick: the island's triangles are bucketed on a grid of [constant DotBotNavGeometry.ISLAND_CELL] metres the first time.
+## Fast enough to ask every simulated tick: the island's triangles are bucketed on a grid of [constant GSBotNavGeometry.ISLAND_CELL] metres the first time.
 ## What a ride edge's course asks of its landing.
 func on_island(index: int, at: Vector3, reach: float = 0.5) -> bool:
 	var all := islands()
@@ -646,21 +646,21 @@ func on_island(index: int, at: Vector3, reach: float = 0.5) -> bool:
 		return false
 	var island := all[index]
 	if not island.has("grid"):
-		island["grid"] = DotBotNavGeometry.grid(mesh, island)
+		island["grid"] = GSBotNavGeometry.grid(mesh, island)
 	var grid: Dictionary = island["grid"]
-	var cell := Vector2i(floori(at.x / DotBotNavGeometry.ISLAND_CELL), floori(at.z / DotBotNavGeometry.ISLAND_CELL))
+	var cell := Vector2i(floori(at.x / GSBotNavGeometry.ISLAND_CELL), floori(at.z / GSBotNavGeometry.ISLAND_CELL))
 	var bucket: Variant = grid.get(cell)
 	if bucket == null:
 		return false
 	for tri: Array in bucket:
-		var height := DotBotNavGeometry.height_in(at, tri[0], tri[1], tri[2])
+		var height := GSBotNavGeometry.height_in(at, tri[0], tri[1], tri[2])
 		if not is_nan(height) and absf(at.y - height) <= reach:
 			return true
 	return false
 
 
 ## Whether a walk (over ride edges too) from [param from] to [param to] can exist, answered from the islands without a path query (the server logs an error per query between islands). True before the bake.
-## A game with its own idea of "reachable" passes a Callable to [method DotBotHiding.choose] instead.
+## A game with its own idea of "reachable" passes a Callable to [method GSBotHiding.choose] instead.
 func joined(from: Vector3, to: Vector3) -> bool:
 	if mesh == null:
 		return true
@@ -718,7 +718,7 @@ func polygon_at(at: Vector3, reach: float = 1.0) -> int:
 	_poly_grid_ready(vertices)
 	var best := -1
 	var best_dy := INF
-	var bucket: Variant = _poly_grid.get(Vector2i(floori(at.x / DotBotNavGeometry.ISLAND_CELL), floori(at.z / DotBotNavGeometry.ISLAND_CELL)))
+	var bucket: Variant = _poly_grid.get(Vector2i(floori(at.x / GSBotNavGeometry.ISLAND_CELL), floori(at.z / GSBotNavGeometry.ISLAND_CELL)))
 	if bucket == null:
 		return -1
 	for i: int in bucket:
@@ -727,7 +727,7 @@ func polygon_at(at: Vector3, reach: float = 1.0) -> int:
 			var a := vertices[polygon[0]]
 			var b := vertices[polygon[k]]
 			var c := vertices[polygon[k + 1]]
-			var height := DotBotNavGeometry.height_in(at, a, b, c)
+			var height := GSBotNavGeometry.height_in(at, a, b, c)
 			if is_nan(height):
 				continue
 			var dy := absf(at.y - height)
@@ -745,7 +745,7 @@ func _poly_grid_ready(vertices: PackedVector3Array) -> void:
 func _build_poly_grid(vertices: PackedVector3Array) -> void:
 	_poly_grid.clear()
 	_poly_grid_for = Vector2i(vertices.size(), mesh.get_polygon_count())
-	var cell := DotBotNavGeometry.ISLAND_CELL
+	var cell := GSBotNavGeometry.ISLAND_CELL
 	for i in range(mesh.get_polygon_count()):
 		var lo := Vector2(INF, INF)
 		var hi := Vector2(-INF, -INF)

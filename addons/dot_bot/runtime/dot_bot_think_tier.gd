@@ -1,9 +1,9 @@
-class_name DotBotThinkTier
+class_name GSBotThinkTier
 extends RefCounted
 
 ## Think-rate tiers for a crowd of bots: which bots run their brain every tick and which every few ticks. A bot a person can see, is fighting, or is near runs every tick, so the aim a person meets is the full one. The rest (bots fighting bots out of sight, bots roaming) think every [member near_every] ticks within [member far_range] of a person and every [member far_every] beyond, up to the beat [method until_beat] gives, so the thinkers spread over the ticks. Plain data in, a period out: the game's loop and a native brain share it.
 ## What a thinned bot skips is its brain, never its body: the game moves it every tick on the commands of its last think (held buttons, the view carried towards where it last looked), so its walk, its hitboxes and lag compensation are the same at any period. A bot a person was just hurt by, or that turns on a person, is full rate on its next think. Body tiers (API 22; on by default above [member body_above] players since API 23) go one step further for the bots nobody can meet: [method body_period] is how many ticks apart the game may run the motor of a bot that is near or far by the rules above (not seen, not fighting a person, not close or nearest), the game making the ticks up in one longer motor tick. Such a bot walks in steps and its hitboxes jump, which no person sees; anything the game cannot carry over (a jump, a push, the air) is its call.
-## Native (API 27): where GameSpice Sim's library is loaded (class [code]DotSimThinkTier[/code]), [method begin], [method period], [method body_period] and [method schedule] run there, with the same answers and counts (GameSpice Sim's selftest compares the two); [member native] false, or no library (the web build), keeps this script. [method schedule] is one think's [method period], [method until_beat] and [method body_period] from one look at the people.
+## Native (API 27): where GameSpice Sim's library is loaded (class [code]GSSimThinkTier[/code]), [method begin], [method period], [method body_period] and [method schedule] run there, with the same answers and counts (GameSpice Sim's selftest compares the two); [member native] false, or no library (the web build), keeps this script. [method schedule] is one think's [method period], [method until_beat] and [method body_period] from one look at the people.
 
 ## Players above which tiers apply; at or below it every bot thinks every tick. Negative: never.
 var above: int = 16
@@ -65,7 +65,7 @@ var body_counts: Dictionary = {}
 var _reason: StringName = &"off"
 var _best_sq: float = INF
 var _seen: bool = false
-## Whether [method begin] hands the tick to GameSpice Sim's [code]DotSimThinkTier[/code] when the library is loaded.
+## Whether [method begin] hands the tick to GameSpice Sim's [code]GSSimThinkTier[/code] when the library is loaded.
 var native: bool = true
 ## The native tier, when the library is loaded; [member _use] when the last [method begin] gave it the tick.
 var _native: Object = null
@@ -76,8 +76,8 @@ const _REASONS: Array[StringName] = [&"off", &"engaged", &"pinned", &"close", &"
 
 
 func _init() -> void:
-	if ClassDB.class_exists(&"DotSimThinkTier"):
-		_native = ClassDB.instantiate(&"DotSimThinkTier")
+	if ClassDB.class_exists(&"GSSimThinkTier"):
+		_native = ClassDB.instantiate(&"GSSimThinkTier")
 
 
 ## Whether the native tier answers this tick.
@@ -101,7 +101,7 @@ func begin(players: int, eyes: PackedVector3Array, looks: PackedVector3Array, bo
 	_flush()
 	if max_period < 0 and not _warned:
 		_warned = true
-		push_error("DotBotThinkTier.max_period %d is negative (0 is unlimited); the periods are held to nothing" % max_period)
+		push_error("GSBotThinkTier.max_period %d is negative (0 is unlimited); the periods are held to nothing" % max_period)
 	_use = native and _native != null and (max_period == DEFAULT_MAX_PERIOD or _native.has_method(&"max_period"))
 	if _use:
 		_use = _native.configure(PackedFloat64Array([above, near_every, far_every, far_range, close_range, nearest, engaged_far_every,

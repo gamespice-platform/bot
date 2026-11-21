@@ -1,4 +1,4 @@
-class_name DotBotClimb
+class_name GSBotClimb
 extends RefCounted
 
 ## One ladder ride, shared by the brain and any game that steers its own stand-ins: face the ladder, push forward so the controller's ladder mode climbs, hop off at the top onto the landing (walking away while on it would descend).
@@ -15,9 +15,9 @@ var since := 0.0
 var exit_since := NAN
 
 
-## [param ladder] is a [method DotBotLinks.ladder_of] answer.
-static func begin(ladder: Dictionary, now: float) -> DotBotClimb:
-	var c := DotBotClimb.new()
+## [param ladder] is a [method GSBotLinks.ladder_of] answer.
+static func begin(ladder: Dictionary, now: float) -> GSBotClimb:
+	var c := GSBotClimb.new()
 	c.box = ladder["box"]
 	c.to = ladder["to"]
 	c.since = now

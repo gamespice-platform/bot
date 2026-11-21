@@ -1,4 +1,4 @@
-class_name DotBotUnstick
+class_name GSBotUnstick
 extends RefCounted
 
 ## Notices a bot that pushes to move and gets nowhere, and escalates: re-plan and hop, then crouch-hop and side-step, then a nudge toward the nearest standable point.
@@ -28,15 +28,15 @@ var _anchor_at: float = 0.0
 var _pushed: float = 0.0
 var _seen: float = 0.0
 var _side: float = 1.0
-var _rng: DotRandomStream = null
+var _rng: GSRandomStream = null
 
 
-func _init(p_rng: DotRandomStream = null) -> void:
+func _init(p_rng: GSRandomStream = null) -> void:
 	_rng = p_rng
 
 
 ## [param pushing] is whether the intent walks this tick. [param after] is `bot_stranded_sec` (0 never): stuck that long past the nudge level sets [member stranded] for one step. Returns the level, 0 when free.
-func step(position: Vector3, pushing: bool, now: float, world: DotBotWorld, after: float = 0.0) -> int:
+func step(position: Vector3, pushing: bool, now: float, world: GSBotWorld, after: float = 0.0) -> int:
 	jump = false
 	crouch = false
 	strafe = 0.0

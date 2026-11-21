@@ -1,6 +1,6 @@
 extends RefCounted
 
-## [DotBotSurfPilot]'s cache: the remembered ride states, the lookup of the nearest one, and the actions.
+## [GSBotSurfPilot]'s cache: the remembered ride states, the lookup of the nearest one, and the actions.
 ## Split out of dot_bot_surf_pilot.gd for file size; nothing outside the pilot names this script.
 
 # No log channel: the game that rides says what happened.

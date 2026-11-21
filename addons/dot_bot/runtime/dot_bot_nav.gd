@@ -1,9 +1,9 @@
-class_name DotBotNav
+class_name GSBotNav
 extends "dot_bot_nav_core.gd"
 
 ## Where a bot can walk: a navigation mesh baked from a map's static colliders, and paths across it.
 ##
-## Optional: the brain walks straight at waypoints otherwise. Pass only bodies that never move (a door baked shut is a wall). It owns its navigation map, so [method clear] frees all of it, and [method random_point] draws from the caller's [DotRandomStream]. Usage: docs/design.md.
+## Optional: the brain walks straight at waypoints otherwise. Pass only bodies that never move (a door baked shut is a wall). It owns its navigation map, so [method clear] frees all of it, and [method random_point] draws from the caller's [GSRandomStream]. Usage: docs/design.md.
 
 ## The edge searches (drops, hops, stitches) are here; the bake, routes and islands are in dot_bot_nav_core.gd, split out for file size.
 
@@ -106,7 +106,7 @@ func _count_uses(until_usec: int) -> bool:
 	while _uses_at < count:
 		var polygon := mesh.get_polygon(_uses_at)
 		for k in polygon.size():
-			var key := DotBotNavGeometry.edge_key(DotBotNavGeometry.vertex_key(vertices[polygon[k]]), DotBotNavGeometry.vertex_key(vertices[polygon[(k + 1) % polygon.size()]]))
+			var key := GSBotNavGeometry.edge_key(GSBotNavGeometry.vertex_key(vertices[polygon[k]]), GSBotNavGeometry.vertex_key(vertices[polygon[(k + 1) % polygon.size()]]))
 			_uses[key] = _uses.get(key, 0) + 1
 		_uses_at += 1
 		if _uses_at % 128 == 0 and _past(until_usec):
@@ -151,9 +151,9 @@ func _step_edges(job: Dictionary, until_usec: int) -> bool:
 		for k in polygon.size():
 			var pa := vertices[polygon[k]]
 			var pb := vertices[polygon[(k + 1) % polygon.size()]]
-			var a := DotBotNavGeometry.vertex_key(pa)
-			var b := DotBotNavGeometry.vertex_key(pb)
-			var key := DotBotNavGeometry.edge_key(a, b)
+			var a := GSBotNavGeometry.vertex_key(pa)
+			var b := GSBotNavGeometry.vertex_key(pb)
+			var key := GSBotNavGeometry.edge_key(a, b)
 			if _uses.get(key, 0) != 1:
 				continue
 			var along := pb - pa
@@ -277,7 +277,7 @@ func _stitch_rim(job: Dictionary, until_usec: int, vertices: PackedVector3Array,
 		for k in polygon.size():
 			var pa := vertices[polygon[k]]
 			var pb := vertices[polygon[(k + 1) % polygon.size()]]
-			if _uses.get(DotBotNavGeometry.edge_key(DotBotNavGeometry.vertex_key(pa), DotBotNavGeometry.vertex_key(pb)), 0) != 1:
+			if _uses.get(GSBotNavGeometry.edge_key(GSBotNavGeometry.vertex_key(pa), GSBotNavGeometry.vertex_key(pb)), 0) != 1:
 				continue
 			# two points per rim edge, so a long wall of mesh still has candidates along it
 			for p: Vector3 in [pa, pa.lerp(pb, 0.5)]:

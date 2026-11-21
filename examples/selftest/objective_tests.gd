@@ -6,50 +6,50 @@ const RED_HOME := Vector3(0.0, 0.0, 0.0)
 const BLUE_HOME := Vector3(60.0, 0.0, 0.0)
 
 
-func _flags(blue_state: int = DotBotObjective.HOME, blue_at: Vector3 = BLUE_HOME, carrier: int = -1, red_state: int = DotBotObjective.HOME, red_at: Vector3 = RED_HOME) -> DotBotObjective:
-	var o := DotBotObjective.new()
+func _flags(blue_state: int = GSBotObjective.HOME, blue_at: Vector3 = BLUE_HOME, carrier: int = -1, red_state: int = GSBotObjective.HOME, red_at: Vector3 = RED_HOME) -> GSBotObjective:
+	var o := GSBotObjective.new()
 	o.set_flag(1, RED_HOME, red_at, -1, red_state, RED_HOME)
 	o.set_flag(2, BLUE_HOME, blue_at, carrier, blue_state, BLUE_HOME)
 	return o
 
 
-func _red(id: int, at: Vector3) -> DotBotContact:
-	var c := DotBotContact.make(id, at)
+func _red(id: int, at: Vector3) -> GSBotContact:
+	var c := GSBotContact.make(id, at)
 	c.team = 1
 	return c
 
 
-func _planned(o: DotBotObjective, me: DotBotContact, p: DotBotProfile, now: float = 0.0) -> DotBotGoal:
-	var g := DotBotGoal.new(me.id)
-	g.plan(me, o, null, p, DotRandomStream.new(me.id).stream(&"dot_bot"), now)
+func _planned(o: GSBotObjective, me: GSBotContact, p: GSBotProfile, now: float = 0.0) -> GSBotGoal:
+	var g := GSBotGoal.new(me.id)
+	g.plan(me, o, null, p, GSRandomStream.new(me.id).stream(&"dot_bot"), now)
 	return g
 
 
 func _test_objective() -> void:
 	_section("objective: roles by share and persona, goals by role, a brain walking its job")
-	var p := DotBotProfile.new()
+	var p := GSBotProfile.new()
 
-	var o := DotBotObjective.new()
+	var o := GSBotObjective.new()
 	for id in 10:
 		var _r := o.assign(100 + id, 1, p)
 	var split := o.roles_in(1)
 	print("       medium split of 10: %s" % split)
-	_check(split[DotBotObjective.DEFEND] == 3 and split[DotBotObjective.ATTACK] == 4 and split[DotBotObjective.SUPPORT] == 3, "ten bots split 3/4/3 by the default shares", str(split))
+	_check(split[GSBotObjective.DEFEND] == 3 and split[GSBotObjective.ATTACK] == 4 and split[GSBotObjective.SUPPORT] == 3, "ten bots split 3/4/3 by the default shares", str(split))
 	_check(o.assign(100, 1, p) == o.role_of(100), "a bot keeps its role on a second assign")
 	o.release(100)
-	_check(o.role_of(100) == DotBotObjective.ROAM, "a released bot has no role")
+	_check(o.role_of(100) == GSBotObjective.ROAM, "a released bot has no role")
 
 	var even := p.copy()
 	even.role_defend = 1.0
 	even.role_attack = 1.0
 	even.role_support = 0.0
-	var leaning := DotBotObjective.new()
-	_check(leaning.assign(1, 1, even, Vector3(1.0, 0.0, 0.0)) == DotBotObjective.DEFEND, "a holder persona takes defence first")
+	var leaning := GSBotObjective.new()
+	_check(leaning.assign(1, 1, even, Vector3(1.0, 0.0, 0.0)) == GSBotObjective.DEFEND, "a holder persona takes defence first")
 	for id in 8:
 		var _r := leaning.assign(2 + id, 1, even, Vector3(0.0, 0.0, 1.0))
-	_check(leaning.roles_in(1)[DotBotObjective.SUPPORT] == 0, "a role with no share stays empty whatever the persona leans to")
+	_check(leaning.roles_in(1)[GSBotObjective.SUPPORT] == 0, "a role with no share stays empty whatever the persona leans to")
 
-	var holder := DotBotPersona.from_values("holder", {"hold": 4.0, "hunt": 1.0, "loot": 0.0, "support": 0.0, "scout": 0.0})
+	var holder := GSBotPersona.from_values("holder", {"hold": 4.0, "hunt": 1.0, "loot": 0.0, "support": 0.0, "scout": 0.0})
 	var bias := holder.role_bias()
 	_check(bias.x > bias.y and bias.z == 0.0, "a holding mix leans to defence", str(bias))
 
@@ -57,7 +57,7 @@ func _test_objective() -> void:
 	none.role_defend = 0.0
 	none.role_attack = 0.0
 	none.role_support = 0.0
-	_check(DotBotObjective.new().assign(1, 1, none) == DotBotObjective.ROAM, "all shares 0 leaves the bot roaming as before")
+	_check(GSBotObjective.new().assign(1, 1, none) == GSBotObjective.ROAM, "all shares 0 leaves the bot roaming as before")
 
 	# Goals.
 	var flags := _flags()
@@ -71,7 +71,7 @@ func _test_objective() -> void:
 	_check(guard.kind == &"defend" and guard.dest.distance_to(RED_HOME) <= focused.defend_radius + 0.01, "a defender posts within bot_defend_radius of home", "%s %s" % [guard.kind, guard.dest])
 	_check(guard.strays(Vector3(45.0, 0.0, 0.0)) and not guard.strays(Vector3(10.0, 0.0, 0.0)), "a defender is leashed to twice the radius")
 
-	var carried := _flags(DotBotObjective.CARRIED, Vector3(50.0, 0.0, 0.0), 1)
+	var carried := _flags(GSBotObjective.CARRIED, Vector3(50.0, 0.0, 0.0), 1)
 	var _a2 := carried.assign(1, 1, even, Vector3(0.0, 1.0, 0.0))
 	var attackers := p.copy()
 	attackers.role_defend = 0.0
@@ -82,7 +82,7 @@ func _test_objective() -> void:
 	var escort := _planned(carried, _red(3, Vector3(30.0, 0.0, 0.0)), focused)
 	_check(escort.kind == &"escort" and escort.dest == Vector3(50.0, 0.0, 0.0), "a teammate escorts the carrier", "%s %s" % [escort.kind, escort.dest])
 
-	var dropped := _flags(DotBotObjective.HOME, BLUE_HOME, -1, DotBotObjective.DROPPED, Vector3(20.0, 0.0, 0.0))
+	var dropped := _flags(GSBotObjective.HOME, BLUE_HOME, -1, GSBotObjective.DROPPED, Vector3(20.0, 0.0, 0.0))
 	var _d2 := dropped.assign(2, 1, even, Vector3(1.0, 0.0, 0.0))
 	var back := _planned(dropped, _red(2, Vector3(5.0, 0.0, 0.0)), focused)
 	_check(back.kind == &"return" and back.dest == Vector3(20.0, 0.0, 0.0), "a defender returns its dropped flag", "%s %s" % [back.kind, back.dest])
@@ -94,10 +94,10 @@ func _test_objective() -> void:
 
 
 ## Part of [method _test_objective]: a hill instead of flags, and how often objective_focus lets a bot off the job.
-func _test_objective_hill(p: DotBotProfile, even: DotBotProfile, focused: DotBotProfile, flags: DotBotObjective) -> void:
+func _test_objective_hill(p: GSBotProfile, even: GSBotProfile, focused: GSBotProfile, flags: GSBotObjective) -> void:
 	# A hill instead of flags: the same roles, each at its own distance from it.
 	var hill_at := Vector3(30.0, 0.0, 0.0)
-	var hill := DotBotObjective.new()
+	var hill := GSBotObjective.new()
 	hill.set_point(hill_at, 8.0, 2)
 	var thirds := even.copy()
 	thirds.role_support = 1.0
@@ -120,27 +120,27 @@ func _test_objective_hill(p: DotBotProfile, even: DotBotProfile, focused: DotBot
 	for focus in focuses:
 		var loose := p.copy()
 		loose.objective_focus = focus
-		var g := DotBotGoal.new(1)
-		var rng := DotRandomStream.new(5).stream(&"dot_bot")
+		var g := GSBotGoal.new(1)
+		var rng := GSRandomStream.new(5).stream(&"dot_bot")
 		var free := 0
 		var t := 0.0
 		while t < 120.0:
 			g.plan(_red(1, Vector3(10.0, 0.0, 0.0)), flags, null, loose, rng, t)
 			if g.kind == &"":
 				free += 1
-			t += DotBotGoal.REPLAN
+			t += GSBotGoal.REPLAN
 		spells[focus] = free
 	_check(int(spells[1.0]) == 0 and int(spells[0.0]) > 20, "bot_objective_focus 1 never strays off the job; 0 often does", str(spells))
 
 
 ## The end of [method _test_objective]: a brain walking its job.
-func _test_objective_brain(carried: DotBotObjective) -> void:
+func _test_objective_brain(carried: GSBotObjective) -> void:
 	# A brain walking its job: the carrier runs home on a flat floor.
 	var me := _red(1, Vector3(50.0, 0.0, 0.0))
-	var world := DotBotWorld.new()
+	var world := GSBotWorld.new()
 	world.contacts_fn = func() -> Array: return [me]
 	world.objective = carried
-	var brain := DotBotBrain.new(1, DotBotSettings.new())
+	var brain := GSBotBrain.new(1, GSBotSettings.new())
 	var t := 0.0
 	var states := {}
 	while t < 12.0:
@@ -151,9 +151,9 @@ func _test_objective_brain(carried: DotBotObjective) -> void:
 		var y := deg_to_rad(intent.yaw)
 		var dir := Vector2(cos(y), -sin(y)) * intent.move.x + Vector2(-sin(y), -cos(y)) * intent.move.y
 		me.position += Vector3(dir.x, 0.0, dir.y) * 6.0 * TICK
-		carried.set_flag(2, BLUE_HOME, me.position, 1, DotBotObjective.CARRIED, BLUE_HOME)
+		carried.set_flag(2, BLUE_HOME, me.position, 1, GSBotObjective.CARRIED, BLUE_HOME)
 		t += TICK
 	print("       carrier ended at %s, states %s" % [me.position, states.keys()])
 	_check(me.position.distance_to(RED_HOME) < 12.0, "a carrier brain walks the flag home", str(me.position))
 	_check(states.has(&"capture"), "its state names the job")
-	_check(brain.describe()["role"] == DotBotObjective.ATTACK, "describe reports the role")
+	_check(brain.describe()["role"] == GSBotObjective.ATTACK, "describe reports the role")

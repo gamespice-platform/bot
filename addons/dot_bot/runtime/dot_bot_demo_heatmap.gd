@@ -1,4 +1,4 @@
-class_name DotBotDemoHeatmap
+class_name GSBotDemoHeatmap
 extends RefCounted
 
 ## Where people stand on one map version, folded from recorded `place` episodes into a 2 m grid.
@@ -36,7 +36,7 @@ var _samples: int = 0
 
 
 ## Folds one episode; a different kind, map or version is refused (false). [param today] is `YYYY-MM-DD` UTC, empty for now.
-func fold(ep: DotBotDemoEpisode, today: String = "") -> bool:
+func fold(ep: GSBotDemoEpisode, today: String = "") -> bool:
 	if ep.kind != KIND or ep.sample_count() == 0 or ep.frame_size <= maxi(x_index, maxi(z_index, fight_index)):
 		return false
 	if _episodes > 0 and (ep.map_id != map_id or ep.map_version != map_version):
@@ -67,16 +67,16 @@ func fold(ep: DotBotDemoEpisode, today: String = "") -> bool:
 
 
 ## Folds the `place` episodes of a store for the labels named (a label is an episode key such as a team); the value is how many were folded.
-func fold_store(store: DotBotDemoStore, p_map_id: String, p_version: String, labels: Array, limit: int = 500, today: String = "") -> DotResult:
+func fold_store(store: GSBotDemoStore, p_map_id: String, p_version: String, labels: Array, limit: int = 500, today: String = "") -> GSResult:
 	var folded := 0
 	for label: String in labels:
-		var res: DotResult = await store.load(p_map_id, p_version, KIND, label, limit)
+		var res: GSResult = await store.load(p_map_id, p_version, KIND, label, limit)
 		if not res.ok:
 			return res
-		for ep: DotBotDemoEpisode in res.value:
+		for ep: GSBotDemoEpisode in res.value:
 			if fold(ep, today):
 				folded += 1
-	return DotResult.success(folded)
+	return GSResult.success(folded)
 
 
 ## The decayed weight of the cell holding [param pos] for [param label] ("" adds every label); 0 when the cell has too few samples or episodes.
@@ -104,7 +104,7 @@ func weighted(points: PackedVector3Array, label: String = "", max_copies: int = 
 	return out
 
 
-## A `DotBotWorld.waypoints_fn` returning [param points] weighted by this map.
+## A `GSBotWorld.waypoints_fn` returning [param points] weighted by this map.
 func waypoints_fn(points: PackedVector3Array, label: String = "", max_copies: int = 4) -> Callable:
 	return weighted.bind(points, label, max_copies)
 

@@ -25,15 +25,15 @@ var OPP_SETTLE := 0.7
 var last_engagement := {}
 
 func _scene(enemy_at: Vector3, wall: bool = false) -> Array:
-	var me := DotBotContact.make(1, Vector3.ZERO)
-	var enemy := DotBotContact.make(2, enemy_at)
-	var world := DotBotWorld.new()
+	var me := GSBotContact.make(1, Vector3.ZERO)
+	var enemy := GSBotContact.make(2, enemy_at)
+	var world := GSBotWorld.new()
 	world.contacts_fn = func() -> Array: return [me, enemy]
 	world.line_of_sight_fn = func(_a: Vector3, _b: Vector3) -> bool: return not wall
 	return [me, enemy, world]
 
 
-func _run_bot(brain: DotBotBrain, me: DotBotContact, world: DotBotWorld, seconds: float, start: float = 0.0) -> Array:
+func _run_bot(brain: GSBotBrain, me: GSBotContact, world: GSBotWorld, seconds: float, start: float = 0.0) -> Array:
 	var out: Array = []
 	var t := start
 	while t < start + seconds:
@@ -60,8 +60,8 @@ func _test_duels() -> void:
 	_section("kill/death against a scripted opponent")
 
 	var previous := -1.0
-	for preset in DotBotProfile.PRESETS:
-		var s := DotBotSettings.new()
+	for preset in GSBotProfile.PRESETS:
+		var s := GSBotSettings.new()
 		s.set_difficulty(preset)
 		var kills := 0
 		var deaths := 0
@@ -81,8 +81,8 @@ func _test_duels() -> void:
 
 
 ## One round: +1 the bot won, -1 it lost, 0 nobody died in ten seconds.
-func _duel(s: DotBotSettings, round_: int) -> int:
-	var rng := DotRandomStream.new(round_).stream(&"duel")
+func _duel(s: GSBotSettings, round_: int) -> int:
+	var rng := GSRandomStream.new(round_).stream(&"duel")
 	# Who has the drop varies, as it does in a match: the bot may face the opponent or have
 	# its back to them (and then only hears the first shots), and the opponent's own reaction
 	# varies from round to round around OPP_REACTION.
@@ -92,11 +92,11 @@ func _duel(s: DotBotSettings, round_: int) -> int:
 	# (a person flicks round at about 600 degrees a second) before its reaction counts.
 	var their_off := absf(rng.next_range_f(-150.0, 150.0))
 	var their_reaction := OPP_REACTION * rng.next_range_f(0.7, 1.5) + their_off / 600.0
-	var me := DotBotContact.make(1, Vector3.ZERO)
-	var them := DotBotContact.make(2, Vector3(-sin(off), 0.0, -cos(off)) * distance)
-	var world := DotBotWorld.new()
+	var me := GSBotContact.make(1, Vector3.ZERO)
+	var them := GSBotContact.make(2, Vector3(-sin(off), 0.0, -cos(off)) * distance)
+	var world := GSBotWorld.new()
 	world.contacts_fn = func() -> Array: return [me, them]
-	var brain := DotBotBrain.new(round_ * 7 + 3, s)
+	var brain := GSBotBrain.new(round_ * 7 + 3, s)
 
 	var my_hp := 5
 	var their_hp := 5
@@ -160,7 +160,7 @@ func _duel(s: DotBotSettings, round_: int) -> int:
 
 
 ## Moves [param them] across [param me] at 4 m/s, one tick, in direction [param strafe_dir].
-func _strafe_across(me: DotBotContact, them: DotBotContact, strafe_dir: float) -> void:
+func _strafe_across(me: GSBotContact, them: GSBotContact, strafe_dir: float) -> void:
 	var to_me := me.position - them.position
 	var across := Vector3(-to_me.z, 0.0, to_me.x).normalized()
 	them.velocity = across * 4.0 * strafe_dir
@@ -176,7 +176,7 @@ func _offset(dir: Vector3, degrees: float, angle: float) -> Vector3:
 	return dir.rotated(axis, deg_to_rad(degrees))
 
 
-func _wobble(dir: Vector3, degrees: float, rng: DotRandomStream) -> Vector3:
+func _wobble(dir: Vector3, degrees: float, rng: GSRandomStream) -> Vector3:
 	if degrees <= 0.0:
 		return dir
 	return rng.next_cone(dir, degrees)
@@ -195,21 +195,21 @@ func _test_aim_solver() -> void:
 	var tuning := {"muzzle_velocity": 400.0, "bullet_gravity": 1.0, "drag": 0.0005}
 	var eye := Vector3(0.0, 1.6, 0.0)
 	var far := Vector3(0.0, 1.6, -150.0)
-	var p := DotBotAimSolver.solve(eye, far, Vector3.ZERO, tuning)
+	var p := GSBotAimSolver.solve(eye, far, Vector3.ZERO, tuning)
 	_check(p.y > far.y + 0.3 and absf(p.x) < 0.001 and absf(p.z - far.z) < 0.001, "a still target at range is aimed above, for drop", str(p))
-	var mv := DotBotAimSolver.solve(eye, far, Vector3(10.0, 0.0, 0.0), tuning)
+	var mv := GSBotAimSolver.solve(eye, far, Vector3(10.0, 0.0, 0.0), tuning)
 	_check(mv.x > 1.0 and mv.y > far.y, "a target crossing right is led to the right", str(mv))
-	var ml := DotBotAimSolver.solve(eye, far, Vector3(-10.0, 0.0, 0.0), tuning)
+	var ml := GSBotAimSolver.solve(eye, far, Vector3(-10.0, 0.0, 0.0), tuning)
 	_check(ml.x < -1.0 and absf(ml.x + mv.x) < 0.5, "and to the left when crossing left, by the same amount", str(ml))
-	_check(DotBotAimSolver.solve(eye, far, Vector3(10.0, 0.0, 0.0), null) == far, "no tuning gives the plain aim point")
-	_check(DotBotAimSolver.solve(eye, far, Vector3.ZERO, {"muzzle_velocity": 0.0}) == far, "a hitscan weapon (no muzzle velocity) gives the plain aim point")
+	_check(GSBotAimSolver.solve(eye, far, Vector3(10.0, 0.0, 0.0), null) == far, "no tuning gives the plain aim point")
+	_check(GSBotAimSolver.solve(eye, far, Vector3.ZERO, {"muzzle_velocity": 0.0}) == far, "a hitscan weapon (no muzzle velocity) gives the plain aim point")
 	var out := Vector3(0.0, 1.6, -5000.0)
-	_check(DotBotAimSolver.solve(eye, out, Vector3.ZERO, tuning) == out, "no solution (out of reach) falls back to the plain aim point")
-	var aim := DotBotAim.new(1, DotBotSettings.new())
+	_check(GSBotAimSolver.solve(eye, out, Vector3.ZERO, tuning) == out, "no solution (out of reach) falls back to the plain aim point")
+	var aim := GSBotAim.new(1, GSBotSettings.new())
 	_check(not aim.aim_solver.is_valid(), "off by default: no solver is assigned")
-	var plain := DotBotAim.new(2, DotBotSettings.new())
-	var solved := DotBotAim.new(2, DotBotSettings.new())
-	solved.aim_solver = func(e: Vector3, pt: Vector3, v: Vector3) -> Vector3: return DotBotAimSolver.solve(e, pt, v, tuning)
+	var plain := GSBotAim.new(2, GSBotSettings.new())
+	var solved := GSBotAim.new(2, GSBotSettings.new())
+	solved.aim_solver = func(e: Vector3, pt: Vector3, v: Vector3) -> Vector3: return GSBotAimSolver.solve(e, pt, v, tuning)
 	var _a := plain.engage(7, eye, far, 0.0)
 	var _b := solved.engage(7, eye, far, 0.0)
 	var va := plain.track(eye, far, Vector3.ZERO, 5.0, 0.1)
@@ -222,8 +222,8 @@ const HUMAN := ["react_jitter", "overshoot", "track_lag", "strafe_jitter", "glan
 
 
 ## Medium with the aim error out of the way, and the humanisation on or all the way off.
-func _human_settings(on: bool, overrides: Dictionary = {}) -> DotBotSettings:
-	var s := DotBotSettings.new()
+func _human_settings(on: bool, overrides: Dictionary = {}) -> GSBotSettings:
+	var s := GSBotSettings.new()
 	s.set_difficulty("medium")
 	var p := s.profile
 	p.aim_error = 0.0
@@ -248,10 +248,10 @@ func _stdev(values: Array[float]) -> float:
 func _test_humanisation() -> void:
 	_section("humanisation: each cvar changes the behaviour and 0 restores the plain one")
 
-	var fields := DotBotProfile.fields()
+	var fields := GSBotProfile.fields()
 	for f in HUMAN:
-		_check(fields.has(f) and DotBotProfile.preset_value("medium", f) > 0.0, "bot_%s is a setting, on in medium" % f)
-	var cs := DotBotSettings.new()
+		_check(fields.has(f) and GSBotProfile.preset_value("medium", f) > 0.0, "bot_%s is a setting, on in medium" % f)
+	var cs := GSBotSettings.new()
 	_check(cs.set_value("glance", "0").ok and cs.profile.glance == 0.0 and cs.is_overridden("glance"), "bot_glance 0 is an override that turns it off")
 
 	_human_reaction()
@@ -269,16 +269,16 @@ func _stale_standoff() -> void:
 	# A fight at the bot's own range holds its ground at first, then walks in once it has stood there too long.
 	var sc := _scene(Vector3(0.0, 0.0, -10.0))
 	var s := _human_settings(false, {"strafe": 0.0, "stop_to_shoot": 0.0, "crouch": 0.0, "cover": 0.0})
-	var brain := DotBotBrain.new(5100, s)
+	var brain := GSBotBrain.new(5100, s)
 	var intents := _run_bot(brain, sc[0], sc[2], 12.0)
 	var early := 0.0
 	var late := INF
 	for i in intents.size():
 		var t := float(i) * TICK
-		var y := (intents[i] as DotBotIntent).move.y
-		if t > 2.0 and t < DotBotBrain.STALE_FIGHT - 1.0:
+		var y := (intents[i] as GSBotIntent).move.y
+		if t > 2.0 and t < GSBotBrain.STALE_FIGHT - 1.0:
 			early = maxf(early, absf(y))
-		elif t > DotBotBrain.STALE_FIGHT + 1.0:
+		elif t > GSBotBrain.STALE_FIGHT + 1.0:
 			late = minf(late, y)
 	print("       standoff at 10 m: forward early %.2f, late %.2f" % [early, late])
 	_check(early < 0.2 and late > 0.8, "a standoff at range holds, then pushes in after STALE_FIGHT", "early %.2f late %.2f" % [early, late])
@@ -292,7 +292,7 @@ func _human_reaction() -> void:
 		var times: Array[float] = []
 		for trial in range(60):
 			var sc := _scene(Vector3(0.0, 0.0, -15.0))
-			var brain := DotBotBrain.new(2000 + trial, _human_settings(on))
+			var brain := GSBotBrain.new(2000 + trial, _human_settings(on))
 			_run_bot(brain, sc[0], sc[2], 3.0)
 			var e := brain.engagement()
 			times.append(float(e["first_shot_at"]) - float(e["seen_at"]))
@@ -314,9 +314,9 @@ func _human_overshoot() -> void:
 			s.profile.turn_rate = 900.0
 			s.profile.turn_smooth = 0.9
 			s.profile.reaction = 0.05
-			var brain := DotBotBrain.new(3000 + trial, s)
-			var target_yaw := DotBotAim.angles_to((sc[0] as DotBotContact).eye(), (sc[1] as DotBotContact).aim_point()).x
-			for intent: DotBotIntent in _run_bot(brain, sc[0], sc[2], 1.5):
+			var brain := GSBotBrain.new(3000 + trial, s)
+			var target_yaw := GSBotAim.angles_to((sc[0] as GSBotContact).eye(), (sc[1] as GSBotContact).aim_point()).x
+			for intent: GSBotIntent in _run_bot(brain, sc[0], sc[2], 1.5):
 				worst = maxf(worst, intent.yaw - target_yaw if target_yaw > 0.0 else target_yaw - intent.yaw)
 		swing[on] = worst
 		print("       overshoot %s: view passes the target by %.2f deg" % ["on" if on else "off", worst])
@@ -329,9 +329,9 @@ func _human_track_lag() -> void:
 	var trail := {}
 	for lag in [0.0, 0.15]:
 		var sc := _scene(Vector3(-6.0, 0.0, -15.0))
-		var enemy: DotBotContact = sc[1]
+		var enemy: GSBotContact = sc[1]
 		var s := _human_settings(false, {"track_lag": lag, "prediction": 1.0, "turn_smooth": 1.0, "turn_rate": 1500.0})
-		var brain := DotBotBrain.new(4000, s)
+		var brain := GSBotBrain.new(4000, s)
 		var worst := 0.0
 		var x := -6.0
 		var t := 0.0
@@ -340,10 +340,10 @@ func _human_track_lag() -> void:
 			x += enemy.velocity.x * TICK
 			enemy.position.x = x
 			var intent := brain.think(sc[0], sc[2], t)
-			(sc[0] as DotBotContact).view_yaw = intent.yaw
-			(sc[0] as DotBotContact).view_pitch = intent.pitch
+			(sc[0] as GSBotContact).view_yaw = intent.yaw
+			(sc[0] as GSBotContact).view_pitch = intent.pitch
 			if t > 0.8 and t < 1.3:
-				worst = maxf(worst, rad_to_deg(intent.forward().angle_to(enemy.aim_point() - (sc[0] as DotBotContact).eye())))
+				worst = maxf(worst, rad_to_deg(intent.forward().angle_to(enemy.aim_point() - (sc[0] as GSBotContact).eye())))
 			t += TICK
 		trail[lag] = worst
 	print("       error after a reversal: lag 0 %.2f deg, lag 0.15 %.2f deg" % [trail[0.0], trail[0.15]])
@@ -357,7 +357,7 @@ func _human_strafe() -> void:
 	for on in [false, true]:
 		var sc := _scene(Vector3(0.0, 0.0, -10.0))
 		var s := _human_settings(on, {"strafe": 1.0, "hesitate": 0.0, "stop_to_shoot": 0.0, "crouch": 0.0})
-		var brain := DotBotBrain.new(5000, s)
+		var brain := GSBotBrain.new(5000, s)
 		var lengths: Array[float] = []
 		var run_sign := 0
 		var run_start := 0.0
@@ -365,8 +365,8 @@ func _human_strafe() -> void:
 		var t := 0.0
 		while t < 90.0:
 			var intent := brain.think(sc[0], sc[2], t)
-			(sc[0] as DotBotContact).view_yaw = intent.yaw
-			(sc[0] as DotBotContact).view_pitch = intent.pitch
+			(sc[0] as GSBotContact).view_yaw = intent.yaw
+			(sc[0] as GSBotContact).view_pitch = intent.pitch
 			if t > 2.0:
 				# Once the standoff has gone stale the bot walks in at full forward and the diagonal is shortened to length 1; undo that to get the strafe back.
 				var x := intent.move.x / intent.move.y if intent.move.y > 0.5 else intent.move.x
@@ -391,12 +391,12 @@ func _human_glance() -> void:
 	var turned := {}
 	for on in [false, true]:
 		var sc := _scene(Vector3(0.0, 0.0, -10.0))
-		(sc[1] as DotBotContact).alive = false
-		(sc[2] as DotBotWorld).waypoints_fn = func() -> PackedVector3Array: return PackedVector3Array([Vector3(0.0, 0.0, -200.0)])
-		var brain := DotBotBrain.new(6000, _human_settings(on))
+		(sc[1] as GSBotContact).alive = false
+		(sc[2] as GSBotWorld).waypoints_fn = func() -> PackedVector3Array: return PackedVector3Array([Vector3(0.0, 0.0, -200.0)])
+		var brain := GSBotBrain.new(6000, _human_settings(on))
 		var widest := 0.0
 		var held := 0
-		for intent: DotBotIntent in _run_bot(brain, sc[0], sc[2], 30.0):
+		for intent: GSBotIntent in _run_bot(brain, sc[0], sc[2], 30.0):
 			widest = maxf(widest, absf(intent.yaw))
 			if absf(intent.yaw) > 45.0:
 				held += 1
@@ -413,7 +413,7 @@ func _human_hesitate() -> void:
 		var delays: Array[float] = []
 		for trial in range(20):
 			var sc := _scene(Vector3(0.0, 0.0, -25.0))
-			var brain := DotBotBrain.new(7000 + trial, _human_settings(on))
+			var brain := GSBotBrain.new(7000 + trial, _human_settings(on))
 			var t := 0.0
 			var started := -1.0
 			while t < 2.0 and started < 0.0:
@@ -435,8 +435,8 @@ func _human_hurt_delay() -> void:
 		var delays: Array[float] = []
 		for trial in range(20):
 			var sc := _scene(Vector3(0.0, 0.0, -10.0))
-			(sc[1] as DotBotContact).alive = false
-			var brain := DotBotBrain.new(8000 + trial, _human_settings(on))
+			(sc[1] as GSBotContact).alive = false
+			var brain := GSBotBrain.new(8000 + trial, _human_settings(on))
 			brain.think(sc[0], sc[2], 0.0)
 			brain.hurt(Vector3(0.0, 0.0, 8.0), 0.1)
 			var t := 0.1
@@ -456,43 +456,43 @@ func _human_hurt_delay() -> void:
 func _test_utility_grenades() -> void:
 	_section("utility grenades: a flashed bot is blind, smoke blocks sight")
 
-	var s := DotBotSettings.new()
+	var s := GSBotSettings.new()
 	s.set_difficulty("nightmare")
 
 	var sc := _scene(Vector3(0, 0, -15))
-	var brain := DotBotBrain.new(1, s)
+	var brain := GSBotBrain.new(1, s)
 	var seen := _run_bot(brain, sc[0], sc[2], 1.5)
-	_check(seen.any(func(i: DotBotIntent) -> bool: return i.target_id == 2), "unflashed, the bot sees a target in the open")
-	_check(seen.any(func(i: DotBotIntent) -> bool: return i.fire), "unflashed, it fires at it")
+	_check(seen.any(func(i: GSBotIntent) -> bool: return i.target_id == 2), "unflashed, the bot sees a target in the open")
+	_check(seen.any(func(i: GSBotIntent) -> bool: return i.fire), "unflashed, it fires at it")
 
 	sc = _scene(Vector3(0, 0, -15))
-	brain = DotBotBrain.new(1, s)
+	brain = GSBotBrain.new(1, s)
 	brain.blind_for(0.0, 2.0)
 	_check(brain.is_blind(1.0) and not brain.is_blind(2.5), "blind_for lasts its seconds")
 	var blind := _run_bot(brain, sc[0], sc[2], 1.9)
-	_check(blind.all(func(i: DotBotIntent) -> bool: return not i.fire and i.target_id == -1), "a flashed bot neither targets nor fires during its blind time")
+	_check(blind.all(func(i: GSBotIntent) -> bool: return not i.fire and i.target_id == -1), "a flashed bot neither targets nor fires during its blind time")
 	var after := _run_bot(brain, sc[0], sc[2], 1.5, 2.0)
-	_check(after.any(func(i: DotBotIntent) -> bool: return i.target_id == 2), "and sees the target again once it ends")
+	_check(after.any(func(i: GSBotIntent) -> bool: return i.target_id == 2), "and sees the target again once it ends")
 
 	sc = _scene(Vector3(0, 0, -15))
-	brain = DotBotBrain.new(1, s)
+	brain = GSBotBrain.new(1, s)
 	var pre := _run_bot(brain, sc[0], sc[2], 1.0)
-	_check(pre.any(func(i: DotBotIntent) -> bool: return i.target_id == 2), "a flash lands on a bot already fighting")
+	_check(pre.any(func(i: GSBotIntent) -> bool: return i.target_id == 2), "a flash lands on a bot already fighting")
 	brain.blind_for(1.0, 1.0)
 	var mid := _run_bot(brain, sc[0], sc[2], 0.9, 1.0)
-	_check(mid.all(func(i: DotBotIntent) -> bool: return not i.fire and i.target_id == -1), "it drops the target and stops firing")
+	_check(mid.all(func(i: GSBotIntent) -> bool: return not i.fire and i.target_id == -1), "it drops the target and stops firing")
 
 	sc = _scene(Vector3(0, 0, -15))
-	var world: DotBotWorld = sc[2]
-	brain = DotBotBrain.new(1, s)
+	var world: GSBotWorld = sc[2]
+	brain = GSBotBrain.new(1, s)
 	pre = _run_bot(brain, sc[0], world, 1.0)
-	_check(pre.any(func(i: DotBotIntent) -> bool: return i.target_id == 2), "before the smoke the bot sees the target")
+	_check(pre.any(func(i: GSBotIntent) -> bool: return i.target_id == 2), "before the smoke the bot sees the target")
 	var id := world.add_sight_blocker(Vector3(0, 1, -7), 3.0, 3.0)
 	var smoked := _run_bot(brain, sc[0], world, 1.0, 1.0)
-	_check(smoked.all(func(i: DotBotIntent) -> bool: return i.target_id == -1 and not i.fire), "a target behind smoke is not seen")
+	_check(smoked.all(func(i: GSBotIntent) -> bool: return i.target_id == -1 and not i.fire), "a target behind smoke is not seen")
 	_check(not world.line_of_sight(Vector3.ZERO, Vector3(0, 0, -15)) and world.line_of_sight(Vector3.ZERO, Vector3(15, 0, 0)), "only a segment through the cloud is blocked")
 	world.remove_sight_blocker(id)
-	_check(_run_bot(brain, sc[0], world, 1.5, 2.0).any(func(i: DotBotIntent) -> bool: return i.target_id == 2), "and is seen again when the smoke goes")
+	_check(_run_bot(brain, sc[0], world, 1.5, 2.0).any(func(i: GSBotIntent) -> bool: return i.target_id == 2), "and is seen again when the smoke goes")
 	var timed := world.add_sight_blocker(Vector3(0, 1, -7), 3.0, 2.5)
 	var _t := _run_bot(brain, sc[0], world, 1.0, 2.0)
 	_check(not world.sight_blockers.has(timed), "smoke ends by its own time")
@@ -503,8 +503,8 @@ func _test_sight_lod() -> void:
 	_section("sight LOD: a far unseen body keeps its answer longer, a seen one or the target never")
 	# The same checks on the script cache and, with dot_sim installed, on the native mind's cache.
 	var got := _sight_lod_case(false)
-	var probe := DotBotBrain.new(1, DotBotSettings.new())
-	var native := probe._mind != null and DotBotBrain._sight_lod_available()
+	var probe := GSBotBrain.new(1, GSBotSettings.new())
+	var native := probe._mind != null and GSBotBrain._sight_lod_available()
 	if native:
 		var n := _sight_lod_case(true)
 		for i in got.size():
@@ -522,19 +522,19 @@ func _test_sight_lod() -> void:
 
 ## The sight LOD checks of [method _test_sight_lod] on one brain, script cache or native mind's.
 func _sight_lod_case(native: bool) -> Array[bool]:
-	var me := DotBotContact.make(1, Vector3.ZERO)
-	var far := DotBotContact.make(2, Vector3(0, 0, -30))
-	var near := DotBotContact.make(3, Vector3(0, 0, -8))
-	var world := DotBotWorld.new()
+	var me := GSBotContact.make(1, Vector3.ZERO)
+	var far := GSBotContact.make(2, Vector3(0, 0, -30))
+	var near := GSBotContact.make(3, Vector3(0, 0, -8))
+	var world := GSBotWorld.new()
 	var state := {"wall": true, "rays": 0}
 	world.line_of_sight_fn = func(_a: Vector3, _b: Vector3) -> bool:
 		state["rays"] += 1
 		return not state["wall"]
-	var brain := DotBotBrain.new(1, DotBotSettings.new())
+	var brain := GSBotBrain.new(1, GSBotSettings.new())
 	if not native:
 		brain.leave_native()
 	var eye := me.eye()
-	var rays_at := func(c: DotBotContact, t: float) -> int:
+	var rays_at := func(c: GSBotContact, t: float) -> int:
 		var before: int = state["rays"]
 		var _s := brain._sees(world, eye, c, t)
 		return state["rays"] - before
@@ -557,8 +557,8 @@ func _sight_lod_case(native: bool) -> Array[bool]:
 
 func _pickup_scene(drop_at: Vector3, drop_value: float, held: Dictionary, with_enemy: bool = false) -> Array:
 	var sc := _scene(Vector3(0, 0, -15))
-	var me: DotBotContact = sc[0]
-	var world: DotBotWorld = sc[2]
+	var me: GSBotContact = sc[0]
+	var world: GSBotWorld = sc[2]
 	me.loadout = held
 	if not with_enemy:
 		world.contacts_fn = func() -> Array: return [me]
@@ -569,9 +569,9 @@ func _pickup_scene(drop_at: Vector3, drop_value: float, held: Dictionary, with_e
 
 ## How many sight rays a quiet bot's pickup asks in two seconds of thinks at 64 Hz, for a drop it never sees.
 func _pickup_looks(replan_every: float) -> int:
-	var me := DotBotContact.new()
+	var me := GSBotContact.new()
 	me.loadout = {1: {"value": 0.3, "ammo": 1.0}}
-	var world := DotBotWorld.new()
+	var world := GSBotWorld.new()
 	world.drops_fn = func() -> Array: return [{"id": 7, "position": Vector3(3, 0, 0), "slot": 1, "value": 0.8, "ammo": 1.0}]
 	var rays := [0]
 	world.line_of_sight_fn = func(_a: Vector3, _b: Vector3) -> bool:
@@ -579,14 +579,14 @@ func _pickup_looks(replan_every: float) -> int:
 		return false
 	var p := _pickup_settings().profile
 	p.replan_every = replan_every
-	var pickup := DotBotPickup.new()
+	var pickup := GSBotPickup.new()
 	for i in 128:
 		var _plan := pickup.step(me, world, p, i * TICK, true)
 	return rays[0]
 
 
-func _pickup_settings(on: float = 1.0) -> DotBotSettings:
-	var s := DotBotSettings.new()
+func _pickup_settings(on: float = 1.0) -> GSBotSettings:
+	var s := GSBotSettings.new()
 	s.set_difficulty("nightmare")
 	s.profile.pickup_weapons = on
 	return s
@@ -597,45 +597,45 @@ func _test_pickup() -> void:
 
 	var held := {1: {"value": 0.3, "ammo": 1.0}}
 	var sc := _pickup_scene(Vector3(5, 0, 0), 0.8, held)
-	var far := _run_bot(DotBotBrain.new(1, _pickup_settings()), sc[0], sc[2], 2.0)
-	_check(far.any(func(i: DotBotIntent) -> bool: return i.state == &"pickup" and i.move.length() > 0.1), "a better weapon in view: the bot walks to it")
-	_check(far.all(func(i: DotBotIntent) -> bool: return not i.use), "and does not press use from five metres")
+	var far := _run_bot(GSBotBrain.new(1, _pickup_settings()), sc[0], sc[2], 2.0)
+	_check(far.any(func(i: GSBotIntent) -> bool: return i.state == &"pickup" and i.move.length() > 0.1), "a better weapon in view: the bot walks to it")
+	_check(far.all(func(i: GSBotIntent) -> bool: return not i.use), "and does not press use from five metres")
 
 	sc = _pickup_scene(Vector3(0.5, 0, 0), 0.8, held)
-	var near := _run_bot(DotBotBrain.new(1, _pickup_settings()), sc[0], sc[2], 3.0)
-	_check(near.any(func(i: DotBotIntent) -> bool: return i.use), "beside it, the bot presses use")
-	_check(near.any(func(i: DotBotIntent) -> bool: return i.use and i.move.length() < 0.01), "standing still while it does")
+	var near := _run_bot(GSBotBrain.new(1, _pickup_settings()), sc[0], sc[2], 3.0)
+	_check(near.any(func(i: GSBotIntent) -> bool: return i.use), "beside it, the bot presses use")
+	_check(near.any(func(i: GSBotIntent) -> bool: return i.use and i.move.length() < 0.01), "standing still while it does")
 
 	sc = _pickup_scene(Vector3(5, 0, 0), 0.8, {})
-	var empty := _run_bot(DotBotBrain.new(1, _pickup_settings()), sc[0], sc[2], 2.0)
-	_check(empty.any(func(i: DotBotIntent) -> bool: return i.state == &"pickup"), "an empty slot is worth a walk")
+	var empty := _run_bot(GSBotBrain.new(1, _pickup_settings()), sc[0], sc[2], 2.0)
+	_check(empty.any(func(i: GSBotIntent) -> bool: return i.state == &"pickup"), "an empty slot is worth a walk")
 
 	sc = _pickup_scene(Vector3(5, 0, 0), 0.8, {1: {"value": 0.8, "ammo": 0.1}})
-	var low := _run_bot(DotBotBrain.new(1, _pickup_settings()), sc[0], sc[2], 2.0)
-	_check(low.any(func(i: DotBotIntent) -> bool: return i.state == &"pickup"), "low ammunition makes the same weapon worth a walk")
+	var low := _run_bot(GSBotBrain.new(1, _pickup_settings()), sc[0], sc[2], 2.0)
+	_check(low.any(func(i: GSBotIntent) -> bool: return i.state == &"pickup"), "low ammunition makes the same weapon worth a walk")
 
 	sc = _pickup_scene(Vector3(0.5, 0, 0), 0.2, held)
-	var worse := _run_bot(DotBotBrain.new(1, _pickup_settings()), sc[0], sc[2], 3.0)
-	_check(worse.all(func(i: DotBotIntent) -> bool: return i.state != &"pickup" and not i.use), "a worse weapon is left lying")
+	var worse := _run_bot(GSBotBrain.new(1, _pickup_settings()), sc[0], sc[2], 3.0)
+	_check(worse.all(func(i: GSBotIntent) -> bool: return i.state != &"pickup" and not i.use), "a worse weapon is left lying")
 
 	sc = _pickup_scene(Vector3(1.5, 0, 0), 0.8, held, true)
-	var brawl := _run_bot(DotBotBrain.new(1, _pickup_settings()), sc[0], sc[2], 3.0)
-	var fighting := brawl.filter(func(i: DotBotIntent) -> bool: return i.target_id == 2)
-	_check(not fighting.is_empty() and fighting.all(func(i: DotBotIntent) -> bool: return i.state != &"pickup" and not i.use), "with an enemy in view it fights and does not fetch")
+	var brawl := _run_bot(GSBotBrain.new(1, _pickup_settings()), sc[0], sc[2], 3.0)
+	var fighting := brawl.filter(func(i: GSBotIntent) -> bool: return i.target_id == 2)
+	_check(not fighting.is_empty() and fighting.all(func(i: GSBotIntent) -> bool: return i.state != &"pickup" and not i.use), "with an enemy in view it fights and does not fetch")
 
 	sc = _pickup_scene(Vector3(0.5, 0, 0), 0.8, held)
-	var off := _run_bot(DotBotBrain.new(1, _pickup_settings(0.0)), sc[0], sc[2], 3.0)
-	_check(off.all(func(i: DotBotIntent) -> bool: return i.state != &"pickup" and not i.use), "bot_pickup_weapons 0: it never goes for one")
+	var off := _run_bot(GSBotBrain.new(1, _pickup_settings(0.0)), sc[0], sc[2], 3.0)
+	_check(off.all(func(i: GSBotIntent) -> bool: return i.state != &"pickup" and not i.use), "bot_pickup_weapons 0: it never goes for one")
 
 	sc = _pickup_scene(Vector3(60, 0, 0), 0.8, held)
-	var distant := _run_bot(DotBotBrain.new(1, _pickup_settings()), sc[0], sc[2], 2.0)
-	_check(distant.all(func(i: DotBotIntent) -> bool: return i.state != &"pickup"), "past pickup_range it is not noticed")
+	var distant := _run_bot(GSBotBrain.new(1, _pickup_settings()), sc[0], sc[2], 2.0)
+	_check(distant.all(func(i: GSBotIntent) -> bool: return i.state != &"pickup"), "past pickup_range it is not noticed")
 
 	sc = _pickup_scene(Vector3(0.5, 0, 0), 0.8, held)
-	var gaveup := DotBotBrain.new(1, _pickup_settings())
+	var gaveup := GSBotBrain.new(1, _pickup_settings())
 	var tries := _run_bot(gaveup, sc[0], sc[2], 6.0)
-	var presses := tries.filter(func(i: DotBotIntent) -> bool: return i.use)
-	_check(presses.size() * TICK < 2.0 and tries.slice(-50).all(func(i: DotBotIntent) -> bool: return not i.use), "a weapon that stays put after a try is given up on, not pressed forever")
+	var presses := tries.filter(func(i: GSBotIntent) -> bool: return i.use)
+	_check(presses.size() * TICK < 2.0 and tries.slice(-50).all(func(i: GSBotIntent) -> bool: return not i.use), "a weapon that stays put after a try is given up on, not pressed forever")
 
 	# bot_replan_every: the look over the drops (a sight ray each) every so many seconds; 0 every think.
 	_check(_pickup_looks(0.0) == 128 and _pickup_looks(0.5) == 4, "bot_replan_every 0 looks every think, 0.5 four times in two seconds")
@@ -697,35 +697,35 @@ class FakeDrops extends RefCounted:
 func _test_arms() -> void:
 	_section("arms: weapon rating, loadout and drops from a duck-typed arsenal")
 	var def := FakeDef.new()
-	_check(is_equal_approx(DotBotArms.rate(def), 20.0 * 2.0 / DotBotArms.FULL_DPS), "rating is damage per second over the full-rating figure")
+	_check(is_equal_approx(GSBotArms.rate(def), 20.0 * 2.0 / GSBotArms.FULL_DPS), "rating is damage per second over the full-rating figure")
 	var fast := FakeDef.new()
 	fast.use_interval_ticks = 2
-	_check(DotBotArms.rate(fast) > DotBotArms.rate(def), "a faster weapon rates higher")
+	_check(GSBotArms.rate(fast) > GSBotArms.rate(def), "a faster weapon rates higher")
 	fast.tuning = null
-	_check(DotBotArms.rate(fast) > 0.0 and DotBotArms.rate(null) == 0.0, "no tuning rates by the default damage; no definition rates 0")
-	_check(is_equal_approx(DotBotArms.ammo_fraction(def, 5, 15), 0.5), "ammunition is a fraction of magazine plus reserve cap")
+	_check(GSBotArms.rate(fast) > 0.0 and GSBotArms.rate(null) == 0.0, "no tuning rates by the default damage; no definition rates 0")
+	_check(is_equal_approx(GSBotArms.ammo_fraction(def, 5, 15), 0.5), "ammunition is a fraction of magazine plus reserve cap")
 	def.infinite_reserve = true
-	_check(DotBotArms.ammo_fraction(def, 0, 0) == 1.0, "infinite reserve is always full")
+	_check(GSBotArms.ammo_fraction(def, 0, 0) == 1.0, "infinite reserve is always full")
 	def.infinite_reserve = false
 
 	var arsenal := FakeArsenal.new()
 	var h := FakeHeld.new()
 	h.def = def
 	arsenal.held[2] = h
-	var load := DotBotArms.loadout_of(arsenal)
+	var load := GSBotArms.loadout_of(arsenal)
 	_check(load.size() == 1 and load.has(2) and is_equal_approx(float(load[2]["ammo"]), 0.5), "loadout holds one entry per carried slot with its ammunition")
-	_check(DotBotArms.loadout_of(null).is_empty(), "no arsenal, empty loadout")
-	var rated := DotBotArms.loadout_of(arsenal, func(_d: Object) -> float: return 0.77)
+	_check(GSBotArms.loadout_of(null).is_empty(), "no arsenal, empty loadout")
+	var rated := GSBotArms.loadout_of(arsenal, func(_d: Object) -> float: return 0.77)
 	_check(is_equal_approx(float(rated[2]["value"]), 0.77), "a game's own rater replaces the default")
 
 	arsenal.catalogue.defs[&"smg"] = def
 	var drops := FakeDrops.new()
 	drops.list.append({"id": 4, "state": {"id": "smg", "magazine": 10, "reserve": 30}, "at": Transform3D(Basis.IDENTITY, Vector3(1, 2, 3))})
 	drops.list.append({"id": 5, "state": {"id": "unknown"}, "at": Transform3D.IDENTITY})
-	var lying := DotBotArms.drops_of(drops, arsenal)
+	var lying := GSBotArms.drops_of(drops, arsenal)
 	_check(lying.size() == 1 and lying[0]["position"] == Vector3(1, 2, 3) and lying[0]["slot"] == 2 and is_equal_approx(float(lying[0]["ammo"]), 1.0), "a drop becomes {id, position, slot, value, ammo}; an unknown weapon is skipped")
-	_check(DotBotArms.drops_of(null, arsenal).is_empty() and DotBotArms.drops_of(drops, null).is_empty(), "no drop set or no arsenal, nothing lying")
-	var world := DotBotWorld.new()
-	DotBotArms.wire(world, func() -> Object: return drops, func() -> Object: return arsenal)
+	_check(GSBotArms.drops_of(null, arsenal).is_empty() and GSBotArms.drops_of(drops, null).is_empty(), "no drop set or no arsenal, nothing lying")
+	var world := GSBotWorld.new()
+	GSBotArms.wire(world, func() -> Object: return drops, func() -> Object: return arsenal)
 	_check(world.drops().size() == 1, "wire sets the world's drops_fn")
 	_done()

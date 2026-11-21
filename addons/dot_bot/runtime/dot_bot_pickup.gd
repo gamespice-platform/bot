@@ -1,8 +1,8 @@
-class_name DotBotPickup
+class_name GSBotPickup
 extends RefCounted
 
 ## A quiet bot with a worse or empty weapon, or low ammo, notices a better one, walks to it and presses the use key; it returns what to do and the game's own use path does the taking.
-## Better is the game's rating ([member DotBotContact.loadout], [method DotBotWorld.drops]); a game with its own idea of a goal overrides [method gain].
+## Better is the game's rating ([member GSBotContact.loadout], [method GSBotWorld.drops]); a game with its own idea of a goal overrides [method gain].
 
 ## Least gain worth a walk.
 const MIN_GAIN := 0.1
@@ -27,13 +27,13 @@ var _noticed_at: float = 0.0
 var _pressed_at: float = -1.0
 var _last: float = -INF
 var _skip: Dictionary = {}
-## When a quiet bot next looks over the drops ([member DotBotProfile.replan_every]).
+## When a quiet bot next looks over the drops ([member GSBotProfile.replan_every]).
 var _look_next: float = -INF
 
 
 ## The plan this tick: [code]{position, use}[/code], or empty when the bot has nothing to fetch.
 ## [param quiet] false (a fight, a sound, a hit) cancels it.
-func step(me: DotBotContact, world: DotBotWorld, p: DotBotProfile, now: float, quiet: bool) -> Dictionary:
+func step(me: GSBotContact, world: GSBotWorld, p: GSBotProfile, now: float, quiet: bool) -> Dictionary:
 	if now - _last > STALE:
 		cancel()
 	_last = now
@@ -71,7 +71,7 @@ func step(me: DotBotContact, world: DotBotWorld, p: DotBotProfile, now: float, q
 
 
 ## How much better a drop is than what [param me] holds in its slot (0.1 is worth a walk).
-func gain(me: DotBotContact, drop: Dictionary) -> float:
+func gain(me: GSBotContact, drop: Dictionary) -> float:
 	var mine: Variant = me.loadout.get(int(drop.get("slot", 0)))
 	var value := float(drop.get("value", 0.0))
 	if not (mine is Dictionary):
@@ -98,7 +98,7 @@ func _drop(now: float) -> Dictionary:
 	return NONE
 
 
-func _choose(me: DotBotContact, world: DotBotWorld, p: DotBotProfile, drops: Array, now: float) -> Dictionary:
+func _choose(me: GSBotContact, world: GSBotWorld, p: GSBotProfile, drops: Array, now: float) -> Dictionary:
 	var best := {}
 	var best_score := -INF
 	for d: Dictionary in drops:

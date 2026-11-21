@@ -1,18 +1,18 @@
-class_name DotBotAim
+class_name GSBotAim
 extends RefCounted
 
 ## A bot's eyes and trigger finger: how it turns its view, how far off its aim is, when it may
-## shoot. The part of [DotBotBrain] a game with its own decisions uses on its own.
+## shoot. The part of [GSBotBrain] a game with its own decisions uses on its own.
 ##
 ## [b]Why it is separate.[/b] Most games here already decide what their bots do (a stand-in
 ## that revives friends, a hunter that sweeps a room, a runner that follows a course), and
 ## what made all of them read as machines was the same few lines: the view set straight onto
 ## the target every tick, a sine-wave wobble for aim error, and a trigger held from the tick
 ## the target appeared. This is those lines done once, read from the same
-## [DotBotSettings] as the brain, so `bot_difficulty` moves every game's bots the same way:
+## [GSBotSettings] as the brain, so `bot_difficulty` moves every game's bots the same way:
 ##
 ## [codeblock]
-## var aim := DotBotAim.new(bot_id, DotBotSettings.of(game))
+## var aim := GSBotAim.new(bot_id, GSBotSettings.of(game))
 ## aim.view_from(state.yaw, state.pitch)                  # the view going into the tick
 ## if aim.engage(zombie_id, eye, chest, now):             # a new target: reaction starts
 ##     pass
@@ -44,10 +44,10 @@ const CONTINUE_WINDOW := 0.25
 ## the error keeps settling and the reaction is halved, which is what a held angle is.
 const RESUME_WINDOW := 1.5
 
-var settings: DotBotSettings = null
+var settings: GSBotSettings = null
 
 ## Optional `func(eye: Vector3, point: Vector3, velocity: Vector3) -> Vector3` returning the point to
-## aim at (lead and drop). Unset (the default) keeps the plain aim; see [DotBotAimSolver].
+## aim at (lead and drop). Unset (the default) keeps the plain aim; see [GSBotAimSolver].
 var aim_solver: Callable = Callable()
 
 ## The view, command degrees. The caller syncs it with [method view_from] each tick.
@@ -74,16 +74,16 @@ var _flinch: float = 0.0
 var _want: Vector2 = Vector2(NAN, NAN)
 var _want_prev: Vector2 = Vector2(NAN, NAN)
 var _in_burst: bool = false
-## Scales a [DotBotStyle] puts on bot_max_range and on bursts (longer bursts, shorter pauses
+## Scales a [GSBotStyle] puts on bot_max_range and on bursts (longer bursts, shorter pauses
 ## above 1). 1 leaves the profile as it is.
 var reach_k: float = 1.0
 var burst_k: float = 1.0
 var _burst_until: float = -INF
 var _pause_until: float = -INF
-var _rng: DotRandomStream = null
+var _rng: GSRandomStream = null
 
 ## The dot_sim extension's class that runs this aim natively (and the brain's fight step).
-const MIND_CLASS := &"DotSimBotMind"
+const MIND_CLASS := &"GSSimBotMind"
 
 ## Whether new aims think natively when the dot_sim extension is loaded (the default). Off, every
 ## aim made from then on runs the script below; the two make the same decisions to the bit.
@@ -95,9 +95,9 @@ static var _native_known := -1
 var _n: Object = null
 
 
-func _init(id: int = 0, p_settings: DotBotSettings = null) -> void:
-	settings = p_settings if p_settings != null else DotBotSettings.new()
-	_rng = DotRandomStream.new(id).stream(&"dot_bot_aim")
+func _init(id: int = 0, p_settings: GSBotSettings = null) -> void:
+	settings = p_settings if p_settings != null else GSBotSettings.new()
+	_rng = GSRandomStream.new(id).stream(&"dot_bot_aim")
 	if native_enabled and native_available():
 		_n = ClassDB.instantiate(MIND_CLASS)
 		_n.set_keys(_rng._key, 0)
@@ -115,7 +115,7 @@ func is_native() -> bool:
 	return _n != null
 
 
-## The brain's own stream key, for the native fight step ([DotBotBrain] sets it).
+## The brain's own stream key, for the native fight step ([GSBotBrain] sets it).
 func _set_brain_key(key: int) -> void:
 	if _n != null:
 		_n.set_keys(_rng._key, key)

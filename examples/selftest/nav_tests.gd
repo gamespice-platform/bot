@@ -97,9 +97,9 @@ func _test_stitches() -> void:
 	]
 	for c: Array in cases:
 		var made := await _floors([Vector3.ZERO, c[1]], Vector3(10.0, 0.0, 10.0))
-		var nav := DotBotNav.new()
+		var nav := GSBotNav.new()
 		var baked := nav.bake(made[0], {"radius": 0.35, "height": 1.0, "climb": 0.4}, 0, [made[1]])
-		var count := nav.find_stitches(DotBotLinks.STITCH_ID)
+		var count := nav.find_stitches(GSBotLinks.STITCH_ID)
 		_check(baked.ok and (count > 0) == c[2], "stitch %s: %s" % [c[0], "joined" if c[2] else "left apart"], str(count))
 		nav.clear()
 		made[0].queue_free()
@@ -111,11 +111,11 @@ func _test_join_sliced() -> void:
 	_section("links: join_step adds join's edges a slice at a time, the nav held unready until done")
 	var made := await _floors([Vector3.ZERO, Vector3(11.0, 0.0, 0.0), Vector3(0.0, -3.0, 10.0), Vector3(0.0, 0.0, -13.0)], Vector3(10.0, 0.0, 10.0))
 	var agent := {"radius": 0.35, "height": 1.0, "climb": 0.4}
-	var whole := DotBotNav.new()
-	var sliced := DotBotNav.new()
+	var whole := GSBotNav.new()
+	var sliced := GSBotNav.new()
 	var baked := whole.bake(made[0], agent, 0, [made[1]]).ok and sliced.bake(made[0], agent, 0, [made[1]]).ok
-	var at_once := DotBotLinks.new().join(whole)
-	var links := DotBotLinks.new()
+	var at_once := GSBotLinks.new().join(whole)
+	var links := GSBotLinks.new()
 	var calls := 1
 	var held := true
 	while not links.join_step(sliced, Time.get_ticks_usec() + 1) and calls < 100000:
@@ -131,11 +131,11 @@ func _test_join_sliced() -> void:
 	_check(sliced._ride_of_link.size() == sliced.rides().size() and not sliced.rides().is_empty(), "sliced: every edge is a link on the server once the hold ends",
 		"%d links, %d edges" % [sliced._ride_of_link.size(), sliced.rides().size()])
 	# The finders called on a nav never held: the search must not see its own hold (closest() then answers its input).
-	var plain := DotBotNav.new()
+	var plain := GSBotNav.new()
 	var _plain_baked := plain.bake(made[0], agent, 0, [made[1]])
-	var _d := plain.find_drops(DotBotLinks.DROP_ID, DotBotLinks.DROP_MIN)
-	var _h := plain.find_hops(DotBotLinks.HOP_ID)
-	var _s := plain.find_stitches(DotBotLinks.STITCH_ID)
+	var _d := plain.find_drops(GSBotLinks.DROP_ID, GSBotLinks.DROP_MIN)
+	var _h := plain.find_hops(GSBotLinks.HOP_ID)
+	var _s := plain.find_stitches(GSBotLinks.STITCH_ID)
 	_check(sliced.rides() == plain.rides(), "sliced: the edges the finders add on a nav never held",
 		"%d vs %d edges" % [sliced.rides().size(), plain.rides().size()])
 	plain.clear()
@@ -168,14 +168,14 @@ func _test_links() -> void:
 	button.hit_half = Vector3.ONE
 	world.io.entities.append(button)
 
-	var links := DotBotLinks.read(world)
+	var links := GSBotLinks.read(world)
 	_check(links.teleports.size() == 3 and links.skipped == {"disabled": 1, "filtered": 1, "flags": 1, "no_destination": 1},
 		"read: three teleports a runner can fire, four left out with their reasons", str(links.describe()))
 	_check(links.doors.size() == 1 and int(links.doors[0]["index"]) == 41, "read: one touch door; a mover that is not touched is not one")
 	_check(links.doors_touched(Vector3(0.0, 0.0, -3.5), 0.35, 1.8) == PackedInt32Array([41])
 		and links.doors_touched(Vector3(0.0, 0.0, 0.0), 0.35, 1.8).is_empty(), "a body walking into the door touches it, one across the room does not")
 
-	var nav := DotBotNav.new()
+	var nav := GSBotNav.new()
 	var baked := nav.bake(made[0], {"radius": 0.35, "height": 1.0, "climb": 0.4}, 0, [made[1]])
 	var goal := Vector3(30.0, 0.0, 0.0)
 	var before := nav.path(Vector3(-2.0, 0.0, 0.0), goal)
@@ -185,11 +185,11 @@ func _test_links() -> void:
 	var after := nav.path(Vector3(-2.0, 0.0, 0.0), goal)
 	_check(not after.is_empty() and after[after.size() - 1].distance_to(goal) < 0.8, "with them the path reaches the far floor")
 	var hop := nav.route(Vector3(-2.0, 0.0, 0.0), goal)
-	var mark := (hop["rides"] as PackedInt32Array).find(DotBotLinks.TELEPORT_ID)
+	var mark := (hop["rides"] as PackedInt32Array).find(GSBotLinks.TELEPORT_ID)
 	var points: PackedVector3Array = hop["points"]
 	_check(mark >= 0 and points[mark].x > 2.9 and points[mark].x < 4.1 and points[mark + 1].distance_to(Vector3(30.0, 0.05, 0.0)) < 0.6,
 		"the route says where the teleport starts (inside its box) and lands", str(hop["rides"]))
-	var empty := DotBotLinks.read(null)
+	var empty := GSBotLinks.read(null)
 	_check(empty.teleports.is_empty() and empty.kills.is_empty() and empty.doors.is_empty(), "no map, no links")
 	nav.clear()
 	made[0].queue_free()
@@ -198,14 +198,14 @@ func _test_links() -> void:
 
 ## One roaming bot on a toy body for [param seconds]: ground below x 0, a platform 4 m up from x 0, a ladder on its face.
 ## The body climbs as GameSpice Player Controller's ladder mode does: forward into the ladder's face is up.
-## With [param links] and [param door_x], a touch door stands across the corridor at that x and holds the body back until [method DotBotLinks.doors_touched] names it.
-func _ladder_run(world: DotBotWorld, ladder: AABB, seconds: float, links: DotBotLinks = null, door_x: float = 0.0, start_x: float = -6.0) -> Dictionary:
-	var me := DotBotContact.make(1, Vector3(start_x, 0.0, 0.0))
+## With [param links] and [param door_x], a touch door stands across the corridor at that x and holds the body back until [method GSBotLinks.doors_touched] names it.
+func _ladder_run(world: GSBotWorld, ladder: AABB, seconds: float, links: GSBotLinks = null, door_x: float = 0.0, start_x: float = -6.0) -> Dictionary:
+	var me := GSBotContact.make(1, Vector3(start_x, 0.0, 0.0))
 	var door_open := links == null
 	me.view_yaw = 90.0
 	me.view_pitch = 0.0
 	world.contacts_fn = func() -> Array: return [me]
-	var brain := DotBotBrain.new(5)
+	var brain := GSBotBrain.new(5)
 	var t := 0.0
 	var top := 0.0
 	var climbed := false
@@ -247,13 +247,13 @@ func _test_ladders() -> void:
 	var fake := FakeWorld.new()
 	fake.ladders.append(ladder)
 	fake.ladders.append(AABB(Vector3(-0.2, 0.0, 3.0), Vector3(0.2, 0.5, 1.0)))
-	var links := DotBotLinks.read(fake)
-	var nav := DotBotNav.new()
+	var links := GSBotLinks.read(fake)
+	var nav := GSBotNav.new()
 	var baked := nav.bake(made[0], {"radius": 0.35, "height": 1.0, "climb": 0.4}, 0, [made[1]])
 	var goal := Vector3(5.0, 4.0, -3.0)
 	var walked := nav.path(Vector3(-6.0, 0.0, 0.0), goal)
 	_check(baked.ok and (walked.is_empty() or walked[walked.size() - 1].distance_to(goal) > 1.0), "without ladder links the platform is out of reach")
-	var world := DotBotWorld.new()
+	var world := GSBotWorld.new()
 	world.waypoints_fn = func() -> PackedVector3Array: return PackedVector3Array([goal])
 	world.route_detail_fn = func(from: Vector3, to: Vector3) -> Dictionary: return nav.route(from, to)
 	var without := _ladder_run(world, ladder, 30.0)
@@ -263,20 +263,20 @@ func _test_ladders() -> void:
 	var route := nav.route(Vector3(-6.0, 0.0, 0.0), goal)
 	var rides: PackedInt32Array = route["rides"]
 	var points: PackedVector3Array = route["points"]
-	var mark := rides.find(DotBotLinks.LADDER_ID)
+	var mark := rides.find(GSBotLinks.LADDER_ID)
 	_check(mark >= 0 and points[mark].y < 0.5 and points[mark + 1].y > 3.5, "the route crosses the ladder from its foot to its top", str(rides))
-	_check(not links.ladder_of(DotBotLinks.LADDER_ID).is_empty() and links.ladder_of(DotBotLinks.LADDER_ID + 1).is_empty(), "ladder_of answers for the joined ladder only")
+	_check(not links.ladder_of(GSBotLinks.LADDER_ID).is_empty() and links.ladder_of(GSBotLinks.LADDER_ID + 1).is_empty(), "ladder_of answers for the joined ladder only")
 
 	world.ladder_fn = links.ladder_of
 	var run := _ladder_run(world, ladder, 30.0)
 	var at: Vector3 = run["position"]
 	_check(run["climbed"] and at.y > 3.9 and at.x > 0.3, "with it the bot climbs and is on the platform", str(run))
 	nav.clear()
-	var nav2 := DotBotNav.new()
+	var nav2 := GSBotNav.new()
 	nav2.bake(made[0], {"radius": 0.35, "height": 1.0, "climb": 0.4}, 0, [made[1]])
-	var shared := DotBotLinks.link_ladders(nav2, [ladder, AABB(Vector3(-0.2, 0.0, 3.0), Vector3(0.2, 0.5, 1.0))])
-	_check(shared != null and not shared.ladder_of(DotBotLinks.LADDER_ID).is_empty(), "link_ladders joins the tall ladder and hands back ladder_of")
-	_check(DotBotLinks.link_ladders(nav2, []) == null and DotBotLinks.link_ladders(nav2, [AABB(Vector3(-0.2, 0.0, 3.0), Vector3(0.2, 0.5, 1.0))]) == null, "no ladders, or none tall enough, give null")
+	var shared := GSBotLinks.link_ladders(nav2, [ladder, AABB(Vector3(-0.2, 0.0, 3.0), Vector3(0.2, 0.5, 1.0))])
+	_check(shared != null and not shared.ladder_of(GSBotLinks.LADDER_ID).is_empty(), "link_ladders joins the tall ladder and hands back ladder_of")
+	_check(GSBotLinks.link_ladders(nav2, []) == null and GSBotLinks.link_ladders(nav2, [AABB(Vector3(-0.2, 0.0, 3.0), Vector3(0.2, 0.5, 1.0))]) == null, "no ladders, or none tall enough, give null")
 	nav2.clear()
 	made[0].queue_free()
 	_done()
@@ -318,27 +318,27 @@ func _test_door_then_ladder() -> void:
 	door.hit_half = Vector3(0.1, 1.25, 5.0)
 	door.hit_frame = Transform3D(Basis.IDENTITY, Vector3(-6.5, 1.25, 0.0))
 	fake.io.entities.append(door)
-	var links := DotBotLinks.read(fake)
+	var links := GSBotLinks.read(fake)
 	_check(links.doors.size() == 1 and links.swings.size() == 1 and links.ladders.size() == 1, "read: the door is a touch door and a swing, the ladder is kept", str(links.describe()))
 	var params := {"radius": 0.35, "height": 1.0, "climb": 0.4}
-	var shut := DotBotNav.new()
+	var shut := GSBotNav.new()
 	var shut_baked := shut.bake(root, params, 0, [made[1], door_node])
 	var wall := Vector3(-3.0, 0.0, 0.0)
 	var shut_walk := shut.path(Vector3(-9.0, 0.0, 0.0), wall) if shut_baked.ok else PackedVector3Array()
 	shut.clear()
 	_check(shut_baked.ok and (shut_walk.is_empty() or shut_walk[shut_walk.size() - 1].distance_to(wall) > 1.0), "baked shut, the door walls the corridor off")
 	var undo := links.pose_open()
-	var nav := DotBotNav.new()
+	var nav := GSBotNav.new()
 	var baked := nav.bake(root, params, 0, [made[1], door_node])
 	links.restore(undo)
 	_check(baked.ok and is_equal_approx(door_node.position.y, 1.25), "baked with the door posed open, put back after")
 	links.join(nav)
 	var goal := Vector3(5.0, 4.0, -3.0)
-	var world := DotBotWorld.new()
+	var world := GSBotWorld.new()
 	world.waypoints_fn = func() -> PackedVector3Array: return PackedVector3Array([goal])
 	world.route_detail_fn = func(from: Vector3, to: Vector3) -> Dictionary: return nav.route(from, to)
 	world.ladder_fn = links.ladder_of
-	var stuck := _ladder_run(world, ladder, 40.0, DotBotLinks.new(), -6.5, -9.0)
+	var stuck := _ladder_run(world, ladder, 40.0, GSBotLinks.new(), -6.5, -9.0)
 	_check(not stuck["door_open"] and not stuck["climbed"] and (stuck["position"] as Vector3).x < -6.5, "control: nothing opens the door, the bot stays behind it", str(stuck))
 	var run := _ladder_run(world, ladder, 40.0, links, -6.5, -9.0)
 	var at: Vector3 = run["position"]
@@ -353,14 +353,14 @@ func _test_door_then_ladder() -> void:
 func _test_unlock_export() -> void:
 	_section("unlock export: opt-in shoot gadgets and door hints")
 	var made := await _floors([Vector3(0.0, 0.0, 0.0)], Vector3(20.0, 0.0, 6.0))
-	var nav := DotBotNav.new()
+	var nav := GSBotNav.new()
 	var baked := nav.bake(made[0], {"radius": 0.35, "height": 1.0, "climb": 0.4}, 0, [made[1]])
 	var export := {"openers": {7: {"index": 7, "kind": "shoot", "name": "job", "box": AABB(Vector3(4.0, 0.0, -1.0), Vector3(1.0, 1.0, 1.0))}},
 		"doors": [{"entity": 9, "box": AABB(Vector3(8.0, 0.0, -1.0), Vector3(0.2, 2.0, 2.0)), "opens": "output", "opened_by": [{"index": 7, "kind": "shoot", "hops": 2}]}],
 		"teleports": []}
-	var plain := DotBotLinks.read(FakeWorld.new())
+	var plain := GSBotLinks.read(FakeWorld.new())
 	_check(baked.ok and plain.gadgets.is_empty() and plain.next_gadget(nav, Vector3(-6.0, 0.0, 0.0), {}, true).is_empty(), "without the export nothing is added")
-	var links := DotBotLinks.read(FakeWorld.new(), {"nav_export": export})
+	var links := GSBotLinks.read(FakeWorld.new(), {"nav_export": export})
 	_check(links.gadgets.size() == 1 and links.gadgets[0]["kind"] == "shoot" and (links.gadgets[0]["feeds"] as PackedInt32Array) == PackedInt32Array([9]),
 		"with it the shot button is a gadget that feeds the door", str(links.gadgets))
 	_check(links.unlock_doors.size() == 1 and int(links.unlock_doors[0]["entity"]) == 9, "the door keeps its opener hint")
@@ -382,18 +382,18 @@ func _test_kill_avoidance() -> void:
 	_fake_volume(world, "hurt", AABB(Vector3(8.0, -0.2, -4.0), Vector3(2.0, 1.0, 8.0)), {"damage": 10.0})
 	_fake_volume(world, "hurt", AABB(Vector3(14.0, -0.2, -4.0), Vector3(2.0, 1.0, 8.0)), {"damage": 1000.0}, false)
 	_fake_volume(world, "hurt", AABB(Vector3(-12.0, 6.0, -4.0), Vector3(2.0, 1.0, 8.0)), {"damage": 1000.0})
-	var links := DotBotLinks.read(world)
+	var links := GSBotLinks.read(world)
 	_check(links.kills.size() == 2 and links.skipped == {"disabled": 1}, "read: only enabled volumes that kill count (the weak and the disabled do not)", str(links.describe()))
 	_check(is_equal_approx(links.kills[0].size.x, 2.8), "a kill box is grown by the margin", str(links.kills[0]))
 
-	var plain := DotBotNav.new()
+	var plain := GSBotNav.new()
 	var open := plain.bake(made[0], {"radius": 0.35, "height": 1.0, "climb": 0.4}, 0, [made[1]])
 	var end := Vector3(15.0, 0.0, 0.0)
 	var through := plain.path(Vector3(-15.0, 0.0, 0.0), end)
 	_check(open.ok and not through.is_empty() and through[through.size() - 1].distance_to(end) < 0.6, "without avoidance the path crosses the kill volume")
 	plain.clear()
 
-	var nav := DotBotNav.new()
+	var nav := GSBotNav.new()
 	links.carve(nav)
 	var baked := nav.bake(made[0], {"radius": 0.35, "height": 1.0, "climb": 0.4}, 0, [made[1]])
 	var stopped := nav.path(Vector3(-15.0, 0.0, 0.0), end)
@@ -424,27 +424,27 @@ func _test_hiding() -> void:
 	var watchers := PackedVector3Array()
 	for i in range(10):
 		watchers.append(Vector3(-6.0, 1.6, -4.0 + i))
-	var spots := DotBotHiding.survey(PackedVector3Array([Vector3(2.0, 0.0, 0.0), Vector3(-2.0, 0.0, 0.0), Vector3(2.0, 0.0, 12.0)]), watchers, _wall_los)
+	var spots := GSBotHiding.survey(PackedVector3Array([Vector3(2.0, 0.0, 0.0), Vector3(-2.0, 0.0, 0.0), Vector3(2.0, 0.0, 12.0)]), watchers, _wall_los)
 	_check(is_zero_approx(float(spots[0]["exposure"])) and is_equal_approx(float(spots[1]["exposure"]), 1.0),
 		"a spot behind the wall is hidden from every watcher, one in front from all", "%s" % [spots.map(func(s: Dictionary) -> float: return s["exposure"])])
 	_check(float(spots[2]["exposure"]) > 0.5, "and one past the wall's end is seen round it")
-	var stream := DotRandomStream.new(7)
-	var best := DotBotHiding.choose(spots, Vector3.ZERO, PackedVector3Array([Vector3(-8.0, 0.0, 0.0)]), PackedVector3Array(), stream, 1.0)
+	var stream := GSRandomStream.new(7)
+	var best := GSBotHiding.choose(spots, Vector3.ZERO, PackedVector3Array([Vector3(-8.0, 0.0, 0.0)]), PackedVector3Array(), stream, 1.0)
 	_check((best["at"] as Vector3).is_equal_approx(Vector3(2.0, 0.0, 0.0)), "a skilled hider picks the hidden one")
-	var apart := DotBotHiding.choose(spots, Vector3.ZERO, PackedVector3Array(), PackedVector3Array([Vector3(2.0, 0.0, 0.5)]), stream, 1.0)
+	var apart := GSBotHiding.choose(spots, Vector3.ZERO, PackedVector3Array(), PackedVector3Array([Vector3(2.0, 0.0, 0.5)]), stream, 1.0)
 	_check(not (apart["at"] as Vector3).is_equal_approx(Vector3(2.0, 0.0, 0.0)), "but not the one beside a spot another hider took")
-	var none := DotBotHiding.choose(spots, Vector3.ZERO, PackedVector3Array(), PackedVector3Array(), stream, 1.0, func(_at: Vector3) -> bool: return false)
+	var none := GSBotHiding.choose(spots, Vector3.ZERO, PackedVector3Array(), PackedVector3Array(), stream, 1.0, func(_at: Vector3) -> bool: return false)
 	_check(none.is_empty(), "and nothing when nothing is reachable")
-	var away := DotBotHiding.flee_spot(spots, Vector3(0.5, 0.0, -2.5), Vector3(-3.0, 0.0, -3.0), Vector3(-3.0, 1.6, -3.0), _wall_los, PackedVector3Array(), 25.0, 2.0)
+	var away := GSBotHiding.flee_spot(spots, Vector3(0.5, 0.0, -2.5), Vector3(-3.0, 0.0, -3.0), Vector3(-3.0, 1.6, -3.0), _wall_los, PackedVector3Array(), 25.0, 2.0)
 	_check(not away.is_empty() and (away["at"] as Vector3).x > 0.0, "running from a seeker goes behind the wall, not past it")
 	_done()
 
 
 func _test_unstick() -> void:
 	_section("unstick: pushing without moving escalates, moving clears it")
-	var world := DotBotWorld.new()
+	var world := GSBotWorld.new()
 	world.walkable_fn = func(_at: Vector3) -> Vector3: return Vector3(5.0, 0.0, 0.0)
-	var un := DotBotUnstick.new(DotRandomStream.new(1))
+	var un := GSBotUnstick.new(GSRandomStream.new(1))
 	var t := 0.0
 	var saw_nudge := false
 	var saw_crouch := false
@@ -453,7 +453,7 @@ func _test_unstick() -> void:
 		un.step(Vector3.ZERO, true, t, world)
 		saw_nudge = saw_nudge or un.nudge_to == Vector3(5.0, 0.0, 0.0)
 		saw_crouch = saw_crouch or un.crouch
-	_check(un.level >= DotBotUnstick.NUDGE_LEVEL, "six seconds against a wall reach the nudge level", str(un.level))
+	_check(un.level >= GSBotUnstick.NUDGE_LEVEL, "six seconds against a wall reach the nudge level", str(un.level))
 	_check(saw_nudge and saw_crouch, "the nudge heads for the nearest standable point and the crouch-hop came first")
 	var x := 0.0
 	for i in 200:
@@ -461,7 +461,7 @@ func _test_unstick() -> void:
 		x += 0.05
 		un.step(Vector3(x, 0.0, 0.0), true, t, world)
 	_check(un.level == 0, "walking free clears it", str(un.level))
-	var idle := DotBotUnstick.new()
+	var idle := GSBotUnstick.new()
 	for i in 400:
 		idle.step(Vector3.ZERO, false, float(i) / 64.0, world)
 	_check(idle.level == 0, "standing still on purpose is not stuck")
@@ -470,9 +470,9 @@ func _test_unstick() -> void:
 
 func _test_stranded() -> void:
 	_section("stranded: stuck on a sealed island for bot_stranded_sec reports once per interval; moving or 0 never does")
-	var world := DotBotWorld.new()
+	var world := GSBotWorld.new()
 	world.walkable_fn = func(_at: Vector3) -> Vector3: return Vector3.INF
-	var un := DotBotUnstick.new(DotRandomStream.new(1))
+	var un := GSBotUnstick.new(GSRandomStream.new(1))
 	var fired: Array[float] = []
 	for i in 20 * 64:
 		var t := float(i) / 64.0
@@ -481,37 +481,37 @@ func _test_stranded() -> void:
 			fired.append(t)
 	_check(fired.size() >= 2 and fired[0] > 5.0 and fired[0] < 9.0, "reported once the interval passed", str(fired))
 	_check(fired.size() >= 2 and absf((fired[1] - fired[0]) - 6.0) < 0.1, "and again a full interval later if the game did nothing", str(fired))
-	var off := DotBotUnstick.new(DotRandomStream.new(1))
+	var off := GSBotUnstick.new(GSRandomStream.new(1))
 	var any_off := false
 	for i in 20 * 64:
 		off.step(Vector3.ZERO, true, float(i) / 64.0, world, 0.0)
 		any_off = any_off or off.stranded
 	_check(not any_off, "stranded_sec 0 never reports")
-	var walker := DotBotUnstick.new(DotRandomStream.new(1))
+	var walker := GSBotUnstick.new(GSRandomStream.new(1))
 	var any_walk := false
 	for i in 20 * 64:
 		walker.step(Vector3(float(i) * 0.05, 0.0, 0.0), true, float(i) / 64.0, world, 6.0)
 		any_walk = any_walk or walker.stranded
 	_check(not any_walk, "a bot that moves is not stranded")
 	# The body never moves (a wall, a sealed island): the brain must carry the flag on the intent.
-	var sealed := DotBotWorld.new()
+	var sealed := GSBotWorld.new()
 	sealed.waypoints_fn = func() -> PackedVector3Array: return PackedVector3Array([Vector3(10.0, 0.0, 0.0)])
-	var me := DotBotContact.make(7, Vector3.ZERO)
+	var me := GSBotContact.make(7, Vector3.ZERO)
 	sealed.contacts_fn = func() -> Array: return [me]
-	var brain := DotBotBrain.new(7)
+	var brain := GSBotBrain.new(7)
 	var seen := 0
 	for i in 20 * 64:
 		var intent := brain.think(me, sealed, float(i) / 64.0)
 		seen += 1 if intent.stranded else 0
-	_check(seen >= 2, "the brain sets DotBotIntent.stranded when held still", str(seen))
+	_check(seen >= 2, "the brain sets GSBotIntent.stranded when held still", str(seen))
 	_done()
 
 
 func _test_search() -> void:
 	_section("searching: likely places first, crossed off once seen, a sound brings them back")
-	var search := DotBotSearch.new()
+	var search := GSBotSearch.new()
 	search.setup([{"at": Vector3(0.0, 0.0, -8.0), "exposure": 0.0}, {"at": Vector3(0.0, 0.0, 8.0), "exposure": 1.0}], 0.5)
-	var stream := DotRandomStream.new(3)
+	var stream := GSRandomStream.new(3)
 	var first := search.next(Vector3.ZERO, 0.0, PackedVector3Array(), stream)
 	_check((first["at"] as Vector3).z < 0.0, "with map knowledge the hidden place is first")
 	var claimed := search.next(Vector3.ZERO, 0.0, PackedVector3Array([Vector3(0.0, 0.0, -8.0)]), stream)
@@ -524,10 +524,10 @@ func _test_search() -> void:
 
 
 ## A roaming bot with one place to go, walked at 4 m/s for [param seconds]: where it went.
-func _walk_roam(world: DotBotWorld, seconds: float) -> PackedVector3Array:
-	var me := DotBotContact.make(1, Vector3.ZERO)
+func _walk_roam(world: GSBotWorld, seconds: float) -> PackedVector3Array:
+	var me := GSBotContact.make(1, Vector3.ZERO)
 	world.contacts_fn = func() -> Array: return [me]
-	var brain := DotBotBrain.new(5)
+	var brain := GSBotBrain.new(5)
 	var trail := PackedVector3Array()
 	var t := 0.0
 	while t < seconds:
@@ -546,7 +546,7 @@ func _walk_roam(world: DotBotWorld, seconds: float) -> PackedVector3Array:
 func _test_route() -> void:
 	_section("roaming: a route from the world is walked corner by corner")
 	var goal := Vector3(10.0, 0.0, 0.0)
-	var straight := DotBotWorld.new()
+	var straight := GSBotWorld.new()
 	straight.waypoints_fn = func() -> PackedVector3Array: return PackedVector3Array([goal])
 	var plain := _walk_roam(straight, 1.5)
 	var off_line := 0.0
@@ -555,7 +555,7 @@ func _test_route() -> void:
 	_check(plain[plain.size() - 1].x > 4.0 and off_line < 1.0, "with no route it walks straight at the waypoint", "x %.1f, %.1f m off the line" % [plain[plain.size() - 1].x, off_line])
 
 	var asked := [0]
-	var routed := DotBotWorld.new()
+	var routed := GSBotWorld.new()
 	routed.waypoints_fn = func() -> PackedVector3Array: return PackedVector3Array([goal])
 	# Round the end of a wall standing between the bot and the waypoint.
 	routed.route_fn = func(_from: Vector3, to: Vector3) -> PackedVector3Array:
@@ -595,15 +595,15 @@ func _test_nav() -> void:
 	panel.position = Vector3(0.0, 1.5, 10.0)
 	door.add_child(panel)
 	await get_tree().physics_frame
-	var nav := DotBotNav.new()
+	var nav := GSBotNav.new()
 	var baked := nav.bake(root, {"radius": 0.35, "height": 1.0, "climb": 0.4}, 0, [still])
 	_check(baked.ok and nav.is_ready(), "it bakes and is ready on the same tick", str(baked.error.message if not baked.ok else ""))
 	var length := nav.path_length(Vector3(-5.0, 0.0, -10.0), Vector3(5.0, 0.0, -10.0))
 	_check(length > 12.0 and length < INF, "the path goes round the wall's end, not through it (10 m straight)", "%.1f m" % length)
 	var through := nav.path_length(Vector3(-5.0, 0.0, 10.0), Vector3(5.0, 0.0, 10.0))
 	_check(through < 12.0, "and through the doorway whose door was left out of the bake", "%.1f m" % through)
-	var a := nav.random_point(DotRandomStream.new(9))
-	var b := nav.random_point(DotRandomStream.new(9))
+	var a := nav.random_point(GSRandomStream.new(9))
+	var b := nav.random_point(GSRandomStream.new(9))
 	_check(a.is_equal_approx(b) and absf(a.y) < 0.5, "a random point is on the floor, the same for the same seed")
 	var polygons := nav.mesh.get_polygon_count()
 	nav.clear()
@@ -611,9 +611,9 @@ func _test_nav() -> void:
 	# In the background: nothing until it lands, then the same mesh, on the main thread.
 	var landed: Array = []
 	var started := nav.bake_in_background(root, {"radius": 0.35, "height": 1.0, "climb": 0.4}, 0, [still],
-		func(res: DotResult) -> void: landed.append([res.ok, OS.get_thread_caller_id() == OS.get_main_thread_id()]))
+		func(res: GSResult) -> void: landed.append([res.ok, OS.get_thread_caller_id() == OS.get_main_thread_id()]))
 	var waiting := nav.is_baking() and nav.path(Vector3(-5.0, 0.0, -10.0), Vector3(5.0, 0.0, -10.0)).is_empty()
-	_check(started.ok and (waiting or not DotPlatform.has_threads()), "a background bake starts, and answers no path before it lands")
+	_check(started.ok and (waiting or not GSPlatform.has_threads()), "a background bake starts, and answers no path before it lands")
 	var frames := 0
 	while landed.is_empty() and frames < 600:
 		await get_tree().process_frame
@@ -627,7 +627,7 @@ func _test_nav() -> void:
 	# A bake cleared before it lands is dropped, never taken in over what replaced it.
 	var stale: Array = []
 	var _again := nav.bake_in_background(root, {"radius": 0.35, "height": 1.0, "climb": 0.4}, 0, [still],
-		func(res: DotResult) -> void: stale.append(res.ok))
+		func(res: GSResult) -> void: stale.append(res.ok))
 	nav.clear()
 	for i in 60:
 		await get_tree().process_frame
@@ -652,10 +652,10 @@ func _test_nav_cache() -> void:
 	body.add_child(floor_shape)
 	await get_tree().physics_frame
 
-	var plain := DotBotNav.new()
+	var plain := GSBotNav.new()
 	_check(plain.cache_path().is_empty() and plain.bake(root, agent).ok and not plain.last_bake_cached, "off by default: no path, no cache hit")
 
-	var nav := DotBotNav.new()
+	var nav := GSBotNav.new()
 	nav.cache_dir = dir
 	nav.cache_id = "toy map"
 	DirAccess.remove_absolute(nav.cache_path())
@@ -663,7 +663,7 @@ func _test_nav_cache() -> void:
 	var polygons := nav.mesh.get_polygon_count()
 	_check(first.ok and not nav.last_bake_cached and FileAccess.file_exists(nav.cache_path()), "a first bake misses and writes the file")
 
-	var again := DotBotNav.new()
+	var again := GSBotNav.new()
 	again.cache_dir = dir
 	again.cache_id = "toy map"
 	var hit := again.bake(root, agent)
@@ -671,10 +671,10 @@ func _test_nav_cache() -> void:
 	_check(again.is_ready() and again.path_length(Vector3(-5.0, 0.0, -5.0), Vector3(5.0, 0.0, 5.0)) < INF, "a cached mesh answers paths")
 
 	var landed: Array = []
-	var bg := DotBotNav.new()
+	var bg := GSBotNav.new()
 	bg.cache_dir = dir
 	bg.cache_id = "toy map"
-	var _started := bg.bake_in_background(root, agent, 0, [], func(res: DotResult) -> void: landed.append(res.ok))
+	var _started := bg.bake_in_background(root, agent, 0, [], func(res: GSResult) -> void: landed.append(res.ok))
 	for i in 600:
 		if not landed.is_empty():
 			break
@@ -688,18 +688,18 @@ func _test_nav_cache() -> void:
 	wall.position = Vector3(0.0, 1.5, 0.0)
 	body.add_child(wall)
 	await get_tree().physics_frame
-	var changed := DotBotNav.new()
+	var changed := GSBotNav.new()
 	changed.cache_dir = dir
 	changed.cache_id = "toy map"
 	var rebaked := changed.bake(root, agent)
 	_check(rebaked.ok and not changed.last_bake_cached and changed.mesh.get_polygon_count() != polygons, "changed geometry misses and rebakes", "%d vs %d" % [changed.mesh.get_polygon_count(), polygons])
 
-	var after := DotBotNav.new()
+	var after := GSBotNav.new()
 	after.cache_dir = dir
 	after.cache_id = "toy map"
 	_check(after.bake(root, agent).ok and after.last_bake_cached, "the file was replaced: the new geometry now hits")
 
-	var other := DotBotNav.new()
+	var other := GSBotNav.new()
 	other.cache_dir = dir
 	other.cache_id = "other map"
 	_check(other.bake(root, agent).ok and not other.last_bake_cached, "another map id has its own file")
@@ -729,13 +729,13 @@ func _test_nav_cell() -> void:
 	var from := Vector3(-6.0, 0.0, 0.0)
 	var to := Vector3(6.0, 0.0, 0.0)
 
-	var plain := DotBotNav.new()
+	var plain := GSBotNav.new()
 	var shut := plain.bake(root, {"radius": 0.4064, "height": 1.83, "climb": 0.4})
-	_check(shut.ok and is_equal_approx(plain.mesh.cell_size, DotBotNav.CELL) and is_equal_approx(plain.mesh.agent_radius, 0.525),
+	_check(shut.ok and is_equal_approx(plain.mesh.cell_size, GSBotNav.CELL) and is_equal_approx(plain.mesh.agent_radius, 0.525),
 		"default cell: 0.4064 m rounds to 0.525 m", str(plain.mesh.agent_radius))
 	_check(plain.path_length(from, to) == INF, "and a 1.2 m door is shut to it", str(plain.path_length(from, to)))
 
-	var fine := DotBotNav.new()
+	var fine := GSBotNav.new()
 	var dir := "user://dot_bot_nav_cell_test"
 	fine.cache_dir = dir
 	fine.cache_id = "door"
@@ -747,11 +747,11 @@ func _test_nav_cell() -> void:
 		"the navigation map takes the bake's cell size")
 	_check(fine.path_length(from, to) < 14.0, "and the 1.2 m door is open", str(fine.path_length(from, to)))
 
-	var coarse := DotBotNav.new()
+	var coarse := GSBotNav.new()
 	coarse.cache_dir = dir
 	coarse.cache_id = "door"
 	_check(coarse.bake(root, {"radius": 0.4064, "height": 1.83, "climb": 0.4}).ok and not coarse.last_bake_cached
-		and is_equal_approx(coarse.mesh.cell_size, DotBotNav.CELL), "another cell size misses the cache")
+		and is_equal_approx(coarse.mesh.cell_size, GSBotNav.CELL), "another cell size misses the cache")
 	DirAccess.remove_absolute(coarse.cache_path())
 	plain.clear()
 	fine.clear()

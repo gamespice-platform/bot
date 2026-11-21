@@ -1,11 +1,11 @@
-class_name DotBotSearch
+class_name GSBotSearch
 extends RefCounted
 
 ## A seeker's memory of a map: the places somebody could be, which it has looked at, and which
 ## to look at next.
 ##
 ## [b]It searches, it does not know.[/b] What it is given is the map (the places a person could
-## hide, each with how hidden it is, from [DotBotHiding.survey]) and what it sees and hears. A
+## hide, each with how hidden it is, from [GSBotHiding.survey]) and what it sees and hears. A
 ## place is crossed off when the seeker has had it in view ([method observe]: inside its cone,
 ## within reach, nothing in the way), never because nobody is there; a sound puts the places
 ## near it back on the list and up it ([method heard]). Nobody's position comes in any other way.
@@ -55,7 +55,7 @@ func observe(eye: Vector3, forward: Vector3, fov: float, sight: float, los: Call
 		var at: Vector3 = place["at"]
 		if absf(at.x - eye.x) > reach or absf(at.z - eye.z) > reach:
 			continue
-		if DotBotHiding.sees(eye, forward, fov, reach, at + Vector3(0.0, head, 0.0), los):
+		if GSBotHiding.sees(eye, forward, fov, reach, at + Vector3(0.0, head, 0.0), los):
 			place["seen_at"] = now
 			place["heard_at"] = -INF
 			crossed += 1
@@ -73,7 +73,7 @@ func heard(at: Vector3, now: float, radius: float = 7.0) -> void:
 ## The place to go and look at next from [param from], or an empty dictionary when every place
 ## has been looked at lately. [param claimed]: where other seekers are going.
 ## [param distance] `(a: Vector3, b: Vector3) -> float` (a path length; straight by default).
-func next(from: Vector3, now: float, claimed: PackedVector3Array, stream: DotRandomStream, distance: Callable = Callable()) -> Dictionary:
+func next(from: Vector3, now: float, claimed: PackedVector3Array, stream: GSRandomStream, distance: Callable = Callable()) -> Dictionary:
 	var best: Dictionary = {}
 	var best_score := -INF
 	for place: Dictionary in places:

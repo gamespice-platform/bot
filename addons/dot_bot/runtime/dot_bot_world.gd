@@ -1,4 +1,4 @@
-class_name DotBotWorld
+class_name GSBotWorld
 extends RefCounted
 
 ## Everything a bot brain may know about the world, and nothing else.
@@ -16,7 +16,7 @@ extends RefCounted
 ## which is what a suite with no map wants.
 ##
 ## [codeblock]
-## var world := DotBotWorld.new()
+## var world := GSBotWorld.new()
 ## world.contacts_fn = func() -> Array: return my_bodies_as_contacts()
 ## world.line_of_sight_fn = func(a: Vector3, b: Vector3) -> bool: return trace.line_of_sight(a, b)
 ## world.waypoints_fn = func() -> PackedVector3Array: return spawn_points
@@ -28,10 +28,10 @@ extends RefCounted
 ## How long a sound stays in [member sounds], seconds. Longer than any brain's think interval.
 const SOUND_LIFETIME := 1.0
 
-## [code]() -> Array[/code] of [DotBotContact]: every body, the bots included.
+## [code]() -> Array[/code] of [GSBotContact]: every body, the bots included.
 var contacts_fn: Callable = Callable()
 
-## Places beyond [member waypoints_fn], e.g. [method DotBotNav.spread_points]; roaming bots visit them too.
+## Places beyond [member waypoints_fn], e.g. [method GSBotNav.spread_points]; roaming bots visit them too.
 var extra_waypoints := PackedVector3Array()
 
 ## [code](from: Vector3, to: Vector3) -> bool[/code].
@@ -45,7 +45,7 @@ var waypoints_fn: Callable = Callable()
 ## it beside and ahead of a running bot to find a wall worth running along.
 var wall_fn: Callable = Callable()
 
-## [code](shooter: DotBotContact) -> float[/code]: how fast what this body fires travels, m/s;
+## [code](shooter: GSBotContact) -> float[/code]: how fast what this body fires travels, m/s;
 ## 0 for hitscan. The brain leads a target by it.
 var projectile_speed_fn: Callable = Callable()
 
@@ -56,22 +56,22 @@ var projectile_speed_fn: Callable = Callable()
 var route_fn: Callable = Callable()
 
 ## [code](from: Vector3, to: Vector3) -> Dictionary[/code]: a route that may ride, as
-## [method DotBotNav.route] answers (`points`, and `rides`: per point the id of the ride edge that
+## [method GSBotNav.route] answers (`points`, and `rides`: per point the id of the ride edge that
 ## starts there, -1 for a walked corner). Unset, [method route_detail] is [member route_fn]'s
 ## corners, every one walked. The brain says when it reaches a ride's start
-## ([member DotBotIntent.ride]); the game rides it.
+## ([member GSBotIntent.ride]); the game rides it.
 var route_detail_fn: Callable = Callable()
 
 ## [code](at: Vector3) -> Vector3[/code]: the nearest point a body can stand on (the navigation mesh's closest), or unset. A bot that cannot get free of a corner is nudged toward it.
 var walkable_fn: Callable = Callable()
 
 ## [code]drops_fn.call() -> Array[Dictionary][/code]: the weapons lying about, each
-## [code]{id, position, slot, value, ammo}[/code] (value and ammo as in [member DotBotContact.loadout]).
+## [code]{id, position, slot, value, ammo}[/code] (value and ammo as in [member GSBotContact.loadout]).
 ## Unset: none, and no bot goes for one.
 var drops_fn: Callable = Callable()
 
 ## The flags and each bot's team job in a flag mode, or null; brains read it, the game writes it.
-var objective: DotBotObjective = null
+var objective: GSBotObjective = null
 
 ## Recent sounds: dictionaries with position, loudness (1 is a gunshot), source (an id), at
 ## and seq.
@@ -89,7 +89,7 @@ var _seq: int = 0
 var contacts_version: int = -1
 
 ## The native sight scan's class (GameSpice Sim). Absent, every bot scans in script, as before.
-const SENSES_CLASS := &"DotSimBotSenses"
+const SENSES_CLASS := &"GSSimBotSenses"
 
 ## Whether the native sight scan is used when present; a suite turns it off to compare.
 static var native_enabled: bool = true
@@ -113,7 +113,7 @@ static func native_available() -> bool:
 
 ## The native sight scan over [param all] packed once for this [member contacts_version], or null
 ## (no extension, the game does not bump the version, or a worker thread: the scan keeps its last
-## answer, so a brain on a worker reads the handle [method DotBotBrain.par_ready] took on the main
+## answer, so a brain on a worker reads the handle [method GSBotBrain.par_ready] took on the main
 ## thread, or scans in script); [method sensed] maps its indices back.
 func senses(all: Array) -> Object:
 	if contacts_version < 0 or not native_available() or OS.get_thread_caller_id() != OS.get_main_thread_id():
@@ -140,8 +140,8 @@ func _pack(all: Array) -> void:
 	var eyes := PackedVector3Array()
 	var positions := PackedVector3Array()
 	for item in all:
-		if item is DotBotContact:
-			var c := item as DotBotContact
+		if item is GSBotContact:
+			var c := item as GSBotContact
 			_sensed.append(c)
 			ids.append(c.id)
 			points.append(c.aim_point())
@@ -177,7 +177,7 @@ func line_of_sight(from: Vector3, to: Vector3) -> bool:
 
 
 ## What a native mind asks sight through (`(from, to) -> bool`): [method line_of_sight] here. A game whose
-## line_of_sight is one engine ray may hand a native one instead (GameSpice Sim's `DotSimSightRay.clear`), which the mind
+## line_of_sight is one engine ray may hand a native one instead (GameSpice Sim's `GSSimSightRay.clear`), which the mind
 ## then asks with no call into script; it must answer to the bit as the game's line_of_sight does. Asked once per
 ## native perceive, so the game may switch it from tick to tick.
 func sight_callable() -> Callable:
@@ -251,7 +251,7 @@ func route_detail(from: Vector3, to: Vector3) -> Dictionary:
 	return {"points": points, "rides": rides}
 
 
-## The ladder behind a ride id ([constant DotBotLinks.LADDER_ID] up): `{"box": AABB, "to": Vector3}`, or an empty dictionary. Assign [code]links.ladder_of[/code].
+## The ladder behind a ride id ([constant GSBotLinks.LADDER_ID] up): `{"box": AABB, "to": Vector3}`, or an empty dictionary. Assign [code]links.ladder_of[/code].
 var ladder_fn := Callable()
 
 
@@ -259,7 +259,7 @@ func ladder(ride_id: int) -> Dictionary:
 	return ladder_fn.call(ride_id) if ladder_fn.is_valid() else {}
 
 
-func projectile_speed(shooter: DotBotContact) -> float:
+func projectile_speed(shooter: GSBotContact) -> float:
 	return float(projectile_speed_fn.call(shooter)) if projectile_speed_fn.is_valid() else 0.0
 
 
@@ -308,14 +308,14 @@ func _prune(now: float) -> void:
 
 ## The contact with [param id] among [param all], this think's [method contacts]. A world that
 ## keeps them by id overrides this; the brain asks it for every sound heard and every think of a fight.
-func contact_of(all: Array, id: int) -> DotBotContact:
+func contact_of(all: Array, id: int) -> GSBotContact:
 	return find(all, id)
 
 
 ## The contact with [param id] in [param list], or null.
-static func find(list: Array, id: int) -> DotBotContact:
+static func find(list: Array, id: int) -> GSBotContact:
 	for c in list:
-		if c is DotBotContact and (c as DotBotContact).id == id:
+		if c is GSBotContact and (c as GSBotContact).id == id:
 			return c
 	return null
 

@@ -1,17 +1,17 @@
-class_name DotBotRoster
+class_name GSBotRoster
 extends RefCounted
 
 ## Puts the number of bots right: adds named ones while there are too few, removes the newest
 ## while there are too many.
 ##
-## [b]The count is the game's or GameSpice Server's, never this.[/b] GameSpice Server's [code]DotBotQuota[/code]
+## [b]The count is the game's or GameSpice Server's, never this.[/b] GameSpice Server's [code]GSBotQuota[/code]
 ## says how many bots a server wants for the people on it (`bot_quota`, `bot_quota_mode`); a
 ## solo game asks the same rule with one person ([method solo_wanted]). This only gets from
 ## the number there are to the number wanted, which every game wrote by hand with its own
 ## naming, and the naming is the part that went wrong ("Stand-in 2").
 ##
 ## [codeblock]
-## var roster := DotBotRoster.new()
+## var roster := GSBotRoster.new()
 ## roster.keep(quota.wanted(humans, slots), bridge.bot_ids(),
 ##     func(name: String) -> int: return bridge.add_bot(name),
 ##     func(id: int) -> void: bridge.remove_bot(id),
@@ -23,7 +23,7 @@ extends RefCounted
 
 const CHANNEL := "dot.bot"
 
-## Names a game uses instead of [constant DotBotNames.POOL]; empty for the pool.
+## Names a game uses instead of [constant GSBotNames.POOL]; empty for the pool.
 var pool: Array = []
 
 ## Put in front of every name ("[BOT] "); empty by default.
@@ -46,7 +46,7 @@ func keep(wanted: int, current: Array, add: Callable, remove: Callable, taken: A
 		var name := next_name(names)
 		var made: Variant = add.call(name)
 		if made == null or (made is int and made == 0) or (made is String and made == "") or (made is StringName and made == &""):
-			DotLog.debug(CHANNEL, "the game refused a bot", {"name": name, "have": ids.size(), "wanted": wanted})
+			GSLog.debug(CHANNEL, "the game refused a bot", {"name": name, "have": ids.size(), "wanted": wanted})
 			break
 		ids.append(made)
 		names.append(name)
@@ -60,7 +60,7 @@ func keep(wanted: int, current: Array, add: Callable, remove: Callable, taken: A
 ## The next name, not in [param taken].
 func next_name(taken: Array) -> String:
 	_given += 1
-	return DotBotNames.pick(taken, _given, pool, prefix)
+	return GSBotNames.pick(taken, _given, pool, prefix)
 
 
 ## How many bots a solo game wants: the server's fill rule with one person, so solo and a

@@ -5,14 +5,14 @@ extends "res://examples/selftest/duel_tests.gd"
 
 ## One bot running at 8 m/s beside a wall for [param seconds]; returns the tricks' counts.
 func _trick_run(preset: String, scenario: StringName, seconds: float, ready: bool, health: float, up: float, speed: float = 8.0) -> Dictionary:
-	var s := DotBotSettings.new()
+	var s := GSBotSettings.new()
 	s.set_difficulty(preset)
-	var tricks := DotBotTricks.new()
-	var rng := DotRandomStream.new(7).stream(&"dot_bot")
-	var world := DotBotWorld.new()
+	var tricks := GSBotTricks.new()
+	var rng := GSRandomStream.new(7).stream(&"dot_bot")
+	var world := GSBotWorld.new()
 	world.wall_fn = func(_from: Vector3, dir: Vector3, reach: float) -> Dictionary:
 		return {"normal": Vector3(-dir.x, 0.0, -dir.z), "distance": 1.0} if dir.x > 0.5 and reach > 1.0 else {}
-	var me := DotBotContact.new()
+	var me := GSBotContact.new()
 	me.velocity = Vector3(0, 0, -speed)
 	me.air_jump_ready = ready
 	me.health = health
@@ -22,7 +22,7 @@ func _trick_run(preset: String, scenario: StringName, seconds: float, ready: boo
 	var t := 0.0
 	var presses := 0
 	while t < seconds:
-		var out := DotBotIntent.new()
+		var out := GSBotIntent.new()
 		tricks.apply(me, world, s.profile, rng, scenario, up, 0.0, t, TICK, out)
 		if out.air_jump:
 			presses += 1

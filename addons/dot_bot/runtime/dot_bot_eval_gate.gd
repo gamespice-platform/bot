@@ -1,11 +1,11 @@
-class_name DotBotEvalGate
+class_name GSBotEvalGate
 extends RefCounted
 
-## The evaluation gate of a cloned policy: replays the held-out episodes' start states on a host's simulator, once with a [DotBotMlp] and once with the fixed baseline it would replace, under seeded perturbations, and says per map whether the policy beats the baseline by more than the spread between seeds.
+## The evaluation gate of a cloned policy: replays the held-out episodes' start states on a host's simulator, once with a [GSBotMlp] and once with the fixed baseline it would replace, under seeded perturbations, and says per map whether the policy beats the baseline by more than the spread between seeds.
 ## The host is duck typed (the gate names no game) and must be deterministic for a given start and seed: [code]eval_start(start: Dictionary, seed: int) -> Variant[/code] (a fresh state; the seed drives the host's perturbation), [code]eval_observe(state) -> PackedFloat32Array[/code] (the net's input, raw), [code]eval_baseline(state) -> PackedFloat32Array[/code] (what the baseline would do now, in the net's output layout), [code]eval_step(state, action: PackedFloat32Array) -> void[/code] (one think), [code]eval_done(state) -> bool[/code] and [code]eval_score(state) -> float[/code] (the kind's own metric, higher is better: 1 for landed; seconds alive).
 ## Pure and repeatable: the same net, manifest, host and config give the same report, byte for byte. [method evaluate] returns a success when every map passes and a failure otherwise; the report (the metrics in both cases) is in [member report].
 
-# No log channel: the verdict is the DotResult and [member report]; the tool that runs it logs.
+# No log channel: the verdict is the GSResult and [member report]; the tool that runs it logs.
 const FORMAT := "dotbot-eval"
 const VERSION := 1
 const MAX_SEEDS := 256
@@ -39,12 +39,12 @@ func seed_for(episode_id: int, index: int) -> int:
 	return x
 
 
-## Runs [param net] and the host's baseline over the manifest's held-out entries (from [method DotBotDemoExport.load_manifest]). Failure for bad inputs or a gate that does not pass; see [member report].
-func evaluate(net: DotBotMlp, manifest: Dictionary, host: Object) -> DotResult:
+## Runs [param net] and the host's baseline over the manifest's held-out entries (from [method GSBotDemoExport.load_manifest]). Failure for bad inputs or a gate that does not pass; see [member report].
+func evaluate(net: GSBotMlp, manifest: Dictionary, host: Object) -> GSResult:
 	report = {}
 	var bad := _check_inputs(net, manifest, host)
 	if bad != "":
-		return DotResult.fail(DotError.CODE_INVALID, bad)
+		return GSResult.fail(GSError.CODE_INVALID, bad)
 	var held: Array = manifest.get("held_out", [])
 	var order: Array = []
 	for e: Variant in held:
@@ -78,10 +78,10 @@ func evaluate(net: DotBotMlp, manifest: Dictionary, host: Object) -> DotResult:
 		"maps": maps, "policy_on": passing, "pass": ok,
 	}
 	if map_order.is_empty():
-		return DotResult.fail(DotError.CODE_INVALID, "The manifest holds no held-out episodes.", JSON.stringify(report))
+		return GSResult.fail(GSError.CODE_INVALID, "The manifest holds no held-out episodes.", JSON.stringify(report))
 	if not ok:
-		return DotResult.fail(DotError.CODE_INVALID, "The policy does not beat the baseline on: %s." % ", ".join(failed), JSON.stringify(report))
-	return DotResult.success(report)
+		return GSResult.fail(GSError.CODE_INVALID, "The policy does not beat the baseline on: %s." % ", ".join(failed), JSON.stringify(report))
+	return GSResult.success(report)
 
 
 ## The report as stable text (sorted keys), for committing beside the weights.
@@ -89,7 +89,7 @@ func report_text() -> String:
 	return JSON.stringify(report, "\t", true) + "\n"
 
 
-func _check_inputs(net: DotBotMlp, manifest: Dictionary, host: Object) -> String:
+func _check_inputs(net: GSBotMlp, manifest: Dictionary, host: Object) -> String:
 	if net == null or net.sizes.is_empty():
 		return "There is no net."
 	if host == null:
@@ -108,7 +108,7 @@ func _check_inputs(net: DotBotMlp, manifest: Dictionary, host: Object) -> String
 	return ""
 
 
-func _map_verdict(net: DotBotMlp, eps: Array, host: Object) -> Dictionary:
+func _map_verdict(net: GSBotMlp, eps: Array, host: Object) -> Dictionary:
 	var diffs := PackedFloat64Array()
 	var sum_p := 0.0
 	var sum_b := 0.0
@@ -155,7 +155,7 @@ func _map_verdict(net: DotBotMlp, eps: Array, host: Object) -> Dictionary:
 
 
 ## One replay of one start under one seed; [param net] null plays the baseline.
-func _play(host: Object, start: Dictionary, sd: int, net: DotBotMlp) -> float:
+func _play(host: Object, start: Dictionary, sd: int, net: GSBotMlp) -> float:
 	var state: Variant = host.eval_start(start, sd)
 	var steps := 0
 	while steps < max_steps and not host.eval_done(state):

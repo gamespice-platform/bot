@@ -29,7 +29,7 @@ class FakeFire:
 		buttons = (buttons | button) if pressed else (buttons & ~button)
 
 
-## A cvar shaped like GameSpice Server's DotConVar.
+## A cvar shaped like GameSpice Server's GSConVar.
 class FakeCvar:
 	extends RefCounted
 	signal changed(old_value: String, new_value: String)
@@ -51,16 +51,16 @@ class FakeCvar:
 	func get_string() -> String:
 		return value
 
-	func set_value(text: String) -> DotResult:
+	func set_value(text: String) -> GSResult:
 		var t := text.strip_edges()
 		if t.is_valid_float() and (lo > -INF or hi < INF):
 			t = str(clampf(t.to_float(), lo, hi))
 		if validator.is_valid():
-			var r: DotResult = validator.call(t)
+			var r: GSResult = validator.call(t)
 			if not r.ok:
 				return r
 		force_set(t)
-		return DotResult.success(t)
+		return GSResult.success(t)
 
 	func force_set(text: String) -> void:
 		var old := value
@@ -69,7 +69,7 @@ class FakeCvar:
 			changed.emit(old, value)
 
 
-## A console shaped like GameSpice Console's DotConsoleLocal.
+## A console shaped like GameSpice Console's GSConsoleLocal.
 class FakeLocal:
 	extends RefCounted
 	var vars := {}
@@ -93,38 +93,38 @@ class FakeLocal:
 func _test_profile() -> void:
 	_section("presets are bundles of settings")
 
-	var probe := DotBotProfile.new()
+	var probe := GSBotProfile.new()
 	var names := {}
 	for property in probe.get_property_list():
 		names[String(property["name"])] = true
 	var all_read := true
-	for field in DotBotProfile.fields():
+	for field in GSBotProfile.fields():
 		if not names.has(field):
 			all_read = false
 			print("       SPEC names %s, which the profile does not have" % field)
 	_check(all_read, "every SPEC row is a profile property")
-	_check(DotBotProfile.fields().size() >= 25, "at least twenty-five individual settings", str(DotBotProfile.fields().size()))
+	_check(GSBotProfile.fields().size() >= 25, "at least twenty-five individual settings", str(GSBotProfile.fields().size()))
 
-	var fresh := DotBotProfile.new()
-	var medium := DotBotProfile.preset("medium")
+	var fresh := GSBotProfile.new()
+	var medium := GSBotProfile.preset("medium")
 	var same := true
-	for field in DotBotProfile.fields():
+	for field in GSBotProfile.fields():
 		if not is_equal_approx(fresh.get_field(field), medium.get_field(field)):
 			same = false
 			print("       a new profile's %s is %s, medium's %s" % [field, fresh.get_field(field), medium.get_field(field)])
 	_check(same and fresh.preset_name == "medium", "a new profile is medium, the default")
 
 	var in_range := true
-	for row: Array in DotBotProfile.SPEC:
-		for col in range(DotBotProfile.COL_FIRST_PRESET, DotBotProfile.COL_FIRST_PRESET + 4):
-			if float(row[col]) < float(row[DotBotProfile.COL_MIN]) or float(row[col]) > float(row[DotBotProfile.COL_MAX]):
+	for row: Array in GSBotProfile.SPEC:
+		for col in range(GSBotProfile.COL_FIRST_PRESET, GSBotProfile.COL_FIRST_PRESET + 4):
+			if float(row[col]) < float(row[GSBotProfile.COL_MIN]) or float(row[col]) > float(row[GSBotProfile.COL_MAX]):
 				in_range = false
 				print("       %s column %d out of range" % [row[0], col])
 	_check(in_range, "every preset value is inside its setting's range")
 
-	var easy := DotBotProfile.preset("easy")
-	var hard := DotBotProfile.preset("hard")
-	var nightmare := DotBotProfile.preset("nightmare")
+	var easy := GSBotProfile.preset("easy")
+	var hard := GSBotProfile.preset("hard")
+	var nightmare := GSBotProfile.preset("nightmare")
 	_check(easy.reaction > medium.reaction and medium.reaction > hard.reaction and hard.reaction > nightmare.reaction,
 		"reaction gets quicker preset by preset")
 	_check(easy.aim_error > medium.aim_error and medium.aim_error > hard.aim_error and hard.aim_error > nightmare.aim_error,
@@ -134,13 +134,13 @@ func _test_profile() -> void:
 	_check(hard.reaction >= 0.18 and hard.reaction <= 0.25, "hard reacts like a good person (0.18 to 0.25 s)", str(hard.reaction))
 	_check(nightmare.reaction >= 0.1 and nightmare.aim_floor > 0.0, "nightmare is beyond human, not a machine: reaction and aim floor above zero")
 	var walls := true
-	for preset in DotBotProfile.PRESETS:
-		walls = walls and DotBotProfile.preset(preset).through_walls == 0.0
+	for preset in GSBotProfile.PRESETS:
+		walls = walls and GSBotProfile.preset(preset).through_walls == 0.0
 	_check(walls, "no preset sees through walls")
 
-	_check(DotBotProfile.preset("HARD ").preset_name == "hard", "preset names ignore case and spaces")
-	_check(DotBotProfile.preset("brutal") == null, "an unknown preset is null")
-	var p := DotBotProfile.preset("medium")
+	_check(GSBotProfile.preset("HARD ").preset_name == "hard", "preset names ignore case and spaces")
+	_check(GSBotProfile.preset("brutal") == null, "an unknown preset is null")
+	var p := GSBotProfile.preset("medium")
 	_check(not p.apply_preset("brutal").ok and p.preset_name == "medium", "applying an unknown preset changes nothing")
 	_check(p.set_field("reaction", "0.5").ok and is_equal_approx(p.reaction, 0.5), "a field set from text")
 	_check(p.set_field("reaction", "99").ok and is_equal_approx(p.reaction, 99.0), "a value over a guide maximum is used as given, not clamped")
@@ -151,17 +151,17 @@ func _test_profile() -> void:
 	var c := p.copy()
 	c.reaction = 1.0
 	_check(not is_equal_approx(p.reaction, 1.0), "a copy shares nothing")
-	_check(p.describe_lines().size() == DotBotProfile.fields().size() + 1, "describe_lines lists every setting")
+	_check(p.describe_lines().size() == GSBotProfile.fields().size() + 1, "describe_lines lists every setting")
 	_done()
 
 
 func _test_settings() -> void:
 	_section("bot_difficulty and overrides")
 
-	var s := DotBotSettings.new()
+	var s := GSBotSettings.new()
 	_check(s.difficulty() == "medium", "medium by default")
 	var rev := s.revision
-	_check(s.set_difficulty("hard").ok and is_equal_approx(s.profile.reaction, DotBotProfile.preset_value("hard", "reaction")),
+	_check(s.set_difficulty("hard").ok and is_equal_approx(s.profile.reaction, GSBotProfile.preset_value("hard", "reaction")),
 		"hard sets hard's reaction")
 	_check(s.revision > rev, "a change bumps the revision")
 	_check(not s.set_difficulty("brutal").ok and s.difficulty() == "hard", "an unknown preset is refused and nothing changes")
@@ -170,17 +170,17 @@ func _test_settings() -> void:
 	_check(s.set_value("reaction", "0.6").ok and is_equal_approx(s.profile.reaction, 0.6), "an override sets one setting")
 	_check(s.is_overridden("reaction"), "and is remembered as set by hand")
 	_check(s.set_difficulty("easy").ok and is_equal_approx(s.profile.reaction, 0.6), "an override outlives a preset change")
-	_check(is_equal_approx(s.profile.aim_error, DotBotProfile.preset_value("easy", "aim_error")), "while everything else follows the preset")
+	_check(is_equal_approx(s.profile.aim_error, GSBotProfile.preset_value("easy", "aim_error")), "while everything else follows the preset")
 	_check(s.profile == held, "the profile object is never replaced, so a brain may hold it")
 	s.reset_overrides()
-	_check(is_equal_approx(s.profile.reaction, DotBotProfile.preset_value("easy", "reaction")) and s.overrides.is_empty(),
+	_check(is_equal_approx(s.profile.reaction, GSBotProfile.preset_value("easy", "reaction")) and s.overrides.is_empty(),
 		"bot_settings_reset puts the preset's value back")
 
 	var node := Node.new()
-	var a := DotBotSettings.of(node)
-	_check(DotBotSettings.of(node) == a, "of() keeps one per node")
+	var a := GSBotSettings.of(node)
+	_check(GSBotSettings.of(node) == a, "of() keeps one per node")
 	var other := Node.new()
-	_check(DotBotSettings.of(other) != a, "and two nodes (two servers in one process) never share one")
+	_check(GSBotSettings.of(other) != a, "and two nodes (two servers in one process) never share one")
 	node.free()
 	other.free()
 	_check(s.describe_lines()[0] == "bot_difficulty easy", "describe_lines starts with the preset")
@@ -201,16 +201,16 @@ func _test_cvars() -> void:
 	var add_command := func(n: String, handler: Callable, _help: String) -> void:
 		commands[n] = handler
 
-	var s := DotBotSettings.new()
+	var s := GSBotSettings.new()
 	var list := s.bind_cvars(add, 0, add_command)
-	_check(list.size() == DotBotProfile.fields().size() + 3, "bot_difficulty, one cvar per setting and the two style cvars", str(list.size()))
+	_check(list.size() == GSBotProfile.fields().size() + 3, "bot_difficulty, one cvar per setting and the two style cvars", str(list.size()))
 	_check(commands.has("bot_settings") and commands.has("bot_settings_reset"), "and the two commands")
 	_check((made["bot_difficulty"] as FakeCvar).value == "medium", "bot_difficulty starts at medium")
 
 	var diff := made["bot_difficulty"] as FakeCvar
 	var reaction := made["bot_reaction"] as FakeCvar
 	_check(diff.set_value("nightmare").ok and s.difficulty() == "nightmare", "setting the cvar chooses the preset")
-	_check(reaction.value.to_float() == DotBotProfile.preset_value("nightmare", "reaction"), "and writes every setting's cvar", reaction.value)
+	_check(reaction.value.to_float() == GSBotProfile.preset_value("nightmare", "reaction"), "and writes every setting's cvar", reaction.value)
 	_check(not diff.set_value("brutal").ok and s.difficulty() == "nightmare", "the cvar refuses an unknown preset")
 	_check(reaction.set_value("0.45").ok and is_equal_approx(s.profile.reaction, 0.45) and s.is_overridden("reaction"),
 		"a setting's cvar overrides it")
@@ -223,7 +223,7 @@ func _test_cvars() -> void:
 		var c := FakeCvar.new()
 		c.value = "hard" if n == "bot_difficulty" else ("0.45" if n == "bot_reaction" else value)
 		return c
-	var t := DotBotSettings.new()
+	var t := GSBotSettings.new()
 	var _l := t.bind_cvars(waiting)
 	_check(t.difficulty() == "hard" and is_equal_approx(t.profile.reaction, 0.45) and t.is_overridden("reaction"),
 		"values a config set before registering reach the bots")
@@ -233,19 +233,19 @@ func _test_cvars() -> void:
 func _test_console() -> void:
 	_section("solo console variables")
 
-	var s := DotBotSettings.new()
+	var s := GSBotSettings.new()
 	var local := FakeLocal.new()
 	_check(s.bind_console(local), "binds to anything with add_var")
-	_check(local.vars.has("bot_difficulty") and local.vars.size() == DotBotProfile.fields().size() + 3, "every name a server has, in solo")
+	_check(local.vars.has("bot_difficulty") and local.vars.size() == GSBotProfile.fields().size() + 3, "every name a server has, in solo")
 	_check(local.commands.has("bot_settings") and local.commands.has("bot_settings_reset"), "and the two commands")
 	_check(local.get_var("bot_difficulty") == "medium", "reads medium")
 	var res: Variant = local.set_var("bot_difficulty", "hard")
-	_check(res is DotResult and (res as DotResult).ok and s.difficulty() == "hard", "bot_difficulty hard in solo")
-	_check(local.get_var("bot_aim_error") == DotBotProfile._fmt(DotBotProfile.preset_value("hard", "aim_error")), "reads the preset's value back")
+	_check(res is GSResult and (res as GSResult).ok and s.difficulty() == "hard", "bot_difficulty hard in solo")
+	_check(local.get_var("bot_aim_error") == GSBotProfile._fmt(GSBotProfile.preset_value("hard", "aim_error")), "reads the preset's value back")
 	var _r: Variant = local.set_var("bot_aim_error", "7")
 	_check(is_equal_approx(s.profile.aim_error, 7.0), "an individual variable overrides")
 	var bad: Variant = local.set_var("bot_difficulty", "brutal")
-	_check(bad is DotResult and not (bad as DotResult).ok, "and refuses an unknown preset with a reason")
+	_check(bad is GSResult and not (bad as GSResult).ok, "and refuses an unknown preset with a reason")
 	_check(not s.bind_console(null), "false for nothing to bind to")
 	_done()
 
@@ -255,49 +255,49 @@ func _test_names() -> void:
 
 	var taken: Array = []
 	var unique := true
-	for i in range(DotBotNames.POOL.size() + 10):
-		var n := DotBotNames.pick(taken, i)
+	for i in range(GSBotNames.POOL.size() + 10):
+		var n := GSBotNames.pick(taken, i)
 		if taken.has(n):
 			unique = false
 		taken.append(n)
 	_check(unique, "never two bots with one name, past the end of the pool too")
 	var plain := true
-	for n in taken.slice(0, DotBotNames.POOL.size()):
+	for n in taken.slice(0, GSBotNames.POOL.size()):
 		var lower := String(n).to_lower()
 		if lower.begins_with("bot") or lower.contains("stand-in") or String(n).is_valid_int():
 			plain = false
 	_check(plain, "no Bot N, no Stand-in N")
-	_check(DotBotNames.pick([], 7) == DotBotNames.pick([], 7), "the same salt gives the same name")
-	_check(DotBotNames.pick([], 7, [], "[BOT] ").begins_with("[BOT] "), "a prefix when a game wants one")
-	_check(DotBotNames.pick(["Ann"], 3, ["Ann", "Bea"]) == "Bea", "a game's own pool")
+	_check(GSBotNames.pick([], 7) == GSBotNames.pick([], 7), "the same salt gives the same name")
+	_check(GSBotNames.pick([], 7, [], "[BOT] ").begins_with("[BOT] "), "a prefix when a game wants one")
+	_check(GSBotNames.pick(["Ann"], 3, ["Ann", "Bea"]) == "Bea", "a game's own pool")
 	_done()
 
 
 func _test_personas() -> void:
 	_section("personas: a mix that never idles, a weighted pool, a server override")
 
-	var medic := DotBotPersona.from_values("medic", {"support": 8.0, "hunt": 1.0, "loot": 0.0, "hold": 0.0, "scout": 0.0, "weight": 3.0})
+	var medic := GSBotPersona.from_values("medic", {"support": 8.0, "hunt": 1.0, "loot": 0.0, "hold": 0.0, "scout": 0.0, "weight": 3.0})
 	var seen := {}
 	for i in 200:
 		seen[medic.pick(float(i) / 200.0)] = true
-	_check(seen.has(DotBotPersona.SUPPORT) and seen.has(DotBotPersona.HUNT), "a mix picks from its weighted behaviours")
-	_check(not seen.has(DotBotPersona.LOOT) and not seen.has(&"idle") and not seen.has(&""), "a zero weight is never picked, and idle is not a behaviour")
-	var zero := DotBotPersona.from_values("zero", {"hunt": 0.0, "loot": 0.0, "hold": 0.0, "support": 0.0, "scout": 0.0})
+	_check(seen.has(GSBotPersona.SUPPORT) and seen.has(GSBotPersona.HUNT), "a mix picks from its weighted behaviours")
+	_check(not seen.has(GSBotPersona.LOOT) and not seen.has(&"idle") and not seen.has(&""), "a zero weight is never picked, and idle is not a behaviour")
+	var zero := GSBotPersona.from_values("zero", {"hunt": 0.0, "loot": 0.0, "hold": 0.0, "support": 0.0, "scout": 0.0})
 	var any := {}
 	for i in 100:
 		any[zero.pick(float(i) / 100.0)] = true
-	_check(any.size() == DotBotPersona.BEHAVIOURS.size(), "an all-zero mix counts every behaviour equal rather than idling")
+	_check(any.size() == GSBotPersona.BEHAVIOURS.size(), "an all-zero mix counts every behaviour equal rather than idling")
 	var repeats := 0
 	for i in 100:
-		if medic.pick(float(i) / 100.0, DotBotPersona.SUPPORT) == DotBotPersona.SUPPORT:
+		if medic.pick(float(i) / 100.0, GSBotPersona.SUPPORT) == GSBotPersona.SUPPORT:
 			repeats += 1
 	_check(repeats == 0, "the last behaviour is not repeated while another has weight")
-	var only := DotBotPersona.from_values("only", {"hunt": 5.0, "loot": 0.0, "hold": 0.0, "support": 0.0, "scout": 0.0})
-	_check(only.pick(0.5, DotBotPersona.HUNT) == DotBotPersona.HUNT, "a one-behaviour mix repeats rather than idles")
+	var only := GSBotPersona.from_values("only", {"hunt": 5.0, "loot": 0.0, "hold": 0.0, "support": 0.0, "scout": 0.0})
+	_check(only.pick(0.5, GSBotPersona.HUNT) == GSBotPersona.HUNT, "a one-behaviour mix repeats rather than idles")
 
-	var pool := DotBotPersonaPool.new()
+	var pool := GSBotPersonaPool.new()
 	_check(pool.draw(0.3).id == &"balanced" and pool.candidates().size() == 1, "an empty pool still holds one balanced persona")
-	pool.personas = [medic, DotBotPersona.from_values("scout", {"weight": 1.0}), DotBotPersona.from_values("off", {"weight": 0.0})]
+	pool.personas = [medic, GSBotPersona.from_values("scout", {"weight": 1.0}), GSBotPersona.from_values("off", {"weight": 0.0})]
 	var counts := {}
 	for i in 400:
 		var p := pool.draw((float(i) + 0.5) / 400.0)
@@ -321,15 +321,15 @@ func _test_personas() -> void:
 	pool.release(&"b1")
 	_check(not pool.describe()["given"].has("b1"), "released")
 
-	var base := DotBotProfile.preset("medium")
-	_check(DotBotPersona.from_values("p", {}).profile_over(base) == null, "no skill stated shares the game's settings")
-	var sharp := DotBotPersona.from_values("sharp", {"difficulty": "hard", "skill": {"reaction": 0.5}}).profile_over(base)
+	var base := GSBotProfile.preset("medium")
+	_check(GSBotPersona.from_values("p", {}).profile_over(base) == null, "no skill stated shares the game's settings")
+	var sharp := GSBotPersona.from_values("sharp", {"difficulty": "hard", "skill": {"reaction": 0.5}}).profile_over(base)
 	_check(sharp != null and sharp.preset_name == "hard" and is_equal_approx(sharp.reaction, 0.5) and is_equal_approx(sharp.fov, 120.0), "a persona's difficulty and skill values")
 	var schema_names: Array = []
-	for f: Dictionary in DotBotPersona.schema():
+	for f: Dictionary in GSBotPersona.schema():
 		schema_names.append(f["name"])
 	_check(schema_names.has("hunt") and schema_names.has("support") and schema_names.has("weight") and schema_names.has("skill"), "the profile schema names the mix, weight and skill")
-	_check(DotBotPersona.profile_schemas().has("bot"), "profile_check finds the bot kind")
+	_check(GSBotPersona.profile_schemas().has("bot"), "profile_check finds the bot kind")
 
 	_test_personas_dealt(rng)
 	_done()
@@ -337,8 +337,8 @@ func _test_personas() -> void:
 
 ## The second half of [method _test_personas]: a pool dealing personas by weight, and settings derived from a persona.
 func _test_personas_dealt(rng: RandomNumberGenerator) -> void:
-	var dealer := DotBotPersonaPool.new()
-	dealer.personas = [DotBotPersona.from_values("a", {"weight": 2.0}), DotBotPersona.from_values("b", {}), DotBotPersona.from_values("c", {})]
+	var dealer := GSBotPersonaPool.new()
+	dealer.personas = [GSBotPersona.from_values("a", {"weight": 2.0}), GSBotPersona.from_values("b", {}), GSBotPersona.from_values("c", {})]
 	var dealt := {}
 	for i in 8:
 		var got := dealer.deal(StringName("d%d" % i), rng)
@@ -346,28 +346,28 @@ func _test_personas_dealt(rng: RandomNumberGenerator) -> void:
 	_check(dealt.get(&"a", 0) == 4 and dealt.get(&"b", 0) == 2 and dealt.get(&"c", 0) == 2, "eight bots dealt 2:1:1 get 4/2/2", str(dealt))
 	_check(dealer.given(&"d0") == dealer.deal(&"d0", rng), "a dealt bot keeps its persona")
 
-	var game := DotBotSettings.new()
+	var game := GSBotSettings.new()
 	var _set := game.set_difficulty("medium")
-	var keen := DotBotPersona.from_values("keen", {"scale": {"reaction": 0.5, "turn_rate": 3.0, "bogus": 2.0}, "spread": 0.2})
-	var one := DotBotSettings.derived(game, keen, 1)
-	var two := DotBotSettings.derived(game, keen, 2)
-	var medium := DotBotProfile.preset("medium")
+	var keen := GSBotPersona.from_values("keen", {"scale": {"reaction": 0.5, "turn_rate": 3.0, "bogus": 2.0}, "spread": 0.2})
+	var one := GSBotSettings.derived(game, keen, 1)
+	var two := GSBotSettings.derived(game, keen, 2)
+	var medium := GSBotProfile.preset("medium")
 	_check(one.profile.reaction < medium.reaction * 0.61 and one.profile.reaction > medium.reaction * 0.39, "scale halves reaction, give or take the spread", str(one.profile.reaction))
 	_check(not is_equal_approx(one.profile.aim_error, two.profile.aim_error), "two bots of one persona aim differently", "%s %s" % [one.profile.aim_error, two.profile.aim_error])
-	_check(is_equal_approx(DotBotSettings.derived(game, keen, 1).profile.aim_error, one.profile.aim_error), "the same bot seed gives the same bot")
+	_check(is_equal_approx(GSBotSettings.derived(game, keen, 1).profile.aim_error, one.profile.aim_error), "the same bot seed gives the same bot")
 	_check(one.profile.turn_rate <= game.profile.turn_rate, "a persona never turns faster than bot_turn_rate", str(one.profile.turn_rate))
 	var held := one.profile
 	_check(not one.sync(), "sync does nothing while the game settings stand")
 	var _hard := game.set_difficulty("hard")
 	_check(one.sync() and one.profile == held and one.profile.preset_name == "hard", "sync follows a difficulty change in place")
-	var plain := DotBotSettings.derived(game, DotBotPersona.from_values("plain", {}), 9)
-	_check(is_equal_approx(plain.profile.aim_error, game.profile.aim_error) and not DotBotPersona.from_values("plain", {}).shapes_skill(), "a persona with no skill keys copies the game's values")
+	var plain := GSBotSettings.derived(game, GSBotPersona.from_values("plain", {}), 9)
+	_check(is_equal_approx(plain.profile.aim_error, game.profile.aim_error) and not GSBotPersona.from_values("plain", {}).shapes_skill(), "a persona with no skill keys copies the game's values")
 
 
 func _test_roster() -> void:
 	_section("the roster keeps a count")
 
-	var roster := DotBotRoster.new()
+	var roster := GSBotRoster.new()
 	var made: Array = []
 	var removed: Array = []
 	var next_id := [100]
@@ -385,14 +385,14 @@ func _test_roster() -> void:
 	_check(ids == [101] and removed == [103, 102], "newest out first", "%s %s" % [ids, removed])
 	var refuse := func(_n: String) -> int: return 0
 	_check(roster.keep(4, ids, refuse, remove).size() == 1, "a refusal stops adding")
-	_check(DotBotRoster.solo_wanted(4) == 3 and DotBotRoster.solo_wanted(0) == 0, "solo fill: bot_quota 4 is three bots and you")
+	_check(GSBotRoster.solo_wanted(4) == 3 and GSBotRoster.solo_wanted(0) == 0, "solo fill: bot_quota 4 is three bots and you")
 	_done()
 
 
 func _test_intent() -> void:
 	_section("an intent is the commands a client sends")
 
-	var i := DotBotIntent.new()
+	var i := GSBotIntent.new()
 	i.yaw = 30.0
 	i.pitch = -5.0
 	i.move = Vector2(2.0, 0.0)
@@ -407,15 +407,15 @@ func _test_intent() -> void:
 	_check(is_equal_approx(m.move.length(), 1.0), "movement never longer than a stick")
 	_check(m.buttons == FakeMove.BUTTON_CROUCH, "crouch from the command's own constant", str(m.buttons))
 	_check(f.buttons == (FakeFire.BUTTON_ATTACK | FakeFire.BUTTON_USER_0), "trigger and the game's throw button", str(f.buttons))
-	_check(DotBotIntent.direction(0.0, 0.0).is_equal_approx(Vector3(0, 0, -1)), "yaw 0 looks down -Z")
-	_check(DotBotIntent.direction(90.0, 0.0).is_equal_approx(Vector3(-1, 0, 0)), "yaw 90 looks down -X")
+	_check(GSBotIntent.direction(0.0, 0.0).is_equal_approx(Vector3(0, 0, -1)), "yaw 0 looks down -Z")
+	_check(GSBotIntent.direction(90.0, 0.0).is_equal_approx(Vector3(-1, 0, 0)), "yaw 90 looks down -X")
 	_done()
 
 
 func _test_think_tier() -> void:
 	_section("think-rate tiers: watched, fighting and nearest bots every tick, the rest every few")
 
-	var t := DotBotThinkTier.new()
+	var t := GSBotThinkTier.new()
 	t.native = false  # this script's own answers; dot-sim's selftest compares the native tier with them
 	var eyes := PackedVector3Array([Vector3.ZERO])
 	var looks := PackedVector3Array([Vector3(0, 0, -1)])
@@ -435,7 +435,7 @@ func _test_think_tier() -> void:
 	t.load_scale = 2.0
 	_check(t.period(4, at[3], true) == 4 and t.period(5, at[4], true) == 1 and t.period(3, at[2], false) == t.near_every * 2 and t.period(1, at[0], false) == 1, "load_scale stretches the thinned periods, full-rate bots stay full")
 	t.load_scale = 100.0
-	_check(t.period(4, at[3], false) == DotBotThinkTier.MAX_PERIOD, "a stretched period stops at MAX_PERIOD")
+	_check(t.period(4, at[3], false) == GSBotThinkTier.MAX_PERIOD, "a stretched period stops at MAX_PERIOD")
 	t.load_scale = 1.0
 	t.engaged_far_every = 1
 	_check(t.period(2, at[1], false, true) == t.idle_view_every and t.period(2, at[1], false, false) == 1 and t.period(2, at[1], true, true) == 1, "idle_view_every: an idle bot in view thins out; one with a target, or fighting a person, stays full")
@@ -460,7 +460,7 @@ func _test_think_tier() -> void:
 
 
 ## The second half of [method _test_think_tier]: body tiers, until_beat, and schedule against the separate calls.
-func _test_think_tier_body(t: DotBotThinkTier, eyes: PackedVector3Array, looks: PackedVector3Array, ids: PackedInt32Array, at: PackedVector3Array) -> void:
+func _test_think_tier_body(t: GSBotThinkTier, eyes: PackedVector3Array, looks: PackedVector3Array, ids: PackedInt32Array, at: PackedVector3Array) -> void:
 	t.body_above = 32
 	t.begin(32, eyes, looks, ids, at)
 	_check(t.body_period(4, at[3], false) == 1 and t.body_period(3, at[2], false) == 1 and t.body_counts.is_empty(), "body tiers are off at body_above players or fewer: every body ticks every tick")
@@ -475,21 +475,21 @@ func _test_think_tier_body(t: DotBotThinkTier, eyes: PackedVector3Array, looks: 
 	_check(int(t.body_counts.get(&"far", 0)) == 1 and int(t.body_counts.get(&"near", 0)) == 1, "body_counts counts the thinned bodies by reason")
 	_check(t.period(4, at[3], false) == t.far_every and t.period(3, at[2], false) == t.near_every, "body tiers change no think period")
 	t.body_far_every = 100
-	_check(t.body_period(4, at[3], false) == DotBotThinkTier.MAX_PERIOD, "a body period stops at MAX_PERIOD")
+	_check(t.body_period(4, at[3], false) == GSBotThinkTier.MAX_PERIOD, "a body period stops at MAX_PERIOD")
 	t.max_period = 0
 	_check(t.body_period(4, at[3], false) == 100, "max_period 0 lifts the cap on a body period")
 	t.load_scale = 100.0
 	_check(t.period(4, at[3], false) == t.far_every * 100, "and on a stretched think period")
 	t.load_scale = 1.0
-	t.max_period = DotBotThinkTier.DEFAULT_MAX_PERIOD
+	t.max_period = GSBotThinkTier.DEFAULT_MAX_PERIOD
 	var thinks := 0
 	var tick := 2
 	while tick < 50:
 		thinks += 1
-		tick += DotBotThinkTier.until_beat(tick, 3, 4)
-	_check(thinks == 13 and tick == 53 and DotBotThinkTier.until_beat(7, 3, 1) == 1, "a period of 4 thinks on its beat from the first think on; 1 every tick")
+		tick += GSBotThinkTier.until_beat(tick, 3, 4)
+	_check(thinks == 13 and tick == 53 and GSBotThinkTier.until_beat(7, 3, 1) == 1, "a period of 4 thinks on its beat from the first think on; 1 every tick")
 	t.body_far_every = 4
-	var u := DotBotThinkTier.new()
+	var u := GSBotThinkTier.new()
 	u.native = false
 	for key in [&"above", &"near_every", &"far_every", &"far_range", &"close_range", &"nearest", &"engaged_far_every", &"engaged_range", &"idle_view_every", &"load_scale", &"view_range", &"view_half_angle", &"body_near_every", &"body_far_every", &"body_above"]:
 		u.set(key, t.get(key))
@@ -501,7 +501,7 @@ func _test_think_tier_body(t: DotBotThinkTier, eyes: PackedVector3Array, looks: 
 	for i in ids.size():
 		for idle in [false, true]:
 			for k in 4:
-				var e := DotBotThinkTier.until_beat(k, i, maxi(t.period(ids[i], at[i], false, idle), 2))
+				var e := GSBotThinkTier.until_beat(k, i, maxi(t.period(ids[i], at[i], false, idle), 2))
 				var b := t.body_period(ids[i], at[i], false, idle) if e > 1 and k != 3 else 1
 				same = same and u.schedule(ids[i], at[i], false, idle, k, i, 2, k != 3) == Vector2i(e, b)
 	_check(same and u.counts == t.counts and u.body_counts == t.body_counts, "schedule is period, until_beat at the floor and body_period of a coasting bot, counted alike")
@@ -518,21 +518,21 @@ func _test_think_tier_near_person() -> void:
 		var same: bool = every_tick[0] == tiered[0]
 		var fired: bool = every_tick[1] >= 0 and tiered[1] >= 0
 		if c[2]:
-			_check(fired and tiered[1] - every_tick[1] <= 2 * DotBotThinkTier.new().idle_view_every and tiered[2] > 0, "an idle bot a person sees at %d m thins out (%d skipped thinks) and fires within two periods of the every-tick bot (ticks %d and %d)" % [c[0], tiered[2], every_tick[1], tiered[1]])
+			_check(fired and tiered[1] - every_tick[1] <= 2 * GSBotThinkTier.new().idle_view_every and tiered[2] > 0, "an idle bot a person sees at %d m thins out (%d skipped thinks) and fires within two periods of the every-tick bot (ticks %d and %d)" % [c[0], tiered[2], every_tick[1], tiered[1]])
 		else:
 			_check(fired and same and tiered[2] == 0, "a bot %d m from a person (nearest %d) thinks every tick: the same %d intents as without tiers, first shot on tick %d" % [c[0], c[1], every_tick[0].size(), tiered[1]])
 	# A thinned idle bot turns its look about per elapsed tick, not per think.
 	for rate in [40.0, 30.0]:
 		var yaws: Array = []
 		for every in [1, 2, 4]:
-			var b := DotBotBrain.new(3, DotBotSettings.new())
+			var b := GSBotBrain.new(3, GSBotSettings.new())
 			b.aim.yaw = 0.0
 			for tick in 64:
 				if tick % every == 0:
 					b._drift(rate, TICK * every)
 			yaws.append(b.aim.yaw)
 		_check(absf(yaws[1] - yaws[0]) < 1.5 and absf(yaws[2] - yaws[0]) < 3.0, "idle look-about at %d deg/s turns the same per second thinned to every 2 / 4 ticks (yaw %.1f / %.1f / %.1f)" % [rate, yaws[0], yaws[1], yaws[2]])
-	var a := DotBotAim.new(1, DotBotSettings.new())
+	var a := GSBotAim.new(1, GSBotSettings.new())
 	a.view_from(30.0, NAN)
 	_check(a.yaw == 30.0 and a.pitch == 0.0, "view_from with a NaN pitch looks level, not NaN")
 	a.view_from(40.0, 12.0)
@@ -548,23 +548,23 @@ const WALL_TICKS := 32
 ## Returns [intent rows, first fire tick (-1: none), thinks skipped].
 func _tier_duel(distance: float, nearest: int, watching: bool, tiered: bool) -> Array:
 	var sc := _scene(Vector3(0, 0, -distance))
-	var me: DotBotContact = sc[0]
-	var person: DotBotContact = sc[1]
-	var world: DotBotWorld = sc[2]
+	var me: GSBotContact = sc[0]
+	var person: GSBotContact = sc[1]
+	var world: GSBotWorld = sc[2]
 	# Turned 20 degrees off the person, who stands behind a wall for the first half second: the bot
 	# starts idle (seen, when the person watches it) and must turn to them once the wall is gone.
 	me.view_yaw = 20.0
 	me.view_pitch = 0.0
 	var clock := [0]
 	world.line_of_sight_fn = func(_a: Vector3, _b: Vector3) -> bool: return clock[0] >= WALL_TICKS
-	var brain := DotBotBrain.new(11, DotBotSettings.new())
-	var tier := DotBotThinkTier.new()
+	var brain := GSBotBrain.new(11, GSBotSettings.new())
+	var tier := GSBotThinkTier.new()
 	tier.nearest = nearest
 	var rows: Array = []
 	var first_fire := -1
 	var skipped := 0
 	var due := 0
-	var intent: DotBotIntent = null
+	var intent: GSBotIntent = null
 	var strafe_dir := 1.0
 	for tick in 256:
 		clock[0] = tick
@@ -574,7 +574,7 @@ func _tier_duel(distance: float, nearest: int, watching: bool, tiered: bool) -> 
 		if not tiered or tick >= due or intent == null:
 			intent = brain.think(me, world, t)
 			var engaged := intent.target_id == person.id
-			due = tick + DotBotThinkTier.until_beat(tick, 5, tier.period(me.id, me.position, engaged, intent.target_id < 0))
+			due = tick + GSBotThinkTier.until_beat(tick, 5, tier.period(me.id, me.position, engaged, intent.target_id < 0))
 		else:
 			skipped += 1
 		rows.append([snappedf(intent.yaw, 0.0001), snappedf(intent.pitch, 0.0001), intent.fire, intent.move, intent.state, intent.target_id])
@@ -589,8 +589,8 @@ func _tier_duel(distance: float, nearest: int, watching: bool, tiered: bool) -> 
 
 
 func _test_fire_mode() -> void:
-	_section("DotBotFireMode picks by range")
-	var f := DotBotFireMode.new()
+	_section("GSBotFireMode picks by range")
+	var f := GSBotFireMode.new()
 	var all := PackedStringArray(["auto", "semi", "burst"])
 	_check(f.pick(5.0, all) == "auto" and f.pick(20.0, all) == "burst" and f.pick(50.0, all) == "semi", "auto close, burst mid, semi far")
 	_check(f.pick(50.0, PackedStringArray(["auto", "burst"])) == "burst" and f.pick(5.0, PackedStringArray(["auto"])) == "", "falls to what the gun has; one mode picks nothing")

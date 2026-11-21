@@ -24,7 +24,7 @@ func _mlp_net() -> Dictionary:
 			b.append(0.6 * sin(0.731 * k + 0.1))
 			k += 1
 		layers.append({"w": w, "b": b})
-	return DotBotMlp.encode("sid1", "ride", sizes, PackedStringArray(["tanh", "tanh", "linear"]), PackedFloat32Array([1.0, 2.0, 3.0, 4.0, 0.5, 10.0]), layers, {"held_out_loss": 0.25})
+	return GSBotMlp.encode("sid1", "ride", sizes, PackedStringArray(["tanh", "tanh", "linear"]), PackedFloat32Array([1.0, 2.0, 3.0, 4.0, 0.5, 10.0]), layers, {"held_out_loss": 0.25})
 
 
 func _mlp_obs(s: int) -> PackedFloat32Array:
@@ -35,7 +35,7 @@ func _mlp_obs(s: int) -> PackedFloat32Array:
 
 
 func _mlp_refused(header: Variant, bytes: PackedByteArray, schema: Variant = null) -> bool:
-	var r: DotResult = DotBotMlp.from_data(header, bytes, schema)
+	var r: GSResult = GSBotMlp.from_data(header, bytes, schema)
 	return not r.ok
 
 
@@ -44,12 +44,12 @@ func _test_mlp() -> void:
 	var net := _mlp_net()
 	var header: Dictionary = (net["header"] as Dictionary).duplicate(true)
 	var bytes: PackedByteArray = net["weights"]
-	var res: DotResult = DotBotMlp.from_data(header, bytes)
+	var res: GSResult = GSBotMlp.from_data(header, bytes)
 	_check(res.ok, "a well-formed net loads", res.error.message if not res.ok else "")
 	if not res.ok:
 		_done()
 		return
-	var m: DotBotMlp = res.value
+	var m: GSBotMlp = res.value
 	_check(m.input_size() == 6 and m.output_size() == 3 and m.multiply_adds() == 6 * 8 + 64 + 24 and m.metrics.get("held_out_loss") == 0.25, "sizes, cost and metrics are read", m.describe())
 
 	var worst := 0.0
@@ -86,11 +86,11 @@ func _test_mlp() -> void:
 	var scales := PackedFloat32Array()
 	scales.resize(16)
 	scales.fill(1.0)
-	var big_net := DotBotMlp.encode("sid1", "ride", big_sizes, PackedStringArray(["tanh", "tanh", "linear"]), scales, layers)
-	var big: DotResult = DotBotMlp.from_data(big_net["header"], big_net["weights"])
+	var big_net := GSBotMlp.encode("sid1", "ride", big_sizes, PackedStringArray(["tanh", "tanh", "linear"]), scales, layers)
+	var big: GSResult = GSBotMlp.from_data(big_net["header"], big_net["weights"])
 	_check(big.ok, "a 16-64-64-6 net loads")
 	if big.ok:
-		var bm: DotBotMlp = big.value
+		var bm: GSBotMlp = big.value
 		var bobs := PackedFloat32Array()
 		bobs.resize(16)
 		bobs.fill(0.5)
@@ -102,12 +102,12 @@ func _test_mlp() -> void:
 		print("        (16-64-64-6 forward: %.1f us; %d multiply-adds)" % [big_us, bm.multiply_adds()])
 		_check(big_us < 5000.0, "a forward pass of the 16-64-64-6 net is under 5 ms", "%.1f us" % big_us)
 
-	var schema := DotBotDemoSchema.make("ride", 2).add_observation("a", 6, 1.0).add_action("b", 3, 1.0)
+	var schema := GSBotDemoSchema.make("ride", 2).add_observation("a", 6, 1.0).add_action("b", 3, 1.0)
 	header["schema_id"] = schema.schema_id()
-	var matched: DotResult = DotBotMlp.from_data(header, bytes, schema)
+	var matched: GSResult = GSBotMlp.from_data(header, bytes, schema)
 	_check(matched.ok, "weights for the game's schema load", matched.error.message if not matched.ok else "")
 	_check(_mlp_refused(net["header"], bytes, schema), "weights for another schema id are refused")
-	var narrow := DotBotDemoSchema.make("ride", 2).add_observation("a", 5, 1.0).add_action("b", 3, 1.0)
+	var narrow := GSBotDemoSchema.make("ride", 2).add_observation("a", 5, 1.0).add_action("b", 3, 1.0)
 	var h2: Dictionary = header.duplicate(true)
 	h2["schema_id"] = narrow.schema_id()
 	_check(_mlp_refused(h2, bytes, narrow), "a net whose input size is not the schema's is refused")
@@ -129,11 +129,11 @@ func _test_mlp_untrusted(header: Dictionary, bytes: PackedByteArray) -> void:
 	nan_floats[3] = NAN
 	var nan_bytes := nan_floats.to_byte_array()
 	var h3: Dictionary = header.duplicate(true)
-	h3["sha256"] = DotBotMlp._sha256(nan_bytes)
+	h3["sha256"] = GSBotMlp._sha256(nan_bytes)
 	_check(_mlp_refused(h3, nan_bytes), "a NaN weight is refused even with a matching hash")
 	nan_floats[3] = INF
 	nan_bytes = nan_floats.to_byte_array()
-	h3["sha256"] = DotBotMlp._sha256(nan_bytes)
+	h3["sha256"] = GSBotMlp._sha256(nan_bytes)
 	_check(_mlp_refused(h3, nan_bytes), "an infinite weight is refused")
 	var mutations := {
 		"format": "other", "version": 2, "kind": "", "schema_id": 5, "sizes": [6, 0, 3], "activations": ["tanh"],
@@ -167,21 +167,21 @@ func _test_mlp_files(net: Dictionary, bytes: PackedByteArray) -> void:
 	var hf := FileAccess.open(stem + ".dotmlp", FileAccess.WRITE)
 	hf.store_string(JSON.stringify(net["header"]))
 	hf.close()
-	_check(not DotBotMlp.load_file(stem).ok, "a header with no weights file is refused")
+	_check(not GSBotMlp.load_file(stem).ok, "a header with no weights file is refused")
 	var wf := FileAccess.open(stem + ".f32", FileAccess.WRITE)
 	wf.store_buffer(bytes)
 	wf.close()
-	var from_file: DotResult = DotBotMlp.load_file(stem + ".dotmlp")
+	var from_file: GSResult = GSBotMlp.load_file(stem + ".dotmlp")
 	_check(from_file.ok, "a header and weights on disk load", from_file.error.message if not from_file.ok else "")
 	if from_file.ok:
-		_check(((from_file.value as DotBotMlp).forward(_mlp_obs(2)) as PackedFloat32Array).size() == 3 and absf(from_file.value.forward(_mlp_obs(2))[2] - float(MLP_EXPECTED[2][2])) < 1e-5, "the loaded file gives the reference output")
+		_check(((from_file.value as GSBotMlp).forward(_mlp_obs(2)) as PackedFloat32Array).size() == 3 and absf(from_file.value.forward(_mlp_obs(2))[2] - float(MLP_EXPECTED[2][2])) < 1e-5, "the loaded file gives the reference output")
 	wf = FileAccess.open(stem + ".f32", FileAccess.WRITE)
 	var chunk := PackedByteArray()
 	chunk.resize(1024 * 1024)
 	for i in 5:
 		wf.store_buffer(chunk)
 	wf.close()
-	_check(not DotBotMlp.load_file(stem).ok, "weights over the size limit are refused")
+	_check(not GSBotMlp.load_file(stem).ok, "weights over the size limit are refused")
 	DirAccess.remove_absolute(stem + ".dotmlp")
 	DirAccess.remove_absolute(stem + ".f32")
 	DirAccess.remove_absolute(dir)

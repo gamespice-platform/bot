@@ -1,8 +1,8 @@
-class_name DotBotBrain
+class_name GSBotBrain
 extends "dot_bot_brain_state.gd"
 
 ## One bot's decisions: whom it sees, where it looks, when it pulls the trigger and how it
-## moves, as a [DotBotIntent] each tick.
+## moves, as a [GSBotIntent] each tick.
 ##
 ## [b]Built to look like a person, not to win.[/b] The four things that make a bot read as a
 ## machine are the four this models before anything else:
@@ -24,15 +24,15 @@ extends "dot_bot_brain_state.gd"
 ## bursts at range and a held trigger up close, standing still or crouching for a long burst,
 ## backing out when badly hurt, pre-aiming and re-peeking a corner a target went behind, a
 ## grenade at somebody who just took cover, turning to a gunshot or to whoever hit it, and
-## roaming toward where it last knew of an enemy. Every one of those is a [DotBotProfile] field.
-## The first four are [DotBotAim], which a game with decisions of its own uses by itself.
+## roaming toward where it last knew of an enemy. Every one of those is a [GSBotProfile] field.
+## The first four are [GSBotAim], which a game with decisions of its own uses by itself.
 ##
-## [b]Pure.[/b] It reads a [DotBotContact] for itself and a [DotBotWorld], and returns an
-## intent; it moves nothing. Its randomness is a [DotRandomStream] seeded from [member id], so
+## [b]Pure.[/b] It reads a [GSBotContact] for itself and a [GSBotWorld], and returns an
+## intent; it moves nothing. Its randomness is a [GSRandomStream] seeded from [member id], so
 ## two runs of the same inputs play the same bot, which is what lets a suite hold a bot still.
 ##
 ## [codeblock]
-## var brain := DotBotBrain.new(bot_id, DotBotSettings.of(game))
+## var brain := GSBotBrain.new(bot_id, GSBotSettings.of(game))
 ## var intent := brain.think(me, world, now)
 ## intent.write_move(move_command)
 ## intent.write_fire(fire_command)
@@ -42,7 +42,7 @@ extends "dot_bot_brain_state.gd"
 ## choice either way); a suite turns it off to compare.
 static var target_first: bool = true
 
-## Whether brains perceive natively (DotSimBotMind.perceive over the world's native sight scan)
+## Whether brains perceive natively (GSSimBotMind.perceive over the world's native sight scan)
 ## when they can; off, they perceive in script. The two choose the same to the bit.
 static var native_perceive := true
 static var _perceive_known := -1
@@ -54,29 +54,29 @@ const PHASES: Array[StringName] = [&"bb_setup", &"bb_perceive", &"bb_hear", &"bb
 static var phase_us := PackedInt64Array([0, 0, 0, 0, 0, 0, 0])
 static var _lap_at := 0
 
-## This brain's DotSimBotMind (the aim's, kept when the aim falls back to script): it holds the
+## This brain's GSSimBotMind (the aim's, kept when the aim falls back to script): it holds the
 ## sight cache, and perceives when the world packed a native scan this tick. Null: all in script.
 var _mind: Object = null
 static var _sight_lod_known := -1
-## The sight LOD last handed to [member _mind] (DotBotWorld.sight_far, sight_far_reuse).
+## The sight LOD last handed to [member _mind] (GSBotWorld.sight_far, sight_far_reuse).
 var _lod_far := 0.0
 var _lod_reuse := 0.0
-## The [member DotBotWorld.contacts_version] whose packed scan [member _mind] holds ([method par_ready]); -1 none.
+## The [member GSBotWorld.contacts_version] whose packed scan [member _mind] holds ([method par_ready]); -1 none.
 var _held_version := -1
 static var _held_known := -1
 
 
-func _init(p_id: int = 0, p_settings: DotBotSettings = null) -> void:
+func _init(p_id: int = 0, p_settings: GSBotSettings = null) -> void:
 	id = p_id
-	settings = p_settings if p_settings != null else DotBotSettings.new()
-	aim = DotBotAim.new(p_id, settings)
-	_rng = DotRandomStream.new(p_id).stream(&"dot_bot")
+	settings = p_settings if p_settings != null else GSBotSettings.new()
+	aim = GSBotAim.new(p_id, settings)
+	_rng = GSRandomStream.new(p_id).stream(&"dot_bot")
 	aim._set_brain_key(_rng._key)
 	if aim._n != null and _perceive_available():
 		_mind = aim._n
-	_unstick = DotBotUnstick.new(_rng)
-	style = DotBotStyle.new(p_id)
-	goal = DotBotGoal.new(p_id)
+	_unstick = GSBotUnstick.new(_rng)
+	style = GSBotStyle.new(p_id)
+	goal = GSBotGoal.new(p_id)
 
 
 ## Moves this brain wholly into script (the aim's state, and no native perceive or sight cache from
@@ -88,13 +88,13 @@ func leave_native() -> void:
 
 
 ## Gets this brain ready to think on a worker thread this tick; call it on the main thread after the
-## world's contacts for the tick are in ([member DotBotWorld.contacts_version] bumped) and before
+## world's contacts for the tick are in ([member GSBotWorld.contacts_version] bumped) and before
 ## [method think]. The native mind stays (its state is this brain's alone, touched by one thread at a
 ## time) and takes a handle on the world's packed sight scan, which a worker must not bind while
 ## others do; it then perceives on the worker to the bit as it would on the main thread. A dot_sim
-## library without that handle (DotSimBotMind.hold_senses) moves the brain into script instead, as
+## library without that handle (GSSimBotMind.hold_senses) moves the brain into script instead, as
 ## [method leave_native].
-func par_ready(world: DotBotWorld) -> void:
+func par_ready(world: GSBotWorld) -> void:
 	_held_version = -1
 	if not _held_available():
 		leave_native()
@@ -109,13 +109,13 @@ func par_ready(world: DotBotWorld) -> void:
 
 
 ## What this bot does this tick.
-func think(me: DotBotContact, world: DotBotWorld, now: float) -> DotBotIntent:
+func think(me: GSBotContact, world: GSBotWorld, now: float) -> GSBotIntent:
 	if phase_timers:
 		_lap_at = Time.get_ticks_usec()
 	var p := settings.profile
 	var dt := 0.0 if is_nan(_now) else clampf(now - _now, 0.0, MAX_STEP)
 	_now = now
-	var out := DotBotIntent.new()
+	var out := GSBotIntent.new()
 
 	if me == null or not me.alive:
 		return _dead(out)
@@ -181,7 +181,7 @@ func _notice_hurt(now: float) -> void:
 		_hurt_pending_at = INF
 
 
-func _act(me: DotBotContact, seen: DotBotContact, world: DotBotWorld, p: DotBotProfile, now: float, dt: float, out: DotBotIntent) -> void:
+func _act(me: GSBotContact, seen: GSBotContact, world: GSBotWorld, p: GSBotProfile, now: float, dt: float, out: GSBotIntent) -> void:
 	# A carrier runs home and a defender keeps to its post rather than chase what it lost.
 	var tethered := goal.urgent or goal.strays(me.position)
 
@@ -203,7 +203,7 @@ func _act(me: DotBotContact, seen: DotBotContact, world: DotBotWorld, p: DotBotP
 		_roam(me, world, p, now, dt, out)
 
 
-func _dead(out: DotBotIntent) -> DotBotIntent:
+func _dead(out: GSBotIntent) -> GSBotIntent:
 	_was_alive = false
 	_forget_target()
 	tricks.reset()
@@ -235,7 +235,7 @@ static func _lap(phase: int) -> void:
 	_lap_at = t
 
 
-## The game's rider is done with a ride ([member DotBotIntent.ride]): [param arrived] or not, the
+## The game's rider is done with a ride ([member GSBotIntent.ride]): [param arrived] or not, the
 ## route is asked for again from where the bot is now, because a ride lands anywhere on the far
 ## platform (or, failing, wherever the pit sent it).
 func ride_ended(_arrived: bool) -> void:
@@ -279,7 +279,7 @@ func engagement() -> Dictionary:
 
 # --- Seeing ---------------------------------------------------------------------
 
-func _perceive(me: DotBotContact, all: Array, world: DotBotWorld, p: DotBotProfile, now: float) -> DotBotContact:
+func _perceive(me: GSBotContact, all: Array, world: GSBotWorld, p: GSBotProfile, now: float) -> GSBotContact:
 	if now < _blind_until:
 		if _visible:
 			_lose(p, now)
@@ -292,7 +292,7 @@ func _perceive(me: DotBotContact, all: Array, world: DotBotWorld, p: DotBotProfi
 	# On a worker the world hands out no scan; the mind then reads the one [method par_ready] held.
 	var senses := world.senses(all) if world != null and _mind != null else null
 	var held := senses == null and _mind != null and world != null and _held_version >= 0 and _held_version == world.contacts_version
-	var chosen: DotBotContact = null
+	var chosen: GSBotContact = null
 	var picked := false
 	if senses != null or held:
 		var los := world.sight_callable()
@@ -328,7 +328,7 @@ func _perceive(me: DotBotContact, all: Array, world: DotBotWorld, p: DotBotProfi
 		if p.hesitate > 0.0:
 			_hesitate_until = now + p.hesitate * (0.3 + 0.7 * _rng.next_unit())
 		style.engage()
-		DotLog.trace(CHANNEL, "bot acquires a target", {"bot": id, "target": chosen.id})
+		GSLog.trace(CHANNEL, "bot acquires a target", {"bot": id, "target": chosen.id})
 
 	_visible = true
 	target_id = chosen.id
@@ -339,38 +339,38 @@ func _perceive(me: DotBotContact, all: Array, world: DotBotWorld, p: DotBotProfi
 	return chosen
 
 
-## Whether the dot_sim extension's DotSimBotMind perceives (and [member native_perceive] lets it).
+## Whether the dot_sim extension's GSSimBotMind perceives (and [member native_perceive] lets it).
 static func _perceive_available() -> bool:
 	if _perceive_known < 0:
-		_perceive_known = 1 if ClassDB.class_exists(DotBotAim.MIND_CLASS) and ClassDB.class_has_method(DotBotAim.MIND_CLASS, &"perceive") else 0
+		_perceive_known = 1 if ClassDB.class_exists(GSBotAim.MIND_CLASS) and ClassDB.class_has_method(GSBotAim.MIND_CLASS, &"perceive") else 0
 	return native_perceive and _perceive_known == 1
 
 
-## Whether the dot_sim extension's DotSimBotMind can perceive on a worker over a held scan (hold_senses,
+## Whether the dot_sim extension's GSSimBotMind can perceive on a worker over a held scan (hold_senses,
 ## perceive_held) and its objects may be called off the main thread at all (worker_safe: not on the web).
 static func _held_available() -> bool:
 	if _held_known < 0:
 		_held_known = 0
-		if ClassDB.class_exists(DotBotAim.MIND_CLASS) and ClassDB.class_has_method(DotBotAim.MIND_CLASS, &"perceive_held") \
-				and ClassDB.class_has_method(DotBotAim.MIND_CLASS, &"worker_safe") \
-				and ClassDB.class_call_static(DotBotAim.MIND_CLASS, &"worker_safe"):
+		if ClassDB.class_exists(GSBotAim.MIND_CLASS) and ClassDB.class_has_method(GSBotAim.MIND_CLASS, &"perceive_held") \
+				and ClassDB.class_has_method(GSBotAim.MIND_CLASS, &"worker_safe") \
+				and ClassDB.class_call_static(GSBotAim.MIND_CLASS, &"worker_safe"):
 			_held_known = 1
 	return _held_known == 1
 
 
-## Whether the dot_sim extension's DotSimBotMind applies the sight LOD itself (sight_cached_far, set_sight_lod).
+## Whether the dot_sim extension's GSSimBotMind applies the sight LOD itself (sight_cached_far, set_sight_lod).
 static func _sight_lod_available() -> bool:
 	if _sight_lod_known < 0:
-		_sight_lod_known = 1 if ClassDB.class_exists(DotBotAim.MIND_CLASS) and ClassDB.class_has_method(DotBotAim.MIND_CLASS, &"sight_cached_far") else 0
+		_sight_lod_known = 1 if ClassDB.class_exists(GSBotAim.MIND_CLASS) and ClassDB.class_has_method(GSBotAim.MIND_CLASS, &"sight_cached_far") else 0
 	return _sight_lod_known == 1
 
 
 ## [method _perceive]'s choice in script: the current target while it is in sight, else the best
 ## score that is.
-func _choose(me: DotBotContact, all: Array, world: DotBotWorld, p: DotBotProfile, eye: Vector3, half: float, through: bool, now: float) -> DotBotContact:
-	var forward := DotBotAim.direction(aim.yaw, aim.pitch)
-	var current: DotBotContact = null
-	var best: DotBotContact = null
+func _choose(me: GSBotContact, all: Array, world: GSBotWorld, p: GSBotProfile, eye: Vector3, half: float, through: bool, now: float) -> GSBotContact:
+	var forward := GSBotAim.direction(aim.yaw, aim.pitch)
+	var current: GSBotContact = null
+	var best: GSBotContact = null
 	var best_score := INF
 	# Candidates inside range and cone come first; the sight test is the dear part, so it is
 	# asked of the current target and then of the best score only until one is seen.
@@ -378,14 +378,14 @@ func _choose(me: DotBotContact, all: Array, world: DotBotWorld, p: DotBotProfile
 	# A bot that still sees its target keeps it whoever else is in view, so the target alone is
 	# tested first and the scan over every body runs only when that fails (most thinks of a fight).
 	if target_first and _visible:
-		var held := world.contact_of(all, target_id) if world != null else DotBotWorld.find(all, target_id)
+		var held := world.contact_of(all, target_id) if world != null else GSBotWorld.find(all, target_id)
 		if held != null and held.alive:
 			_one[0] = held
 			if not _candidates(me, _one, p, eye, forward, half, scores).is_empty() and (through or _sees(world, eye, held, now)):
 				current = held
 			_one[0] = null
 			scores.clear()
-	var cand: Array[DotBotContact] = []
+	var cand: Array[GSBotContact] = []
 	if current == null:
 		var senses := world.senses(all) if world != null else null  # packed once per contacts_version
 		cand = _candidates_native(senses, world, me, p, eye, forward, half, scores) if senses != null else _candidates(me, all, p, eye, forward, half, scores)
@@ -415,12 +415,12 @@ func _choose(me: DotBotContact, all: Array, world: DotBotWorld, p: DotBotProfile
 
 
 ## Enemies inside range and cone (or already being fought), appended to the result with their closeness score in [param scores].
-func _candidates(me: DotBotContact, all: Array, p: DotBotProfile, eye: Vector3, forward: Vector3, half: float, scores: PackedFloat32Array) -> Array[DotBotContact]:
-	var cand: Array[DotBotContact] = []
+func _candidates(me: GSBotContact, all: Array, p: GSBotProfile, eye: Vector3, forward: Vector3, half: float, scores: PackedFloat32Array) -> Array[GSBotContact]:
+	var cand: Array[GSBotContact] = []
 	for item in all:
-		if not (item is DotBotContact):
+		if not (item is GSBotContact):
 			continue
-		var c := item as DotBotContact
+		var c := item as GSBotContact
 		if not c.alive and c.id == target_id and _visible:
 			# Killed, by this bot or somebody else, in plain view: a person moves on, and does
 			# not stand pre-aiming the body for the next four seconds.
@@ -444,8 +444,8 @@ func _candidates(me: DotBotContact, all: Array, p: DotBotProfile, eye: Vector3, 
 
 
 ## [method _candidates] by GameSpice Sim's native scan over the tick's packed bodies: the same list, scores and forgetting.
-func _candidates_native(senses: Object, world: DotBotWorld, me: DotBotContact, p: DotBotProfile, eye: Vector3, forward: Vector3, half: float, scores: PackedFloat32Array) -> Array[DotBotContact]:
-	var cand: Array[DotBotContact] = []
+func _candidates_native(senses: Object, world: GSBotWorld, me: GSBotContact, p: GSBotProfile, eye: Vector3, forward: Vector3, half: float, scores: PackedFloat32Array) -> Array[GSBotContact]:
+	var cand: Array[GSBotContact] = []
 	var idx: PackedInt32Array = senses.call(&"candidates", me.id, me.team, eye, forward, half, p.sight, CLOSE_NOTICE, target_id, _visible)
 	if senses.call(&"target_dead"):
 		_target_down()
@@ -459,7 +459,7 @@ func _candidates_native(senses: Object, world: DotBotWorld, me: DotBotContact, p
 
 
 ## Whether [param c] is in line of sight from [param eye]: the chest or the head, reused for [constant SIGHT_REUSE].
-func _sees(world: DotBotWorld, eye: Vector3, c: DotBotContact, now: float) -> bool:
+func _sees(world: GSBotWorld, eye: Vector3, c: GSBotContact, now: float) -> bool:
 	var stamp := world.sight_stamp()
 	if _mind != null:
 		# The cache lives in the mind, which may perceive natively next tick.
@@ -499,7 +499,7 @@ func _sees(world: DotBotWorld, eye: Vector3, c: DotBotContact, now: float) -> bo
 	return seen
 
 
-func _lose(p: DotBotProfile, now: float) -> void:
+func _lose(p: GSBotProfile, now: float) -> void:
 	_visible = false
 	_lost_at = now
 	aim.release()
@@ -524,7 +524,7 @@ func _forget_target() -> void:
 
 # --- Hearing --------------------------------------------------------------------
 
-func _hear(me: DotBotContact, all: Array, world: DotBotWorld, p: DotBotProfile, now: float) -> void:
+func _hear(me: GSBotContact, all: Array, world: GSBotWorld, p: GSBotProfile, now: float) -> void:
 	var newest := world.last_sound()
 	if newest == _heard_seq:
 		return
@@ -557,7 +557,7 @@ func _hear(me: DotBotContact, all: Array, world: DotBotWorld, p: DotBotProfile, 
 
 # --- Doing ----------------------------------------------------------------------
 
-func _fight(me: DotBotContact, c: DotBotContact, world: DotBotWorld, p: DotBotProfile, now: float, dt: float, out: DotBotIntent) -> void:
+func _fight(me: GSBotContact, c: GSBotContact, world: GSBotWorld, p: GSBotProfile, now: float, dt: float, out: GSBotIntent) -> void:
 	var eye := me.eye()
 	var speed := world.projectile_speed(me) if world != null else 0.0
 	var flat := Vector2(c.position.x - me.position.x, c.position.z - me.position.z)
@@ -637,7 +637,7 @@ func _fight(me: DotBotContact, c: DotBotContact, world: DotBotWorld, p: DotBotPr
 ## [method _fight] in one call to the aim's native mind: the same arithmetic, rolls and random
 ## draws, so the intent, the aim and the stream come back as the script would have left them.
 ## False (the script then runs) if the mind refused the call.
-func _fight_native(me: DotBotContact, c: DotBotContact, eye: Vector3, speed: float, p: DotBotProfile, now: float, dt: float, push: bool, out: DotBotIntent) -> bool:
+func _fight_native(me: GSBotContact, c: GSBotContact, eye: Vector3, speed: float, p: GSBotProfile, now: float, dt: float, push: bool, out: GSBotIntent) -> bool:
 	var io := _fight_io
 	_fight_io = PackedFloat64Array()  # one owner, so the writes below do not copy
 	if io.size() != 36:

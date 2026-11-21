@@ -1,19 +1,19 @@
-class_name DotBotIntent
+class_name GSBotIntent
 extends RefCounted
 
 ## What a bot would press this tick: a view, a movement stick and its buttons.
 ##
 ## [b]A bot is a player driven by the commands a client sends.[/b] So this is nothing but the
 ## content of those commands, and [method write_move] and [method write_fire] copy it into the
-## game's own (GameSpice Player Controller's [code]DotFpsCommand[/code], GameSpice Weapon's
-## [code]DotWeaponCommand[/code]) by duck typing, reading the button bits from the command's
+## game's own (GameSpice Player Controller's [code]GSFpsCommand[/code], GameSpice Weapon's
+## [code]GSWeaponCommand[/code]) by duck typing, reading the button bits from the command's
 ## own script so this addon names neither. A bot can then never do anything a person could
 ## not: it walks through the same motor, shoots through the same arsenal, and is refused by
 ## the same checks.
 
 # No log channel: a record.
 
-## Degrees, the command's convention ([member DotBotContact.view_yaw]).
+## Degrees, the command's convention ([member GSBotContact.view_yaw]).
 var yaw: float = 0.0
 var pitch: float = 0.0
 
@@ -35,10 +35,10 @@ var throw: bool = false
 ## Press the use key this tick (take the weapon lying in front of it).
 var use: bool = false
 
-## The ride edge the bot's route reached this tick ([method DotBotWorld.route_detail]), or -1. A
+## The ride edge the bot's route reached this tick ([method GSBotWorld.route_detail]), or -1. A
 ## game that rides it hands the movement half of the command to its surf pilot until the ride
 ## ends, keeping the view and the trigger the brain's, and tells the brain
-## ([method DotBotBrain.ride_ended]).
+## ([method GSBotBrain.ride_ended]).
 var ride: int = -1
 
 ## The bot has been stuck for `bot_stranded_sec` with every unstick step tried: it is on an island with
@@ -99,7 +99,7 @@ static func _button(command: Object, constant: String, pressed: bool) -> void:
 
 ## The direction the intent looks along, -Z forward at yaw 0.
 func forward() -> Vector3:
-	return DotBotIntent.direction(yaw, pitch)
+	return GSBotIntent.direction(yaw, pitch)
 
 
 static func direction(p_yaw: float, p_pitch: float) -> Vector3:

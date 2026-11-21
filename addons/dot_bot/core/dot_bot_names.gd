@@ -1,4 +1,4 @@
-class_name DotBotNames
+class_name GSBotNames
 extends RefCounted
 
 ## Names for bots that read like the names people pick, and never "Bot 2" or "Stand-in 3".
@@ -33,7 +33,7 @@ static func pick(taken: Array, salt: int, pool: Array = [], prefix: String = "")
 	var used := {}
 	for t in taken:
 		used[String(t)] = true
-	var start := int(DotRandomStream.new(salt).stream(&"dot_bot_names").unit_at(0) * float(names.size()))
+	var start := int(GSRandomStream.new(salt).stream(&"dot_bot_names").unit_at(0) * float(names.size()))
 	for round_ in range(1, 100):
 		for i in range(names.size()):
 			var base := String(names[(start + i) % names.size()])

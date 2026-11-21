@@ -1,6 +1,6 @@
 extends RefCounted
 
-## [DotBotBrain]'s state and its movement: the fields every decision reads, and how a bot walks, roams, searches and climbs.
+## [GSBotBrain]'s state and its movement: the fields every decision reads, and how a bot walks, roams, searches and climbs.
 ## Split out of dot_bot_brain.gd for file size; nothing outside the brain names this script.
 
 ## A hunting bot heads for the place nearest its prey, or the prey itself if no place is this close.
@@ -11,7 +11,7 @@ const CHANNEL := "dot.bot"
 ## Within this distance a body is noticed whatever way the bot faces: somebody touching you.
 const CLOSE_NOTICE := 2.0
 
-## Health fraction under which a bot that rolled [member DotBotProfile.cover] backs out.
+## Health fraction under which a bot that rolled [member GSBotProfile.cover] backs out.
 const RETREAT_HEALTH := 0.35
 ## Seconds a bot may fight within [constant STALE_MOVE] metres of one spot, against anybody, before it pushes in.
 const STALE_FIGHT := 8.0
@@ -37,13 +37,13 @@ const MAX_STEP := 0.25
 const CORNER := 1.0
 
 var id: int = 0
-var settings: DotBotSettings = null
+var settings: GSBotSettings = null
 
 ## The view, the aim error, the reaction and the trigger.
-var aim: DotBotAim = null
+var aim: GSBotAim = null
 
 ## The latest intent, for describe().
-var last: DotBotIntent = null
+var last: GSBotIntent = null
 
 # The target, as perceived.
 var target_id: int = -1
@@ -56,7 +56,7 @@ var _roll_crouch: bool = false
 var _roll_cover: bool = false
 
 ## Slide, wall run and the rest; the scenario and the target's height over the bot are set by whichever of fight, search, listen or roam ran this tick.
-var tricks := DotBotTricks.new()
+var tricks := GSBotTricks.new()
 var _scene: StringName = &"roam"
 var _scene_up: float = 0.0
 
@@ -67,12 +67,12 @@ var _lost_at: float = -INF
 var _peeking: bool = false
 var _chase_lost: bool = false
 var _grenade_ready: bool = false
-## Fetching a better weapon from the floor; see [DotBotPickup].
-var pickup := DotBotPickup.new()
-## The job in a flag mode, planned from [member DotBotWorld.objective]; idle without one.
-var goal: DotBotGoal = null
-## The cloned policy, or null; it drives this bot only when [method DotBotPolicy.active] says so (`bot_policy` above 0, a passing gate for the map).
-var policy: DotBotPolicy = null
+## Fetching a better weapon from the floor; see [GSBotPickup].
+var pickup := GSBotPickup.new()
+## The job in a flag mode, planned from [member GSBotWorld.objective]; idle without one.
+var goal: GSBotGoal = null
+## The cloned policy, or null; it drives this bot only when [method GSBotPolicy.active] says so (`bot_policy` above 0, a passing gate for the map).
+var policy: GSBotPolicy = null
 
 # Sound and pain.
 var _heard_pos: Vector3 = Vector3.INF
@@ -111,25 +111,25 @@ var _route_goal: Vector3 = Vector3.INF
 # The ride a corner just reached, for this tick's intent.
 var _ride_reached: int = -1
 # The ladder being climbed, or null.
-var _climb: DotBotClimb = null
-var _unstick: DotBotUnstick = null
+var _climb: GSBotClimb = null
+var _unstick: GSBotUnstick = null
 ## How this bot plays the weapon in its hand (neutral when the game names no class).
-var style: DotBotStyle = null
+var style: GSBotStyle = null
 
 var _now: float = NAN
 var _was_alive: bool = true
-var _rng: DotRandomStream = null
+var _rng: GSRandomStream = null
 var _fight_io := PackedFloat64Array()
 
 
 ## How long a lost target or a sound holds the bot's attention: its whole memory when it is
 ## going after it or re-peeking, and a glance otherwise. A bot that stands staring at a wall
 ## for four seconds because it heard a shot behind it reads as stuck, not as cautious.
-func _hold_time(p: DotBotProfile, committed: bool) -> float:
+func _hold_time(p: GSBotProfile, committed: bool) -> float:
 	return p.memory if committed else minf(p.memory, GLANCE)
 
 
-func _search(me: DotBotContact, p: DotBotProfile, now: float, dt: float, out: DotBotIntent) -> void:
+func _search(me: GSBotContact, p: GSBotProfile, now: float, dt: float, out: GSBotIntent) -> void:
 	out.state = &"search"
 	_scene = &"cover" if _peeking else &"chase"
 	var since := now - _lost_at
@@ -162,7 +162,7 @@ func _search(me: DotBotContact, p: DotBotProfile, now: float, dt: float, out: Do
 		var _v := aim.look_at_point(me.eye(), guess + Vector3.UP * 1.25, dt)
 
 
-func _listen(me: DotBotContact, world: DotBotWorld, p: DotBotProfile, now: float, dt: float, out: DotBotIntent) -> void:
+func _listen(me: GSBotContact, world: GSBotWorld, p: GSBotProfile, now: float, dt: float, out: GSBotIntent) -> void:
 	out.state = &"listen"
 	_scene = &"chase" if _chase_sound else &"cover"
 	var at := _hurt_from if _hurt_at >= _heard_at else _heard_pos
@@ -177,7 +177,7 @@ func _listen(me: DotBotContact, world: DotBotWorld, p: DotBotProfile, now: float
 		_hurt_at = -INF
 
 
-func _roam(me: DotBotContact, world: DotBotWorld, p: DotBotProfile, now: float, dt: float, out: DotBotIntent) -> void:
+func _roam(me: GSBotContact, world: GSBotWorld, p: GSBotProfile, now: float, dt: float, out: GSBotIntent) -> void:
 	out.state = &"roam"
 	var here := Vector2(me.position.x, me.position.z)
 	if not goal.urgent and _fetch(me, world, p, now, dt, out):
@@ -202,10 +202,10 @@ func _roam(me: DotBotContact, world: DotBotWorld, p: DotBotProfile, now: float, 
 
 
 ## Walks toward [param dest], looking where it goes.
-func _walk(me: DotBotContact, world: DotBotWorld, p: DotBotProfile, dest: Vector3, now: float, dt: float, out: DotBotIntent) -> void:
+func _walk(me: GSBotContact, world: GSBotWorld, p: GSBotProfile, dest: Vector3, now: float, dt: float, out: GSBotIntent) -> void:
 	var dir := _toward(me, world, dest)
 	# Looking where it walks, with the glance to either side a person checking corners has.
-	var look := DotBotAim.angles_to(me.eye(), me.eye() + Vector3(dir.x, 0.0, dir.y))
+	var look := GSBotAim.angles_to(me.eye(), me.eye() + Vector3(dir.x, 0.0, dir.y))
 	look.x += 25.0 * sin(now * 0.8 + float(id % 97))
 	look.y = 0.0
 	if p.glance > 0.0:
@@ -221,7 +221,7 @@ func _walk(me: DotBotContact, world: DotBotWorld, p: DotBotProfile, dest: Vector
 
 
 ## Turns the view [param rate] deg/s on for [param dt] seconds. A thinned bot thinks every few ticks, and the
-## smoothing in [method DotBotAim.turn_to] is quadratic in dt, so a long dt runs as steps of at most 1/60 s:
+## smoothing in [method GSBotAim.turn_to] is quadratic in dt, so a long dt runs as steps of at most 1/60 s:
 ## the turn per elapsed second is the same however often the bot thinks (one step, as before, up to 1/60 s).
 func _drift(rate: float, dt: float) -> void:
 	var n := maxi(1, ceili(dt * 60.0 - 0.01))
@@ -231,14 +231,14 @@ func _drift(rate: float, dt: float) -> void:
 
 
 ## At its post: stands, watching the way an enemy would come, glancing to either side.
-func _hold(me: DotBotContact, p: DotBotProfile, now: float, dt: float, out: DotBotIntent) -> void:
+func _hold(me: GSBotContact, p: GSBotProfile, now: float, dt: float, out: GSBotIntent) -> void:
 	var look := Vector2(aim.yaw, 0.0)
 	if goal.face == Vector3.INF:
 		_drift(30.0, dt)
 		_set_move(out, Vector2.ZERO)
 		return
 	if goal.face != Vector3.INF:
-		look = DotBotAim.angles_to(me.eye(), Vector3(goal.face.x, me.eye().y, goal.face.z))
+		look = GSBotAim.angles_to(me.eye(), Vector3(goal.face.x, me.eye().y, goal.face.z))
 		look.y = 0.0
 		look.x += 50.0 * sin(now * 0.5 + float(id % 89)) * (0.3 + p.glance)
 	aim.turn_to(look, dt)
@@ -246,7 +246,7 @@ func _hold(me: DotBotContact, p: DotBotProfile, now: float, dt: float, out: DotB
 
 
 ## True when a weapon on the floor has this tick: walk to it, look at it, press use near it.
-func _fetch(me: DotBotContact, world: DotBotWorld, p: DotBotProfile, now: float, dt: float, out: DotBotIntent) -> bool:
+func _fetch(me: GSBotContact, world: GSBotWorld, p: GSBotProfile, now: float, dt: float, out: GSBotIntent) -> bool:
 	var plan := pickup.step(me, world, p, now, true)
 	if plan.is_empty():
 		return false
@@ -262,14 +262,14 @@ func _fetch(me: DotBotContact, world: DotBotWorld, p: DotBotProfile, now: float,
 
 
 ## No enemy in mind: nothing seen, remembered, heard or felt lately.
-func _quiet(now: float, p: DotBotProfile) -> bool:
+func _quiet(now: float, p: GSBotProfile) -> bool:
 	if _last_seen_pos != Vector3.INF and now - _last_seen_at <= _hold_time(p, _peeking or _chase_lost):
 		return false
 	var last_noise := maxf(_heard_at, _hurt_at)
 	return not (last_noise > -INF and now - last_noise <= _hold_time(p, _chase_sound or _hurt_at >= _heard_at))
 
 
-func _pick_waypoint(me: DotBotContact, world: DotBotWorld, p: DotBotProfile) -> Vector3:
+func _pick_waypoint(me: GSBotContact, world: GSBotWorld, p: GSBotProfile) -> Vector3:
 	var points := world.waypoints() if world != null else PackedVector3Array()
 	# The places over 3 m away, in _far's first n slots: it only grows, so a pick allocates nothing.
 	if _far.size() < points.size():
@@ -301,11 +301,11 @@ func _pick_waypoint(me: DotBotContact, world: DotBotWorld, p: DotBotProfile) -> 
 	return _far[_rng.next_range_i(0, n - 1)]
 
 
-func _nearest_enemy(me: DotBotContact, world: DotBotWorld) -> Vector3:
+func _nearest_enemy(me: GSBotContact, world: GSBotWorld) -> Vector3:
 	var best := Vector3.INF
 	var best_d := INF
 	for item in world.contacts():
-		var c := item as DotBotContact
+		var c := item as GSBotContact
 		if c == null or not c.alive or not me.is_enemy(c):
 			continue
 		var d := c.position.distance_to(me.position)
@@ -316,9 +316,9 @@ func _nearest_enemy(me: DotBotContact, world: DotBotWorld) -> Vector3:
 
 
 ## The flat direction to walk toward [param goal]: along the world's route to it when the world
-## has one ([method DotBotWorld.route]), straight at it when not. The route is asked for once per
+## has one ([method GSBotWorld.route]), straight at it when not. The route is asked for once per
 ## goal and walked corner by corner; a corner within [constant CORNER] metres is passed.
-func _toward(me: DotBotContact, world: DotBotWorld, goal: Vector3) -> Vector2:
+func _toward(me: GSBotContact, world: GSBotWorld, goal: Vector3) -> Vector2:
 	if goal != _route_goal:
 		_route_goal = goal
 		var detail := world.route_detail(me.position, goal) if world != null else {}
@@ -331,7 +331,7 @@ func _toward(me: DotBotContact, world: DotBotWorld, goal: Vector3) -> Vector2:
 			var ride := _route_rides[0]
 			var ladder := world.ladder(ride) if ride >= 0 and world != null else {}
 			if not ladder.is_empty():
-				_climb = DotBotClimb.begin(ladder, _now)
+				_climb = GSBotClimb.begin(ladder, _now)
 			elif ride >= 0:
 				_ride_reached = ride
 			_route_rides.remove_at(0)
@@ -344,14 +344,14 @@ func _toward(me: DotBotContact, world: DotBotWorld, goal: Vector3) -> Vector2:
 
 
 ## A bot that pushes and does not move, in any state: re-plan, hop, crouch-hop and side-step, then walk to the nearest standable point.
-func _free_if_stuck(me: DotBotContact, world: DotBotWorld, now: float, out: DotBotIntent) -> void:
+func _free_if_stuck(me: GSBotContact, world: GSBotWorld, now: float, out: GSBotIntent) -> void:
 	# A duel strafes on the spot by design; only travelling can be stuck.
 	var pushing := out.move.length() > 0.3 and out.state != &"dead" and out.state != &"fight" and out.state != &"retreat"
 	if _unstick.step(me.position, pushing, now, world, settings.profile.stranded_sec) == 0:
 		return
 	if _unstick.stranded:
 		out.stranded = true
-		DotLog.warn(CHANNEL, "bot stranded: stuck with every unstick step tried, the game should respawn it", {"bot": id, "at": me.position, "after": settings.profile.stranded_sec})
+		GSLog.warn(CHANNEL, "bot stranded: stuck with every unstick step tried, the game should respawn it", {"bot": id, "at": me.position, "after": settings.profile.stranded_sec})
 	if _unstick.replan:
 		_waypoint = Vector3.INF
 		_route_goal = Vector3.INF
@@ -366,7 +366,7 @@ func _free_if_stuck(me: DotBotContact, world: DotBotWorld, now: float, out: DotB
 
 
 ## Overrides this tick's legs while a ladder is climbed; the view and trigger stay the brain's.
-func _climb_step(me: DotBotContact, now: float, out: DotBotIntent) -> void:
+func _climb_step(me: GSBotContact, now: float, out: GSBotIntent) -> void:
 	var r := _climb.step(me.position, now)
 	if r["done"]:
 		_end_climb()
@@ -386,7 +386,7 @@ func _end_climb() -> void:
 	_route_goal = Vector3.INF
 
 
-func _set_move(out: DotBotIntent, world_dir: Vector2) -> void:
+func _set_move(out: GSBotIntent, world_dir: Vector2) -> void:
 	var y := deg_to_rad(aim.yaw)
 	var forward := Vector2(-sin(y), -cos(y))
 	var right := Vector2(cos(y), -sin(y))

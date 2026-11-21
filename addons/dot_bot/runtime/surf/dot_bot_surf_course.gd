@@ -1,4 +1,4 @@
-class_name DotBotSurfCourse
+class_name GSBotSurfCourse
 extends RefCounted
 
 ## One surf ride as a bot sees it: where it starts, what counts as arriving, what counts as
@@ -19,12 +19,12 @@ extends RefCounted
 ## [member guide], a polyline the progress is measured along instead.
 ##
 ## Units are metres and the state is whatever the game's simulator steps (GameSpice Player-
-## controller's [code]DotFpsState[/code]): read by duck typing, `position` and `velocity`.
+## controller's [code]GSFpsState[/code]): read by duck typing, `position` and `velocity`.
 
 # No log channel: answers questions.
 
 ## What a state is in, by number. The same numbers as GameSpice Player Controller's
-## [code]DotFpsSimulator.EVENT_*[/code], so an oracle can return either.
+## [code]GSFpsSimulator.EVENT_*[/code], so an oracle can return either.
 const EVENT_NONE := 0
 const EVENT_GOAL := 1
 const EVENT_PIT := 2
@@ -79,7 +79,7 @@ var _dir: Vector3 = Vector3.FORWARD
 
 
 ## Works out the line and the floor from what is set. Call after filling the course.
-func settle() -> DotBotSurfCourse:
+func settle() -> GSBotSurfCourse:
 	if goal_centre == Vector3.INF:
 		var best := INF
 		for goal in goals:

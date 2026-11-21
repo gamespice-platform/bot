@@ -1,9 +1,9 @@
-class_name DotBotArms
+class_name GSBotArms
 extends RefCounted
 
-## The generic half of feeding [DotBotPickup]: rates weapons by damage per second and builds a contact's [member DotBotContact.loadout] and the world's [member DotBotWorld.drops_fn]
+## The generic half of feeding [GSBotPickup]: rates weapons by damage per second and builds a contact's [member GSBotContact.loadout] and the world's [member GSBotWorld.drops_fn]
 ## from a GameSpice Weapon arsenal and drop set. Duck typed (no GameSpice Weapon class is named), so GameSpice Bot compiles without it.
-## Wire it with [code]DotBotArms.wire(world, drops_fn, arsenal_fn)[/code] and [code]contact.loadout = DotBotArms.loadout_of(player.arsenal)[/code].
+## Wire it with [code]GSBotArms.wire(world, drops_fn, arsenal_fn)[/code] and [code]contact.loadout = GSBotArms.loadout_of(player.arsenal)[/code].
 
 ## Damage per second that rates 1.0.
 const FULL_DPS := 12.0 * 20.0
@@ -59,7 +59,7 @@ static func loadout_of(arsenal: Object, rater: Callable = Callable()) -> Diction
 	return out
 
 
-## The weapons lying in [param drops] in the shape [member DotBotWorld.drops_fn] wants; the
+## The weapons lying in [param drops] in the shape [member GSBotWorld.drops_fn] wants; the
 ## definitions come from [param arsenal]'s catalogue.
 static func drops_of(drops: Object, arsenal: Object, rater: Callable = Callable()) -> Array:
 	var out := []
@@ -77,7 +77,7 @@ static func drops_of(drops: Object, arsenal: Object, rater: Callable = Callable(
 	return out
 
 
-## Sets [member DotBotWorld.drops_fn]. [param drops_source] returns the drop set (or null),
+## Sets [member GSBotWorld.drops_fn]. [param drops_source] returns the drop set (or null),
 ## [param arsenal_source] any arsenal whose catalogue knows the weapons.
-static func wire(world: DotBotWorld, drops_source: Callable, arsenal_source: Callable, rater: Callable = Callable()) -> void:
+static func wire(world: GSBotWorld, drops_source: Callable, arsenal_source: Callable, rater: Callable = Callable()) -> void:
 	world.drops_fn = func() -> Array: return drops_of(drops_source.call(), arsenal_source.call(), rater)

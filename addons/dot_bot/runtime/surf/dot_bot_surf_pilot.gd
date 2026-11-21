@@ -1,7 +1,7 @@
-class_name DotBotSurfPilot
+class_name GSBotSurfPilot
 extends "dot_bot_surf_pilot_cache.gd"
 
-## Rides a surf ramp from what [DotBotSurfPlanner] found: it does what the nearest remembered
+## Rides a surf ramp from what [GSBotSurfPlanner] found: it does what the nearest remembered
 ## state did, and looks a second and a half ahead before trusting that.
 ##
 ## The cache is every tick of every planned ride ([method nearest] finds the entry closest in
@@ -10,7 +10,7 @@ extends "dot_bot_surf_pilot_cache.gd"
 ## [member rolling] keeps that future instead of recomputing it. Numbers and reasoning:
 ## docs/surfing.md, "The pilot".
 ##
-## A simulator is duck typed (GameSpice Player Controller's [code]DotFpsSimulator[/code]):
+## A simulator is duck typed (GameSpice Player Controller's [code]GSFpsSimulator[/code]):
 ## `step(state, command) -> int`, `command(yaw, move, jump)`, `delta`; states have
 ## `position`, `velocity`, `duplicate_state()`. So this addon names no other.
 ## The cache, its lookup and the actions are in dot_bot_surf_pilot_cache.gd, split out for file size.
@@ -85,7 +85,7 @@ var _vt_longest_t: float = -1.0
 
 ## Uses [param other]'s cache, without copying it: many bots riding one ramp share one lookup.
 ## Neither may load into it afterwards (reload makes new arrays, so the other keeps the old).
-func share_cache(other: DotBotSurfPilot) -> DotBotSurfPilot:
+func share_cache(other: GSBotSurfPilot) -> GSBotSurfPilot:
 	entries = other.entries
 	_ride_end = other._ride_end
 	_grid = other._grid
@@ -185,9 +185,9 @@ func future(state: Variant, first: int, ticks: int) -> Array:
 			veto_ticks += 1
 		else:
 			lookahead_ticks += 1
-		if event == DotBotSurfCourse.EVENT_GOAL:
+		if event == GSBotSurfCourse.EVENT_GOAL:
 			return [true, INF]
-		if event != DotBotSurfCourse.EVENT_NONE:
+		if event != GSBotSurfCourse.EVENT_NONE:
 			return [false, float(t)]
 	return [true, float(score.call(s)) if score.is_valid() else 0.0]
 
@@ -222,7 +222,7 @@ func _advance_for_latency(s: Variant) -> void:
 	var late := mini(ceili(float(VETO_STEPS) / float(veto_budget)), check_every)
 	for i in late:
 		var a := _override if i < _override_left else policy(s)
-		if sim.step(s, command_for(sim, a, s, reference_yaw)) != DotBotSurfCourse.EVENT_NONE:
+		if sim.step(s, command_for(sim, a, s, reference_yaw)) != GSBotSurfCourse.EVENT_NONE:
 			return
 
 
@@ -246,12 +246,12 @@ func _veto_run() -> void:
 		n -= 1
 		_vt_t += 1
 		var ended := true
-		if event == DotBotSurfCourse.EVENT_GOAL or (event == DotBotSurfCourse.EVENT_NONE and _vt_t >= horizon):
-			var sc: float = INF if event == DotBotSurfCourse.EVENT_GOAL else (float(score.call(_vt_s)) if score.is_valid() else 0.0)
+		if event == GSBotSurfCourse.EVENT_GOAL or (event == GSBotSurfCourse.EVENT_NONE and _vt_t >= horizon):
+			var sc: float = INF if event == GSBotSurfCourse.EVENT_GOAL else (float(score.call(_vt_s)) if score.is_valid() else 0.0)
 			if sc > _vt_best_score:
 				_vt_best_score = sc
 				_vt_best = _vt_a
-		elif event != DotBotSurfCourse.EVENT_NONE:
+		elif event != GSBotSurfCourse.EVENT_NONE:
 			if float(_vt_t - 1) > _vt_longest_t:
 				_vt_longest_t = float(_vt_t - 1)
 				_vt_longest = _vt_a
@@ -320,8 +320,8 @@ func _keep_forecast(state: Variant) -> void:
 			_judge(state)
 		return
 	# On the forecast: one more tick at the far end, unless it already ended.
-	if _end_event != DotBotSurfCourse.EVENT_NONE:
-		if _end_event != DotBotSurfCourse.EVENT_GOAL and _cooldown <= 0:
+	if _end_event != GSBotSurfCourse.EVENT_NONE:
+		if _end_event != GSBotSurfCourse.EVENT_GOAL and _cooldown <= 0:
 			_veto_then_forecast(state)
 		return
 	var a: int
@@ -337,7 +337,7 @@ func _keep_forecast(state: Variant) -> void:
 		_pred_p = _pred_p.slice(_pred_head)
 		_pred_v = _pred_v.slice(_pred_head)
 		_pred_head = 0
-	if _end_event != DotBotSurfCourse.EVENT_NONE and _end_event != DotBotSurfCourse.EVENT_GOAL and _cooldown <= 0:
+	if _end_event != GSBotSurfCourse.EVENT_NONE and _end_event != GSBotSurfCourse.EVENT_GOAL and _cooldown <= 0:
 		_veto_then_forecast(state)
 
 
@@ -357,7 +357,7 @@ func _forecast(state: Variant, first: int, first_left: int) -> void:
 
 ## Vetoes when a completed forecast ends in a fall, then forecasts again from the veto's action.
 func _judge(state: Variant) -> void:
-	if _end_event != DotBotSurfCourse.EVENT_NONE and _end_event != DotBotSurfCourse.EVENT_GOAL and _cooldown <= 0:
+	if _end_event != GSBotSurfCourse.EVENT_NONE and _end_event != GSBotSurfCourse.EVENT_GOAL and _cooldown <= 0:
 		_veto_then_forecast(state)
 
 
@@ -376,7 +376,7 @@ func _run_forecast() -> void:
 		_end_event = sim.step(_end, command_for(sim, a, _end, reference_yaw))
 		lookahead_ticks += 1
 		_push(_end)
-		if _end_event != DotBotSurfCourse.EVENT_NONE:
+		if _end_event != GSBotSurfCourse.EVENT_NONE:
 			_fc_left = 0
 	_fc_pending = _fc_left > 0
 
@@ -391,7 +391,7 @@ func _drop_forecast() -> void:
 	_pred_v = PackedVector3Array()
 	_pred_head = 0
 	_end = null
-	_end_event = DotBotSurfCourse.EVENT_NONE
+	_end_event = GSBotSurfCourse.EVENT_NONE
 	_end_override_left = 0
 	_fc_left = 0
 	_fc_pending = false
@@ -416,7 +416,7 @@ func _track(state: Variant) -> int:
 			event = sim.step(s, command_for(sim, a, s, reference_yaw))
 			if event != 0:
 				break
-		if event == DotBotSurfCourse.EVENT_GOAL:
+		if event == GSBotSurfCourse.EVENT_GOAL:
 			return a
 		if event != 0:
 			continue

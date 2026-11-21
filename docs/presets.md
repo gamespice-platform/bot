@@ -7,7 +7,7 @@
 - **hard**: a good human player. Reacts in about a fifth of a second, opens close and settles fast, strafes almost always, stops to shoot at range, peeks.
 - **nightmare**: beyond human, and still not a machine. Its reaction never drops below 0.1 s and its aim never settles to exact, because a bot that reacts on the tick it sees you and never misses is a different game, not a harder one.
 
-The full table with every value is in the [README](../README.md#settings), generated from `DotBotProfile.SPEC`.
+The full table with every value is in the [README](../README.md#settings), generated from `GSBotProfile.SPEC`.
 
 ## Measured
 

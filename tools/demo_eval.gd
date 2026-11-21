@@ -1,8 +1,8 @@
 extends SceneTree
 
-## Gates a cloned policy against its baseline on the export's held-out starts (see DotBotEvalGate).
+## Gates a cloned policy against its baseline on the export's held-out starts (see GSBotEvalGate).
 ## `godot --headless --path . --script res://tools/demo_eval.gd -- <export dir> <net stem> <host script.gd> [report path] [seeds] [base seed]`
-## The host script is the game's simulator adapter (extends RefCounted, the eval_* methods of DotBotEvalGate). The report goes to `<net stem>.eval.json` unless a path is given. Exit 0 when every map passes, 1 when the gate fails, 2 on usage.
+## The host script is the game's simulator adapter (extends RefCounted, the eval_* methods of GSBotEvalGate). The report goes to `<net stem>.eval.json` unless a path is given. Exit 0 when every map passes, 1 when the gate fails, 2 on usage.
 
 
 func _init() -> void:
@@ -11,12 +11,12 @@ func _init() -> void:
 		print("usage: demo_eval.gd -- <export dir> <net stem> <host script.gd> [report path] [seeds] [base seed]")
 		quit(2)
 		return
-	var manifest := DotBotDemoExport.load_manifest(args[0])
+	var manifest := GSBotDemoExport.load_manifest(args[0])
 	if not manifest.ok:
 		print(manifest.error.message)
 		quit(1)
 		return
-	var net := DotBotMlp.load_file(args[1])
+	var net := GSBotMlp.load_file(args[1])
 	if not net.ok:
 		print(net.error.message)
 		quit(1)
@@ -27,7 +27,7 @@ func _init() -> void:
 		quit(1)
 		return
 	var host: Object = (script as GDScript).new()
-	var gate := DotBotEvalGate.new()
+	var gate := GSBotEvalGate.new()
 	if args.size() > 4:
 		gate.seeds = int(args[4])
 	if args.size() > 5:

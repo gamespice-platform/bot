@@ -1,9 +1,9 @@
-class_name DotBotRideHarvest
+class_name GSBotRideHarvest
 extends RefCounted
 
 ## Turns recorded ride episodes into verified ones: replays each on the host's simulator from its start and keeps it only if it lands where the player did.
-## The host is duck typed: [code]replay_start[/code], [code]replay_command[/code], [code]landing[/code] and optionally [code]perturb[/code]; the simulator has [code]step[/code] and [code]delta[/code]. A ride is kept when the replay lands and enough perturbed starts ([member DotBotRideConfig.min_score]) do too.
-## [b]Piloted replay[/b] (host method [code]pilot_setup(pilot, episode)[/code], [member DotBotRideConfig.piloted]): the commands are quantised to pilot actions ([DotBotRideQuantiser]) and a [DotBotSurfPilot] with the ride as its only cache, tracking and vetoing, rides the simulator. That is what a bot does with the ride, so a line the pilot cannot follow is rejected however well the player flew it. The simulator must return [DotBotSurfCourse] events for the veto. Without [code]pilot_setup[/code] the recorded commands are replayed open loop.
+## The host is duck typed: [code]replay_start[/code], [code]replay_command[/code], [code]landing[/code] and optionally [code]perturb[/code]; the simulator has [code]step[/code] and [code]delta[/code]. A ride is kept when the replay lands and enough perturbed starts ([member GSBotRideConfig.min_score]) do too.
+## [b]Piloted replay[/b] (host method [code]pilot_setup(pilot, episode)[/code], [member GSBotRideConfig.piloted]): the commands are quantised to pilot actions ([GSBotRideQuantiser]) and a [GSBotSurfPilot] with the ride as its only cache, tracking and vetoing, rides the simulator. That is what a bot does with the ride, so a line the pilot cannot follow is rejected however well the player flew it. The simulator must return [GSBotSurfCourse] events for the veto. Without [code]pilot_setup[/code] the recorded commands are replayed open loop.
 
 const CHANNEL := "bot.ride.harvest"
 
@@ -13,10 +13,10 @@ const FAILED := -1
 ## Only a [class Run] in progress.
 const RUNNING := 2
 
-## Marks a rejected episode when [member DotBotRideConfig.keep_rejected] keeps it.
+## Marks a rejected episode when [member GSBotRideConfig.keep_rejected] keeps it.
 const REJECTED_SCORE := -1.0
 
-var config: DotBotRideConfig
+var config: GSBotRideConfig
 var schema: Variant
 var sim: Variant = null
 var host: Variant = null
@@ -29,10 +29,10 @@ var replays: int = 0
 var piloted_replays: int = 0
 
 var _pilot_ep: Variant = null
-var _pilot: DotBotSurfPilot = null
+var _pilot: GSBotSurfPilot = null
 
 
-func _init(p_config: DotBotRideConfig, p_schema: Variant, p_sim: Variant, p_host: Variant) -> void:
+func _init(p_config: GSBotRideConfig, p_schema: Variant, p_sim: Variant, p_host: Variant) -> void:
 	config = p_config
 	schema = p_schema
 	sim = p_sim
@@ -40,13 +40,13 @@ func _init(p_config: DotBotRideConfig, p_schema: Variant, p_sim: Variant, p_host
 
 
 ## True when the host has what a replay needs; otherwise the reason.
-func ready() -> DotResult:
+func ready() -> GSResult:
 	for m in [&"replay_start", &"replay_command", &"landing"]:
 		if host == null or not host.has_method(m):
-			return DotResult.fail(DotError.CODE_STATE, "The ride host has no %s." % m)
+			return GSResult.fail(GSError.CODE_STATE, "The ride host has no %s." % m)
 	if sim == null or not sim.has_method(&"step"):
-		return DotResult.fail(DotError.CODE_STATE, "The ride simulator has no step.")
-	return DotResult.success(true)
+		return GSResult.fail(GSError.CODE_STATE, "The ride simulator has no step.")
+	return GSResult.success(true)
 
 
 ## Whether replays go through the pilot: the config says so and the host can set one up.
@@ -80,7 +80,7 @@ func _begin_piloted(ep: Variant, state: Variant) -> Run:
 	var hold := 1 if delta <= 0.0 or ep.rate <= 0.0 else maxi(1, roundi(1.0 / (delta * ep.rate)))
 	if _pilot_ep != ep or _pilot == null:
 		_pilot_ep = ep
-		_pilot = DotBotRideQuantiser.pilot_for(ep, schema, sim, Callable(host, &"pilot_setup"), config.pilot_tracking, config.pilot_horizon, hold)
+		_pilot = GSBotRideQuantiser.pilot_for(ep, schema, sim, Callable(host, &"pilot_setup"), config.pilot_tracking, config.pilot_horizon, hold)
 	var run := Run.new()
 	run.harvest = self
 	run.ep = ep
@@ -101,9 +101,9 @@ class Run:
 	## The verdict once finished, [constant RUNNING] before.
 	var verdict: int = RUNNING
 	var steps: int = 0
-	var harvest: DotBotRideHarvest
+	var harvest: GSBotRideHarvest
 	var ep: Variant
-	var pilot: DotBotSurfPilot
+	var pilot: GSBotSurfPilot
 	var state: Variant
 	var left: int = 0
 
@@ -151,16 +151,16 @@ func replay_open(ep: Variant, state: Variant) -> int:
 
 
 ## A job that replays [param episodes] a slice at a time; its result is the Array of verdicts.
-## A [DotBotRideHarvestJob], typed by its base and loaded by uid: the job names this class back,
+## A [GSBotRideHarvestJob], typed by its base and loaded by uid: the job names this class back,
 ## and a script loop stays in memory for good (Godot 4.7).
-func make_job(episodes: Array) -> DotJob:
+func make_job(episodes: Array) -> GSJob:
 	return load("uid://dv3phitj43ioq").new(self, episodes)
 
 
-## Replays [param episodes] to the end now, for tools and tests; the verdicts, see [DotBotRideHarvestJob].
+## Replays [param episodes] to the end now, for tools and tests; the verdicts, see [GSBotRideHarvestJob].
 func verify(episodes: Array) -> Array:
 	var job: RefCounted = make_job(episodes)
-	var _r: DotResult = job.run_to_completion()
+	var _r: GSResult = job.run_to_completion()
 	return job.verdicts
 
 
@@ -170,8 +170,8 @@ static func unchecked(episodes: Array) -> Array:
 
 
 ## Replays an edge's unchecked episodes in [param store] and stores the verdicts; the value is the edge's verified count.
-func harvest(store: Variant, map_id: String, map_version: String, kind: String, key: String) -> DotResult:
-	var loaded: DotResult = await store.load(map_id, map_version, kind, key, 0)
+func harvest(store: Variant, map_id: String, map_version: String, kind: String, key: String) -> GSResult:
+	var loaded: GSResult = await store.load(map_id, map_version, kind, key, 0)
 	if not loaded.ok:
 		return loaded
 	var verdicts := verify(unchecked(loaded.value))
@@ -179,7 +179,7 @@ func harvest(store: Variant, map_id: String, map_version: String, kind: String, 
 
 
 ## Writes [param verdicts] to [param store] against the edge's [param existing] episodes, replacing the worst-scored verified ride past the cap.
-func commit(store: Variant, existing: Array, verdicts: Array) -> DotResult:
+func commit(store: Variant, existing: Array, verdicts: Array) -> GSResult:
 	var kept: Array = existing.filter(func(e: Variant) -> bool: return e.verified)
 	var drop: Array = []
 	for v: Dictionary in verdicts:
@@ -187,7 +187,7 @@ func commit(store: Variant, existing: Array, verdicts: Array) -> DotResult:
 		if not v["ok"]:
 			rejected += 1
 			if config.keep_rejected:
-				var marked: DotResult = await store.mark([ep.id], false, REJECTED_SCORE)
+				var marked: GSResult = await store.mark([ep.id], false, REJECTED_SCORE)
 				if not marked.ok:
 					return marked
 			else:
@@ -209,15 +209,15 @@ func commit(store: Variant, existing: Array, verdicts: Array) -> DotResult:
 		ep.score = float(v["score"])
 		kept.append(ep)
 		verified += 1
-		var res: DotResult = await store.mark([ep.id], true, ep.score)
+		var res: GSResult = await store.mark([ep.id], true, ep.score)
 		if not res.ok:
 			return res
 	if not drop.is_empty():
-		var removed: DotResult = await store.remove(drop)
+		var removed: GSResult = await store.remove(drop)
 		if not removed.ok:
 			return removed
-	DotLog.debug(CHANNEL, "Harvest done.", {"kept": kept.size(), "dropped": drop.size()})
-	return DotResult.success(kept.size())
+	GSLog.debug(CHANNEL, "Harvest done.", {"kept": kept.size(), "dropped": drop.size()})
+	return GSResult.success(kept.size())
 
 
 func describe() -> Dictionary:

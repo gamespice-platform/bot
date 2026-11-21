@@ -1,4 +1,4 @@
-class_name DotBotAimStats
+class_name GSBotAimStats
 extends RefCounted
 
 ## How quickly and how well people aim on one map version, folded from recorded `engage` episodes into percentile sketches. No episode is kept once folded.
@@ -56,7 +56,7 @@ var _total: int = 0
 
 
 ## Folds one episode; another kind, map or version, a frame too small, or no first shot is refused (false), a cheat or excluded one is dropped (false, counted).
-func fold(ep: DotBotDemoEpisode) -> bool:
+func fold(ep: GSBotDemoEpisode) -> bool:
 	if ep.kind != KIND or ep.sample_count() == 0 or ep.rate <= 0.0 or ep.frame_size <= maxi(error_index, maxi(fire_index, track_index)):
 		return false
 	if _total > 0 and (ep.map_id != map_id or ep.map_version != map_version):
@@ -99,16 +99,16 @@ func fold(ep: DotBotDemoEpisode) -> bool:
 
 
 ## Folds the `engage` episodes of a store for the labels named (a label is an episode key such as a game); the value is how many were folded.
-func fold_store(store: DotBotDemoStore, p_map_id: String, p_version: String, labels: Array, limit: int = 500) -> DotResult:
+func fold_store(store: GSBotDemoStore, p_map_id: String, p_version: String, labels: Array, limit: int = 500) -> GSResult:
 	var folded := 0
 	for label: String in labels:
-		var res: DotResult = await store.load(p_map_id, p_version, KIND, label, limit)
+		var res: GSResult = await store.load(p_map_id, p_version, KIND, label, limit)
 		if not res.ok:
 			return res
-		for ep: DotBotDemoEpisode in res.value:
+		for ep: GSBotDemoEpisode in res.value:
 			if fold(ep):
 				folded += 1
-	return DotResult.success(folded)
+	return GSResult.success(folded)
 
 
 ## Episodes folded for [param label] ("" adds every label).
@@ -154,28 +154,28 @@ func percentiles(label: String = "") -> Dictionary:
 
 
 ## A suggested value for every SPEC row this measures, per preset: [code]{preset: {field: value}}[/code]. Easy takes the 20th percentile of people by skill (the slow end), medium the 50th, hard the 80th, each inside the row's range and never harder than nightmare, whose numbers stay as they are. Empty when there is too little data; a row whose measure was never recorded (no tracking field) is left out.
-func suggest(spec: Array = DotBotProfile.SPEC, label: String = "") -> Dictionary:
+func suggest(spec: Array = GSBotProfile.SPEC, label: String = "") -> Dictionary:
 	var out := {}
 	if episode_count(label) < min_count:
 		return out
 	for preset: String in PRESET_PERCENTILES:
 		out[preset] = {}
 	for row: Array in spec:
-		var field: String = row[DotBotProfile.COL_FIELD]
+		var field: String = row[GSBotProfile.COL_FIELD]
 		if not SPEC_FIELDS.has(field):
 			continue
 		var metric: String = SPEC_FIELDS[field]
-		var nightmare := float(row[DotBotProfile.COL_FIRST_PRESET + DotBotProfile.PRESETS.find("nightmare")])
+		var nightmare := float(row[GSBotProfile.COL_FIRST_PRESET + GSBotProfile.PRESETS.find("nightmare")])
 		for preset: String in PRESET_PERCENTILES:
 			var value := percentile(metric, 100.0 - float(PRESET_PERCENTILES[preset]), label)
 			if is_nan(value):
 				continue
-			out[preset][field] = clampf(value, maxf(float(row[DotBotProfile.COL_MIN]), nightmare), float(row[DotBotProfile.COL_MAX]))
+			out[preset][field] = clampf(value, maxf(float(row[GSBotProfile.COL_MIN]), nightmare), float(row[GSBotProfile.COL_MAX]))
 	return out
 
 
 ## The suggestion beside the current numbers, for a person to review.
-func suggest_lines(spec: Array = DotBotProfile.SPEC, label: String = "") -> PackedStringArray:
+func suggest_lines(spec: Array = GSBotProfile.SPEC, label: String = "") -> PackedStringArray:
 	var lines := PackedStringArray()
 	var table := suggest(spec, label)
 	if table.is_empty():
@@ -186,7 +186,7 @@ func suggest_lines(spec: Array = DotBotProfile.SPEC, label: String = "") -> Pack
 		for preset: String in PRESET_PERCENTILES:
 			if not table[preset].has(field):
 				continue
-			lines.append("%-12s %-8s %8.3f %8.3f" % [field, preset, DotBotProfile.preset_value(preset, field), table[preset][field]])
+			lines.append("%-12s %-8s %8.3f %8.3f" % [field, preset, GSBotProfile.preset_value(preset, field), table[preset][field]])
 	return lines
 
 

@@ -1,9 +1,9 @@
-class_name DotBotObjective
+class_name GSBotObjective
 extends RefCounted
 
-## What every bot may know about the flags (or a hill to hold), and which job each bot has: the shared half of a team mode's bot plan. [DotBotGoal] is the per-bot half that reads it.
-## [b]Written by the game, read by brains.[/b] The game calls [method set_flag] for each team's flag once per tick on the main thread and [method assign] when a bot joins or changes team; brains (possibly on worker threads) only read. Flags are public knowledge in a flag mode (the HUD shows them), so this is no cheat in the sense of [DotBotWorld].
-## Wiring: [code]var objective := DotBotObjective.new()[/code] and [code]world.objective = objective[/code]; each tick [code]objective.set_flag(team, flag.home, flag.position, carrier_id, DotBotObjective.CARRIED, capture_point)[/code]; on joining [code]var role := objective.assign(bot_id, team, settings.profile, persona.role_bias())[/code].
+## What every bot may know about the flags (or a hill to hold), and which job each bot has: the shared half of a team mode's bot plan. [GSBotGoal] is the per-bot half that reads it.
+## [b]Written by the game, read by brains.[/b] The game calls [method set_flag] for each team's flag once per tick on the main thread and [method assign] when a bot joins or changes team; brains (possibly on worker threads) only read. Flags are public knowledge in a flag mode (the HUD shows them), so this is no cheat in the sense of [GSBotWorld].
+## Wiring: [code]var objective := GSBotObjective.new()[/code] and [code]world.objective = objective[/code]; each tick [code]objective.set_flag(team, flag.home, flag.position, carrier_id, GSBotObjective.CARRIED, capture_point)[/code]; on joining [code]var role := objective.assign(bot_id, team, settings.profile, persona.role_bias())[/code].
 
 # No log channel: holds state; the brain and the game log.
 
@@ -135,7 +135,7 @@ func enemy_of(team: int, from: Vector3 = Vector3.ZERO) -> int:
 ## Picks [param id]'s job in [param team]: the role furthest under its share in [param profile]
 ## (role_defend, role_attack, role_support), leaning toward [param bias] (defend, attack,
 ## support preference, each 0 to 1). The same id keeps its role until released or moved team.
-func assign(id: int, team: int, profile: DotBotProfile, bias: Vector3 = Vector3.ZERO) -> StringName:
+func assign(id: int, team: int, profile: GSBotProfile, bias: Vector3 = Vector3.ZERO) -> StringName:
 	if _roles.has(id) and int(_teams.get(id, -1)) == team:
 		return _roles[id]
 	_roles.erase(id)

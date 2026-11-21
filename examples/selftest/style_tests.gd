@@ -7,26 +7,26 @@ extends "res://examples/selftest/nav_tile_tests.gd"
 func _test_style_table() -> void:
 	_section("styles: a weighted table per weapon class, set by file and weights")
 	var classes := ["sniper", "rifle", "smg", "shotgun", "pistol", "heavy", "launcher", "melee", "throw"]
-	var missing := classes.filter(func(k: String) -> bool: return not DotBotStyle.DEFAULTS.has(k))
+	var missing := classes.filter(func(k: String) -> bool: return not GSBotStyle.DEFAULTS.has(k))
 	_check(missing.is_empty(), "the built-in table has a style for every common weapon class", str(missing))
 	var rows := [{"weight": 1.0}, {"weight": 0.0}, {"weight": 3.0}]
-	_check(DotBotStyle.pick(rows, 0.1) == 0 and DotBotStyle.pick(rows, 0.5) == 2, "a pick follows the weights and never lands on a zero")
-	_check(DotBotStyle.pick([{"weight": 0.0}], 0.5) == -1, "a class whose styles all weigh nothing has none")
+	_check(GSBotStyle.pick(rows, 0.1) == 0 and GSBotStyle.pick(rows, 0.5) == 2, "a pick follows the weights and never lands on a zero")
+	_check(GSBotStyle.pick([{"weight": 0.0}], 0.5) == -1, "a class whose styles all weigh nothing has none")
 
-	var weighted := DotBotStyle.build_table(DotBotStyle.DEFAULTS, "", "sniper.camper=0, smg.flanker=7")
+	var weighted := GSBotStyle.build_table(GSBotStyle.DEFAULTS, "", "sniper.camper=0, smg.flanker=7")
 	var camper: Dictionary = (weighted["table"]["sniper"] as Array)[0]
 	_check(bool(weighted["ok"]) and is_zero_approx(float(camper["weight"])), "bot_style_weights sets one style's weight", str(weighted["error"]))
-	_check(float((DotBotStyle.DEFAULTS["sniper"] as Array)[0]["weight"]) > 0.0, "and leaves the built-in table alone")
-	var bad := DotBotStyle.build_table(DotBotStyle.DEFAULTS, "", "sniper.nobody=2")
-	_check(not bool(bad["ok"]) and bad["table"] == DotBotStyle.DEFAULTS, "a weight for a style that is not there is refused", str(bad["error"]))
+	_check(float((GSBotStyle.DEFAULTS["sniper"] as Array)[0]["weight"]) > 0.0, "and leaves the built-in table alone")
+	var bad := GSBotStyle.build_table(GSBotStyle.DEFAULTS, "", "sniper.nobody=2")
+	_check(not bool(bad["ok"]) and bad["table"] == GSBotStyle.DEFAULTS, "a weight for a style that is not there is refused", str(bad["error"]))
 	var json := '{"railgun": [{"name": "lurker", "fight": "peek", "range": 3.0}], "sniper": [{"name": "camper", "range": 4.0}]}'
-	var filed := DotBotStyle.build_table(DotBotStyle.DEFAULTS, json, "")
+	var filed := GSBotStyle.build_table(GSBotStyle.DEFAULTS, json, "")
 	var sniper: Array = filed["table"]["sniper"]
-	_check(bool(filed["ok"]) and filed["table"].has("railgun") and is_equal_approx(float(sniper[0]["range"]), 4.0) and sniper.size() == (DotBotStyle.DEFAULTS["sniper"] as Array).size(),
+	_check(bool(filed["ok"]) and filed["table"].has("railgun") and is_equal_approx(float(sniper[0]["range"]), 4.0) and sniper.size() == (GSBotStyle.DEFAULTS["sniper"] as Array).size(),
 		"a style file adds a game's own class and changes only the keys it names", str(filed["error"]))
-	_check(not bool(DotBotStyle.build_table(DotBotStyle.DEFAULTS, "[1, 2]", "")["ok"]), "a file that is not a class table is refused")
+	_check(not bool(GSBotStyle.build_table(GSBotStyle.DEFAULTS, "[1, 2]", "")["ok"]), "a file that is not a class table is refused")
 
-	var s := DotBotSettings.new()
+	var s := GSBotSettings.new()
 	var stamp := s.style_stamp()
 	var path := "user://dot_bot_style_test.json"
 	var f := FileAccess.open(path, FileAccess.WRITE)
@@ -34,16 +34,16 @@ func _test_style_table() -> void:
 	f.close()
 	var res := s.set_style_config(path, "sniper.roamer=0")
 	_check(res.ok and s.style_stamp() == stamp + 1 and s.style_table().has("railgun"), "bot_style_file and bot_style_weights reach the settings", (res.error.message if res.error else ""))
-	var child := DotBotSettings.derived(s, DotBotPersona.new(), 3)
+	var child := GSBotSettings.derived(s, GSBotPersona.new(), 3)
 	_check(child.style_table().has("railgun") and child.style_stamp() == s.style_stamp(), "a bot's own settings read the server's table")
 	_check(not s.set_style_config("user://no_such_style.json", "").ok and s.style_table().has("railgun"), "a missing file changes nothing")
-	_check(s.set_style_config("", "").ok and s.style_table() == DotBotStyle.DEFAULTS, "both empty is the built-in table again")
+	_check(s.set_style_config("", "").ok and s.style_table() == GSBotStyle.DEFAULTS, "both empty is the built-in table again")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	_done()
 
 
 ## [param brain] fighting in [param world] for [param seconds] with its legs walked at 4 m/s.
-func _walk_fight(brain: DotBotBrain, me: DotBotContact, world: DotBotWorld, seconds: float, states: Dictionary) -> void:
+func _walk_fight(brain: GSBotBrain, me: GSBotContact, world: GSBotWorld, seconds: float, states: Dictionary) -> void:
 	var t := 0.0
 	while t < seconds:
 		var intent := brain.think(me, world, t)
@@ -64,15 +64,15 @@ func _test_style_play() -> void:
 	var labels := {}
 	var ranges := {}
 	for i in 24:
-		var b := DotBotBrain.new(100 + i)
-		var me := DotBotContact.make(100 + i, Vector3.ZERO)
+		var b := GSBotBrain.new(100 + i)
+		var me := GSBotContact.make(100 + i, Vector3.ZERO)
 		me.weapon_class = &"sniper"
 		var _o := b.think(me, null, 0.0)
 		labels[b.style.label()] = true
 		ranges[snappedf(b.style.range_k, 0.001)] = true
 	_check(labels.size() >= 2 and ranges.size() >= 12, "two dozen snipers play more than one style, and each its own range", "%s, %d ranges" % [labels.keys(), ranges.size()])
-	var b0 := DotBotBrain.new(100)
-	var me0 := DotBotContact.make(100, Vector3.ZERO)
+	var b0 := GSBotBrain.new(100)
+	var me0 := GSBotContact.make(100, Vector3.ZERO)
 	me0.weapon_class = &"sniper"
 	var _o0 := b0.think(me0, null, 0.0)
 	var first := b0.style.range_k
@@ -84,13 +84,13 @@ func _test_style_play() -> void:
 
 	# A camping sniper 30 m from a standing enemy, a pillar to its east (x > 1.5 hides it), and
 	# waypoints for vantages.
-	var s := DotBotSettings.new()
+	var s := GSBotSettings.new()
 	var _cfg := s.set_style_config("", "sniper.roamer=0,sniper.aggressive=0")
-	var brain := DotBotBrain.new(7, s)
-	var me := DotBotContact.make(1, Vector3.ZERO)
+	var brain := GSBotBrain.new(7, s)
+	var me := GSBotContact.make(1, Vector3.ZERO)
 	me.weapon_class = &"sniper"
-	var enemy := DotBotContact.make(2, Vector3(0.0, 0.0, -30.0))
-	var world := DotBotWorld.new()
+	var enemy := GSBotContact.make(2, Vector3(0.0, 0.0, -30.0))
+	var world := GSBotWorld.new()
 	world.contacts_fn = func() -> Array: return [me, enemy]
 	world.line_of_sight_fn = func(a: Vector3, b: Vector3) -> bool: return a.x <= 1.5 and b.x <= 1.5
 	world.waypoints_fn = func() -> PackedVector3Array:
@@ -104,13 +104,13 @@ func _test_style_play() -> void:
 	_check(states.get(&"fight", 0) > 0 and states.size() >= 3, "between fighting from its peek", str(states))
 
 	# A shotgun rusher 20 m off closes in.
-	var g := DotBotSettings.new()
+	var g := GSBotSettings.new()
 	var _gcfg := g.set_style_config("", "shotgun.flanker=0,shotgun.ambusher=0")
-	var rusher := DotBotBrain.new(9, g)
-	var me2 := DotBotContact.make(1, Vector3.ZERO)
+	var rusher := GSBotBrain.new(9, g)
+	var me2 := GSBotContact.make(1, Vector3.ZERO)
 	me2.weapon_class = &"shotgun"
-	var foe := DotBotContact.make(2, Vector3(0.0, 0.0, -20.0))
-	var open := DotBotWorld.new()
+	var foe := GSBotContact.make(2, Vector3(0.0, 0.0, -20.0))
+	var open := GSBotWorld.new()
 	open.contacts_fn = func() -> Array: return [me2, foe]
 	open.line_of_sight_fn = func(_a: Vector3, _b: Vector3) -> bool: return true
 	var rstates := {}
@@ -120,16 +120,16 @@ func _test_style_play() -> void:
 	# No class, and a class with bot_styles 0: the same intents as each other, tick for tick.
 	var runs: Array = []
 	for mode in 2:
-		var ps := DotBotSettings.new()
+		var ps := GSBotSettings.new()
 		if mode == 1:
 			var _sv := ps.set_value("styles", "0")
-		var nb := DotBotBrain.new(11, ps)
+		var nb := GSBotBrain.new(11, ps)
 		var sc := _scene(Vector3(3.0, 0.0, -18.0))
-		var m: DotBotContact = sc[0]
+		var m: GSBotContact = sc[0]
 		if mode == 1:
 			m.weapon_class = &"sniper"
 		var trace := PackedStringArray()
-		for intent: DotBotIntent in _run_bot(nb, m, sc[2], 3.0):
+		for intent: GSBotIntent in _run_bot(nb, m, sc[2], 3.0):
 			trace.append("%s %s %.4f %.4f %s %s" % [intent.state, intent.move, intent.yaw, intent.pitch, intent.fire, intent.crouch])
 		runs.append(trace)
 	_check(runs[0] == runs[1], "bot_styles 0 with a class plays exactly as no class at all")

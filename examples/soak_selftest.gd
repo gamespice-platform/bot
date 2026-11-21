@@ -1,6 +1,6 @@
 extends Node
 
-## Proves DotBotSoak's detectors and report against a trivial arena of fake movers: `godot --headless --path . res://examples/soak_selftest.tscn`.
+## Proves GSBotSoak's detectors and report against a trivial arena of fake movers: `godot --headless --path . res://examples/soak_selftest.tscn`.
 
 const CHECKS := 45
 const SECTIONS := 8
@@ -13,7 +13,7 @@ var _completed := 0
 var _failures: PackedStringArray = PackedStringArray()
 
 
-## Stand-in for DotSpawnWatch: the same duck-typed methods and verdict fields.
+## Stand-in for GSSpawnWatch: the same duck-typed methods and verdict fields.
 class FakeWatch extends RefCounted:
 	var _pos := {}
 	var _anchor := {}
@@ -114,7 +114,7 @@ class FakeArena extends RefCounted:
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
@@ -156,11 +156,11 @@ func _begin(name: String) -> void:
 	print("  " + name)
 
 
-func _soak(arena: FakeArena, minutes: float, with_stats: bool = true) -> DotBotSoak:
-	var cfg := DotBotSoakConfig.new()
+func _soak(arena: FakeArena, minutes: float, with_stats: bool = true) -> GSBotSoak:
+	var cfg := GSBotSoakConfig.new()
 	cfg.minutes = minutes
 	cfg.bots = arena.bodies.size()
-	var soak := DotBotSoak.new(cfg)
+	var soak := GSBotSoak.new(cfg)
 	soak.movers_fn = arena.movers
 	soak.step_fn = arena.step
 	soak.watch = FakeWatch.new()
@@ -171,7 +171,7 @@ func _soak(arena: FakeArena, minutes: float, with_stats: bool = true) -> DotBotS
 	return soak
 
 
-func _drive(soak: DotBotSoak) -> Dictionary:
+func _drive(soak: GSBotSoak) -> Dictionary:
 	while not soak.is_done():
 		soak.advance(TICK)
 
@@ -244,10 +244,10 @@ func _test_leak() -> void:
 	var steady := FakeArena.new(3)
 	var r2 := _drive(_soak(steady, 1.0))
 	_check(r2["memory"]["object_growth_pct"] < 25.0 and not _reasons_have(r2, "leak"), "steady run is no leak")
-	var cfg := DotBotSoakConfig.new()
+	var cfg := GSBotSoakConfig.new()
 	cfg.minutes = 1.0
 	var counter := [1000]
-	var s3 := DotBotSoak.new(cfg)
+	var s3 := GSBotSoak.new(cfg)
 	s3.object_count_fn = func() -> int:
 		counter[0] += 100
 		return counter[0]
@@ -307,7 +307,7 @@ func _test_report() -> void:
 		keys_ok = keys_ok and d.has(k)
 
 	_check(keys_ok, "every schema key present")
-	_check(int(d["schema"]) == DotBotSoak.SCHEMA, "schema version")
+	_check(int(d["schema"]) == GSBotSoak.SCHEMA, "schema version")
 	_check(d["reasons"] is Array and d["reasons"].size() >= 1 and d["ok"] == false, "reasons and ok agree")
 	var s: Dictionary = d["samples"][0]
 	var sample_ok := true
@@ -318,17 +318,17 @@ func _test_report() -> void:
 	_check(sample_ok, "every sample key present")
 	_check(d["describe"].has("scheduler") and d["describe"]["scheduler"].size() == 2, "describers captured")
 	_check(d["describe"].has("watch"), "watch describe captured")
-	var line := DotBotSoak.report_line(r)
+	var line := GSBotSoak.report_line(r)
 	_check(line.begins_with("SOAK ") and JSON.parse_string(line.substr(5)) is Dictionary, "SOAK line parses")
 	_check(not line.contains("samples"), "SOAK line leaves samples out")
-	_check(DotBotSoak.summary(r).begins_with("soak FAIL") and DotBotSoak.summary(r).contains("FAIL: stuck"), "summary shows the reason")
-	_check(DotBotSoak.summary(_drive(_soak(FakeArena.new(2), 0.2))).begins_with("soak PASS"), "summary shows a pass")
+	_check(GSBotSoak.summary(r).begins_with("soak FAIL") and GSBotSoak.summary(r).contains("FAIL: stuck"), "summary shows the reason")
+	_check(GSBotSoak.summary(_drive(_soak(FakeArena.new(2), 0.2))).begins_with("soak PASS"), "summary shows a pass")
 	_completed += 1
 
 
 func _test_config() -> void:
 	_begin("config")
-	var cfg := DotBotSoakConfig.new()
+	var cfg := GSBotSoakConfig.new()
 	cfg.apply_dictionary({"max-stuck-sec": 2.5, "minutes": 3.0, "bots": 12})
 	_check(is_equal_approx(cfg.max_stuck_sec, 2.5), "dictionary sets a threshold")
 	_check(cfg.bots == 12 and is_equal_approx(cfg.minutes, 3.0), "dictionary sets the run")

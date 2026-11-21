@@ -1,7 +1,7 @@
-class_name DotBotGoal
+class_name GSBotGoal
 extends RefCounted
 
-## One bot's current job in a flag or hill mode: where to go and how much else may distract it, re-planned every [constant REPLAN] seconds from the [DotBotObjective] the world holds.
+## One bot's current job in a flag or hill mode: where to go and how much else may distract it, re-planned every [constant REPLAN] seconds from the [GSBotObjective] the world holds.
 ## Carrying a flag: capture (run home, no pickups, fights on the move; urgent). Own flag dropped: return (defenders and supporters, and anybody close). Own flag carried: intercept (chase the carrier; defenders, supporters, anybody close). Attack: grab the enemy flag, or escort a teammate who has it. Support: escort a carrier, else hold the ground between the bases. Defend: patrol within bot_defend_radius of home, hold and watch the way in; does not chase a sound or a lost target beyond twice that. A hill instead: defend holds on it, attack takes it when another team has it (else hunts), support holds a ring around it facing in.
 ## bot_objective_focus is how often the bot keeps to its job; the rest of the time it roams a few seconds as in a free-for-all.
 
@@ -15,7 +15,7 @@ const ARRIVED := 2.0
 ## Anybody this close to their own loose flag goes for it, whatever their role.
 const NEAR_FLAG := 22.0
 
-var role: StringName = DotBotObjective.ROAM
+var role: StringName = GSBotObjective.ROAM
 ## &"" when the bot has no job this moment (free roam or no objective).
 var kind: StringName = &""
 var dest: Vector3 = Vector3.INF
@@ -65,7 +65,7 @@ func arrived(at: Vector3) -> bool:
 	return dest != Vector3.INF and Vector2(at.x - dest.x, at.z - dest.z).length() < ARRIVED
 
 
-func plan(me: DotBotContact, objective: DotBotObjective, world: DotBotWorld, p: DotBotProfile, rng: DotRandomStream, now: float) -> void:
+func plan(me: GSBotContact, objective: GSBotObjective, world: GSBotWorld, p: GSBotProfile, rng: GSRandomStream, now: float) -> void:
 	_next = now + (_offset if _next == -INF else REPLAN)
 	if objective == null or not objective.active:
 		_clear()
@@ -80,13 +80,13 @@ func plan(me: DotBotContact, objective: DotBotObjective, world: DotBotWorld, p: 
 		_aim_at(&"capture", objective.capture_for(team), true)
 		return
 	urgent = false
-	var own_state := objective.state_of(team) if objective.has_flag(team) else DotBotObjective.HOME
+	var own_state := objective.state_of(team) if objective.has_flag(team) else GSBotObjective.HOME
 	var own_at := objective.flag_at(team)
 	var near_own := own_at != Vector3.INF and me.position.distance_to(own_at) < NEAR_FLAG
-	if own_state != DotBotObjective.HOME and (role != DotBotObjective.ATTACK or near_own) and role != DotBotObjective.ROAM:
-		_aim_at(&"return" if own_state == DotBotObjective.DROPPED else &"intercept", own_at, false)
+	if own_state != GSBotObjective.HOME and (role != GSBotObjective.ATTACK or near_own) and role != GSBotObjective.ROAM:
+		_aim_at(&"return" if own_state == GSBotObjective.DROPPED else &"intercept", own_at, false)
 		return
-	if now < _free_until or role == DotBotObjective.ROAM:
+	if now < _free_until or role == GSBotObjective.ROAM:
 		_clear()
 		return
 	if rng.next_unit() < (1.0 - p.objective_focus) * 0.15:
@@ -96,14 +96,14 @@ func plan(me: DotBotContact, objective: DotBotObjective, world: DotBotWorld, p: 
 		return
 	var escort := _teammate_carrier(objective, team, enemy, me.id)
 	match role:
-		DotBotObjective.ATTACK:
+		GSBotObjective.ATTACK:
 			if escort != Vector3.INF:
 				_aim_at(&"escort", escort, false)
 			elif enemy >= 0:
 				_aim_at(&"grab", objective.flag_at(enemy), false)
 			else:
 				_clear()
-		DotBotObjective.SUPPORT:
+		GSBotObjective.SUPPORT:
 			if escort != Vector3.INF:
 				_aim_at(&"escort", escort, false)
 			elif enemy >= 0 and objective.has_flag(team):
@@ -115,7 +115,7 @@ func plan(me: DotBotContact, objective: DotBotObjective, world: DotBotWorld, p: 
 				face = objective.home_of(enemy)
 			else:
 				_clear()
-		DotBotObjective.DEFEND:
+		GSBotObjective.DEFEND:
 			var home := objective.home_of(team)
 			if home == Vector3.INF:
 				_clear()
@@ -129,9 +129,9 @@ func plan(me: DotBotContact, objective: DotBotObjective, world: DotBotWorld, p: 
 
 
 ## The hill: everybody near it, each role at its own distance.
-func _plan_point(me: DotBotContact, objective: DotBotObjective, world: DotBotWorld, p: DotBotProfile, rng: DotRandomStream, now: float) -> void:
+func _plan_point(me: GSBotContact, objective: GSBotObjective, world: GSBotWorld, p: GSBotProfile, rng: GSRandomStream, now: float) -> void:
 	urgent = false
-	if now < _free_until or role == DotBotObjective.ROAM:
+	if now < _free_until or role == GSBotObjective.ROAM:
 		_clear()
 		return
 	if rng.next_unit() < (1.0 - p.objective_focus) * 0.15:
@@ -141,20 +141,20 @@ func _plan_point(me: DotBotContact, objective: DotBotObjective, world: DotBotWor
 	var hill := objective.point
 	var radius := objective.point_radius
 	match role:
-		DotBotObjective.DEFEND:
+		GSBotObjective.DEFEND:
 			if kind != &"defend" or (arrived(me.position) and now >= _hold_until):
 				_aim_at(&"defend", _spot_near(world, hill, radius * 0.7, rng), false)
 				_hold_until = now + 2.0 + 4.0 * rng.next_unit()
 			anchor = hill
 			leash = maxf(2.0 * radius, p.defend_radius)
-		DotBotObjective.ATTACK:
+		GSBotObjective.ATTACK:
 			if objective.point_owner == me.team:
 				# Ours: the attackers go out and meet the next push instead of standing on it.
 				_clear()
 			elif kind != &"grab" or (arrived(me.position) and now >= _hold_until):
 				_aim_at(&"grab", _spot_near(world, hill, radius * 0.5, rng), false)
 				_hold_until = now + 2.0 + 2.0 * rng.next_unit()
-		DotBotObjective.SUPPORT:
+		GSBotObjective.SUPPORT:
 			if kind != &"hold" or (arrived(me.position) and now >= _hold_until):
 				_aim_at(&"hold", _spot_near(world, hill, radius * 1.6, rng), false)
 				_hold_until = now + 3.0 + 4.0 * rng.next_unit()
@@ -185,8 +185,8 @@ func _clear() -> void:
 
 
 ## Where a teammate carrying [param enemy]'s flag is, or INF.
-func _teammate_carrier(objective: DotBotObjective, team: int, enemy: int, me_id: int) -> Vector3:
-	if enemy < 0 or objective.state_of(enemy) != DotBotObjective.CARRIED or objective.carrier_of(enemy) == me_id:
+func _teammate_carrier(objective: GSBotObjective, team: int, enemy: int, me_id: int) -> Vector3:
+	if enemy < 0 or objective.state_of(enemy) != GSBotObjective.CARRIED or objective.carrier_of(enemy) == me_id:
 		return Vector3.INF
 	# The carrier is on this team by construction: only a team's rival carries its flag.
 	return objective.flag_at(enemy)
@@ -194,7 +194,7 @@ func _teammate_carrier(objective: DotBotObjective, team: int, enemy: int, me_id:
 
 ## A waypoint within [param radius] of [param centre] (one in five tries), else a point on a ring
 ## around it, put on the walkable surface when the world knows one.
-func _spot_near(world: DotBotWorld, centre: Vector3, radius: float, rng: DotRandomStream) -> Vector3:
+func _spot_near(world: GSBotWorld, centre: Vector3, radius: float, rng: GSRandomStream) -> Vector3:
 	if world != null:
 		var points := world.waypoints()
 		if not points.is_empty():

@@ -1,15 +1,15 @@
-class_name DotBotSoak
+class_name GSBotSoak
 extends RefCounted
 
 ## Drives a game's bots for a stretch of simulated time, samples what goes wrong, and fails with reasons.
 ##
-## The host sets callables, then calls [method advance] each tick (or awaits [method run]) and reads [method finish]; a [code]DotSpawnWatch[/code]-shaped watch is optional.
+## The host sets callables, then calls [method advance] each tick (or awaits [method run]) and reads [method finish]; a [code]GSSpawnWatch[/code]-shaped watch is optional.
 
 const CHANNEL := "bot"
 const SCHEMA := 1
 const CATEGORY_NAMES := ["fell_out", "stuck", "off_nav", "unreachable", "far"]
 
-var config: DotBotSoakConfig
+var config: GSBotSoakConfig
 ## () -> Array of {id, position: Vector3, kind: StringName, has_goal: bool}, one per live mover.
 var movers_fn: Callable = Callable()
 ## () -> Dictionary of running totals {kills, deaths, damage}. Unset skips the combat checks.
@@ -22,7 +22,7 @@ var tick_cost_fn: Callable = Callable()
 var players_fn: Callable = Callable()
 ## () -> int, replaces the engine object count (for a host that counts its own).
 var object_count_fn: Callable = Callable()
-## Optional DotSpawnWatch (or anything with report, advance, set_players); duck typed.
+## Optional GSSpawnWatch (or anything with report, advance, set_players); duck typed.
 var watch: Object = null
 ## Name -> Callable returning String or PackedStringArray, e.g. the AI scheduler's describe_lines.
 var describers: Dictionary = {}
@@ -45,8 +45,8 @@ var _base_time: float = 0.0
 var _bots_seen: int = 0
 
 
-func _init(p_config: DotBotSoakConfig = null) -> void:
-	config = p_config if p_config != null else DotBotSoakConfig.new()
+func _init(p_config: GSBotSoakConfig = null) -> void:
+	config = p_config if p_config != null else GSBotSoakConfig.new()
 	_next_sample = config.sample_sec
 
 
@@ -123,7 +123,7 @@ func finish() -> Dictionary:
 	var reasons := _judge(report, stats)
 	report["ok"] = reasons.is_empty()
 	if not reasons.is_empty():
-		DotLog.warn(CHANNEL, "soak failed", {"reasons": reasons})
+		GSLog.warn(CHANNEL, "soak failed", {"reasons": reasons})
 	report["reasons"] = reasons
 	report["config"] = config.to_dictionary()
 	return report

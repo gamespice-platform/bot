@@ -1,11 +1,11 @@
-class_name DotBotContact
+class_name GSBotContact
 extends RefCounted
 
 ## One body a bot might fight, or the bot itself, as the brain sees it.
 ##
 ## [b]A snapshot the game fills, never a node.[/b] The brain is pure: it reads these and the
 ## world's line-of-sight answer and returns an intent. A game with ninety players builds
-## ninety of these a tick once, in [method DotBotWorld.contacts], and every bot reads the same
+## ninety of these a tick once, in [method GSBotWorld.contacts], and every bot reads the same
 ## list; a suite builds three by hand.
 
 # No log channel: a record.
@@ -43,10 +43,10 @@ var wall_running: bool = false
 var air_jump_ready: bool = false
 
 ## What the body carries, by the game's slot number: [code]{value: float, ammo: float}[/code], the game's rating of the weapon (0..1) and its ammo as a fraction of full.
-## An unlisted slot is empty. Read by [DotBotPickup]; a game that never fills it has bots that take nothing off the floor.
+## An unlisted slot is empty. Read by [GSBotPickup]; a game that never fills it has bots that take nothing off the floor.
 var loadout: Dictionary = {}
 
-## The class of the weapon in hand, for [DotBotStyle]: [code]&"sniper"[/code], [code]&"rifle"[/code],
+## The class of the weapon in hand, for [GSBotStyle]: [code]&"sniper"[/code], [code]&"rifle"[/code],
 ## [code]&"smg"[/code], [code]&"shotgun"[/code], [code]&"pistol"[/code], [code]&"heavy"[/code],
 ## [code]&"launcher"[/code], [code]&"melee"[/code], [code]&"throw"[/code], or a game's own (with a
 ## table that names it). Empty when the game does not say: the bot then plays the one generic way.
@@ -65,8 +65,8 @@ var alive: bool = true
 var team: int = 0
 
 
-static func make(p_id: int, p_position: Vector3, p_team: int = 0) -> DotBotContact:
-	var c := DotBotContact.new()
+static func make(p_id: int, p_position: Vector3, p_team: int = 0) -> GSBotContact:
+	var c := GSBotContact.new()
 	c.id = p_id
 	c.position = p_position
 	c.team = p_team
@@ -82,7 +82,7 @@ func aim_point() -> Vector3:
 
 
 ## Whether [param other] is somebody this one fights.
-func is_enemy(other: DotBotContact) -> bool:
+func is_enemy(other: GSBotContact) -> bool:
 	if other == null or other.id == id:
 		return false
 	return team == 0 or other.team == 0 or team != other.team

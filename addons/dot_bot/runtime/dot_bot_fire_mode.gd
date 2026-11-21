@@ -1,4 +1,4 @@
-class_name DotBotFireMode
+class_name GSBotFireMode
 extends RefCounted
 
 ## Which fire mode a bot should be in at a given range: auto up close, burst in the middle, semi far.

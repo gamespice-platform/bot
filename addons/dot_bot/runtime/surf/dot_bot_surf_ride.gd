@@ -1,24 +1,24 @@
-class_name DotBotSurfRide
+class_name GSBotSurfRide
 extends RefCounted
 
 ## One bot riding one ride edge: the legs are the surf pilot's, the view and the trigger stay the
-## brain's. What a game holds per bot between [member DotBotIntent.ride] and the landing.
+## brain's. What a game holds per bot between [member GSBotIntent.ride] and the landing.
 ##
 ## [codeblock]
 ## # The brain's route reached a ride edge:
 ## if intent.ride >= 0 and ride == null:
-##     ride = DotBotSurfRide.new().begin(edge_pilot, edge_course, sim, now_tick)
+##     ride = GSBotSurfRide.new().begin(edge_pilot, edge_course, sim, now_tick)
 ## if ride != null:
 ##     var status := ride.steer(bot_state, intent, now_tick)    # rewrites intent.move and its buttons
-##     if status != DotBotSurfRide.RIDING:
-##         brain.ride_ended(status == DotBotSurfRide.LANDED)
+##     if status != GSBotSurfRide.RIDING:
+##         brain.ride_ended(status == GSBotSurfRide.LANDED)
 ##         ride = null
 ## intent.write_move(command)
 ## [/codeblock]
 ##
 ## [b]Surfing while aiming.[/b] The pilot's action is a wish direction relative to the velocity,
 ## and in the air the motor reads nothing of the view but the wish it makes with the keys. So the
-## keys are worked out for the brain's own view ([method DotBotSurfPilot.move_toward]): the bot
+## keys are worked out for the brain's own view ([method GSBotSurfPilot.move_toward]): the bot
 ## looks at its target and still holds the ramp. On the ground the view also scales a backward
 ## key, so for the run to the ramp the view is the ride's own; it is the brain's again from the
 ## moment the bot leaves the ground.
@@ -40,8 +40,8 @@ const JUMPED := 6.0
 const STALL_RADIUS := 0.5
 const STALL_SECONDS := 8.0
 
-var pilot: DotBotSurfPilot = null
-var course: DotBotSurfCourse = null
+var pilot: GSBotSurfPilot = null
+var course: GSBotSurfCourse = null
 ## The game's tick when the ride began, and how long it may run.
 var began: int = 0
 var max_ticks: int = 64 * 20
@@ -65,9 +65,9 @@ var _anchor_tick: int = 0
 ## Starts a ride on [param p_course] with a pilot sharing [param cache]'s rides, vetoing on
 ## [param sim] (null for no veto). [param seconds] is the longest the ride may take at
 ## [param tick_rate].
-func begin(cache: DotBotSurfPilot, p_course: DotBotSurfCourse, sim: Variant, now_tick: int,
-		tick_rate: float = 64.0, seconds: float = 20.0) -> DotBotSurfRide:
-	pilot = DotBotSurfPilot.new().share_cache(cache)
+func begin(cache: GSBotSurfPilot, p_course: GSBotSurfCourse, sim: Variant, now_tick: int,
+		tick_rate: float = 64.0, seconds: float = 20.0) -> GSBotSurfRide:
+	pilot = GSBotSurfPilot.new().share_cache(cache)
 	pilot.horizon = cache.horizon
 	pilot.check_every = cache.check_every
 	pilot.rolling = cache.rolling
@@ -87,20 +87,20 @@ func begin(cache: DotBotSurfPilot, p_course: DotBotSurfCourse, sim: Variant, now
 
 
 ## One of [param key]'s saved rides from [param book], weighted by success from the bot's [param rng]; empty with none.
-static func pick(book: DotBotRideBook, key: String, rng: DotRandomStream) -> Dictionary:
+static func pick(book: GSBotRideBook, key: String, rng: GSRandomStream) -> Dictionary:
 	return book.choose(key, rng)
 
 
 ## Starts the ride [param entry] (from [method pick]). A recording is played back through [param p_decode]; a seed rides as [method begin] does, on its own pilot (entry data) or [param cache].
-func begin_picked(entry: Dictionary, cache: DotBotSurfPilot, p_course: DotBotSurfCourse, sim: Variant, now_tick: int,
-		p_decode: Callable = Callable(), tick_rate: float = 64.0, seconds: float = 20.0) -> DotBotSurfRide:
+func begin_picked(entry: Dictionary, cache: GSBotSurfPilot, p_course: GSBotSurfCourse, sim: Variant, now_tick: int,
+		p_decode: Callable = Callable(), tick_rate: float = 64.0, seconds: float = 20.0) -> GSBotSurfRide:
 	picked = entry
 	var data: Variant = entry.get("data")
-	if entry.get("source", "") == DotBotRideBook.RECORDED and data is Dictionary and (data as Dictionary).has("cache"):
+	if entry.get("source", "") == GSBotRideBook.RECORDED and data is Dictionary and (data as Dictionary).has("cache"):
 		# Verified as a pilot cache, so it rides as one: this ride alone, with the tracking it was verified with.
 		var rows: PackedFloat32Array = data["cache"]
-		var own := DotBotSurfPilot.new()
-		own.load_entries(rows, PackedInt32Array([rows.size() / DotBotSurfPilot.STRIDE]), float(data.get("reference_yaw", 0.0)))
+		var own := GSBotSurfPilot.new()
+		own.load_entries(rows, PackedInt32Array([rows.size() / GSBotSurfPilot.STRIDE]), float(data.get("reference_yaw", 0.0)))
 		var tracks: bool = sim != null and bool(data.get("tracking", false))
 		own.tracking = tracks
 		own.horizon = cache.horizon
@@ -110,20 +110,20 @@ func begin_picked(entry: Dictionary, cache: DotBotSurfPilot, p_course: DotBotSur
 		pilot.tracking = tracks
 		recorded = {}
 		return self
-	if entry.get("source", "") == DotBotRideBook.RECORDED and data is Dictionary and p_decode.is_valid():
+	if entry.get("source", "") == GSBotRideBook.RECORDED and data is Dictionary and p_decode.is_valid():
 		begin(cache, p_course, sim, now_tick, tick_rate, seconds)
 		recorded = data
 		decode = p_decode
 		return self
 	recorded = {}
-	return begin(data if data is DotBotSurfPilot else cache, p_course, sim, now_tick, tick_rate, seconds)
+	return begin(data if data is GSBotSurfPilot else cache, p_course, sim, now_tick, tick_rate, seconds)
 
 
 ## This tick's legs for a bot in [param state] (its real one, after the last tick), written into
 ## [param intent] in place: the move for the intent's own view, jump as the action says, never
 ## crouch or walk (either changes the hull or the speed the rides were planned with). Returns
 ## [constant RIDING] or how the ride ended (and then writes nothing).
-func steer(state: Variant, intent: DotBotIntent, now_tick: int) -> int:
+func steer(state: Variant, intent: GSBotIntent, now_tick: int) -> int:
 	if status != RIDING:
 		return status
 	var p: Vector3 = state.position
@@ -131,9 +131,9 @@ func steer(state: Variant, intent: DotBotIntent, now_tick: int) -> int:
 		return _end(FELL)
 	_last = p
 	match course.event_at(state):
-		DotBotSurfCourse.EVENT_GOAL:
+		GSBotSurfCourse.EVENT_GOAL:
 			return _end(LANDED)
-		DotBotSurfCourse.EVENT_PIT, DotBotSurfCourse.EVENT_BELOW:
+		GSBotSurfCourse.EVENT_PIT, GSBotSurfCourse.EVENT_BELOW:
 			return _end(FELL)
 	if now_tick - began > max_ticks:
 		return _end(TIMED_OUT)
@@ -150,14 +150,14 @@ func steer(state: Variant, intent: DotBotIntent, now_tick: int) -> int:
 		ticks += 1
 		return RIDING
 	var action := pilot.action(state)
-	if DotBotSurfPilot.jumps(action) or (state.has_method(&"is_grounded") and state.is_grounded()):
+	if GSBotSurfPilot.jumps(action) or (state.has_method(&"is_grounded") and state.is_grounded()):
 		# Running to the ramp, and jumping, the view goes where the legs go: on the ground a key
 		# held backward is slower, and a jump beside a wall pushes off along the view (a wall
 		# jump), so either made for a view elsewhere is not the ride that was planned, and it
 		# fell (game-fatal-contact's surf_ski_2, whose wall moves are on).
-		intent.yaw = DotBotSurfPilot.heading_of(state, pilot.reference_yaw)
-	intent.move = DotBotSurfPilot.move_toward(DotBotSurfPilot.wish_yaw(action, state, pilot.reference_yaw), intent.yaw)
-	intent.jump = DotBotSurfPilot.jumps(action)
+		intent.yaw = GSBotSurfPilot.heading_of(state, pilot.reference_yaw)
+	intent.move = GSBotSurfPilot.move_toward(GSBotSurfPilot.wish_yaw(action, state, pilot.reference_yaw), intent.yaw)
+	intent.jump = GSBotSurfPilot.jumps(action)
 	intent.crouch = false
 	intent.walk = false
 	ticks += 1

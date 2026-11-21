@@ -1,5 +1,5 @@
-class_name DotBotSoakConfig
-extends DotConfig
+class_name GSBotSoakConfig
+extends GSConfig
 
 ## What a soak run lasts and the thresholds that fail it; layered like every config (file, env, argv).
 

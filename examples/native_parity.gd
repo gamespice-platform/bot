@@ -1,8 +1,8 @@
 extends Node
 
-## Native against script brains (`godot --headless --path . res://examples/native_parity.tscn`): two brains with the same id in two copies of the same scripted fights, one thinking through dot_sim's DotSimBotMind and one in GDScript, compared to the bit every tick (intent, view, engagement, strafe, the random streams and the aim's private state).
-## A third copy thinks natively on a worker thread (DotBotBrain.par_ready on the main thread first, then think through WorkerThreadPool), as a game's threaded bots do, and must match the same rows.
-## Needs the dot_sim extension; without it there is nothing to compare and the scene says so and passes. The native side's world also bumps contacts_version every tick, so it perceives through DotSimBotMind.perceive over the native sight scan, with bystanders to choose among and the target killed late in some rounds.
+## Native against script brains (`godot --headless --path . res://examples/native_parity.tscn`): two brains with the same id in two copies of the same scripted fights, one thinking through dot_sim's GSSimBotMind and one in GDScript, compared to the bit every tick (intent, view, engagement, strafe, the random streams and the aim's private state).
+## A third copy thinks natively on a worker thread (GSBotBrain.par_ready on the main thread first, then think through WorkerThreadPool), as a game's threaded bots do, and must match the same rows.
+## Needs the dot_sim extension; without it there is nothing to compare and the scene says so and passes. The native side's world also bumps contacts_version every tick, so it perceives through GSSimBotMind.perceive over the native sight scan, with bystanders to choose among and the target killed late in some rounds.
 
 const TICK := 1.0 / 30.0
 const ROUNDS := 12
@@ -15,24 +15,24 @@ var _fights := 0
 var _fires := 0
 var _failed := ""
 var _usec := [0, 0, 0]
-## Whether the dot_sim library can perceive on a worker (DotSimBotMind.perceive_held); older ones skip the worker copy.
+## Whether the dot_sim library can perceive on a worker (GSSimBotMind.perceive_held); older ones skip the worker copy.
 var _held := false
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
 func _run() -> void:
-	if not DotBotAim.native_available():
-		print("native parity: DotSimBotMind not loaded, nothing to compare (skipped)")
+	if not GSBotAim.native_available():
+		print("native parity: GSSimBotMind not loaded, nothing to compare (skipped)")
 		get_tree().quit(0)
 		return
 	# `-- --script-perceive`: the native side perceives in script, to time the native perceive.
 	if "--script-perceive" in OS.get_cmdline_user_args():
-		DotBotBrain.native_perceive = false
-	_held = DotBotBrain._held_available()
+		GSBotBrain.native_perceive = false
+	_held = GSBotBrain._held_available()
 	var presets := ["easy", "medium", "hard", "nightmare"]
 	for round_ in ROUNDS:
 		_round(round_, presets[round_ % presets.size()])
@@ -44,12 +44,12 @@ func _run() -> void:
 		print("native parity: FAIL ", _failed)
 		get_tree().quit(1)
 		return
-	print("native parity: ok, %d ticks over %d rounds (%d fighting, %d firing), native and script identical%s; think %.1f us native (perceive %s), %.1f us script" % [_ticks, ROUNDS, _fights, _fires, ", and native on a worker" if _held else " (no worker copy: library without perceive_held)", float(_usec[0]) / _ticks, "native" if DotBotBrain.native_perceive else "script", float(_usec[1]) / _ticks])
+	print("native parity: ok, %d ticks over %d rounds (%d fighting, %d firing), native and script identical%s; think %.1f us native (perceive %s), %.1f us script" % [_ticks, ROUNDS, _fights, _fires, ", and native on a worker" if _held else " (no worker copy: library without perceive_held)", float(_usec[0]) / _ticks, "native" if GSBotBrain.native_perceive else "script", float(_usec[1]) / _ticks])
 	get_tree().quit(0)
 
 
-func _settings(preset: String, round_: int) -> DotBotSettings:
-	var s := DotBotSettings.new()
+func _settings(preset: String, round_: int) -> GSBotSettings:
+	var s := GSBotSettings.new()
 	s.set_difficulty(preset)
 	var p := s.profile
 	# Every branch of the fight step: strafe lengths eased or not, overshoot, lagged tracking,
@@ -65,7 +65,7 @@ func _settings(preset: String, round_: int) -> DotBotSettings:
 
 
 func _round(round_: int, preset: String) -> void:
-	var rng := DotRandomStream.new(round_).stream(&"parity")
+	var rng := GSRandomStream.new(round_).stream(&"parity")
 	var distance := rng.next_range_f(5.0, 40.0)
 	var off := deg_to_rad(rng.next_range_f(-170.0, 170.0))
 	var start := Vector3(-sin(off), 0.0, -cos(off)) * distance
@@ -74,7 +74,7 @@ func _round(round_: int, preset: String) -> void:
 		var a := deg_to_rad(rng.next_range_f(-180.0, 180.0))
 		spots.append(Vector3(-sin(a), 0.0, -cos(a)) * rng.next_range_f(3.0, 60.0))
 	var sides := _make_sides(round_, preset, start, spots)
-	if not (sides[0].brain as DotBotBrain).aim.is_native() or (sides[1].brain as DotBotBrain).aim.is_native() or DotBotBrain.native_perceive and (sides[0].brain as DotBotBrain)._mind == null or _held and (sides[2].brain as DotBotBrain)._mind == null:
+	if not (sides[0].brain as GSBotBrain).aim.is_native() or (sides[1].brain as GSBotBrain).aim.is_native() or GSBotBrain.native_perceive and (sides[0].brain as GSBotBrain)._mind == null or _held and (sides[2].brain as GSBotBrain)._mind == null:
 		_failed = "round %d: could not set up one native and one script brain" % round_
 		return
 
@@ -88,9 +88,9 @@ func _round(round_: int, preset: String) -> void:
 		var rows: Array = []
 		for k in sides.size():
 			var side: Dictionary = sides[k]
-			var me: DotBotContact = side.me
-			var them: DotBotContact = side.them
-			var brain: DotBotBrain = side.brain
+			var me: GSBotContact = side.me
+			var them: GSBotContact = side.them
+			var brain: GSBotBrain = side.brain
 			# Out of sight for a while (search, look round), then back.
 			side.wall[0] = t > 6.0 and t < 7.5
 			if round_ % 3 == 1 and t > 11.0:
@@ -101,10 +101,10 @@ func _round(round_: int, preset: String) -> void:
 				brain.hurt(them.eye(), t)
 				me.health = 0.3 if t > 8.0 else 0.6
 			var t0 := Time.get_ticks_usec()
-			var intent: DotBotIntent
+			var intent: GSBotIntent
 			if side.worker:
 				brain.par_ready(side.world)
-				if DotBotBrain.native_perceive and brain._held_version != tick:
+				if GSBotBrain.native_perceive and brain._held_version != tick:
 					_failed = "round %d: par_ready held no scan" % round_
 					return
 				var box := [null]
@@ -125,7 +125,7 @@ func _round(round_: int, preset: String) -> void:
 			them.velocity = across * 4.0 * dir
 			them.position += them.velocity * TICK
 			rows.append(_row(brain, intent))
-			if side.native and DotBotBrain.native_perceive and (side.world as DotBotWorld)._senses == null:
+			if side.native and GSBotBrain.native_perceive and (side.world as GSBotWorld)._senses == null:
 				_failed = "round %d: the native side never packed a native scan" % round_
 				return
 		var why := _differs(rows[0], rows[1])
@@ -137,9 +137,9 @@ func _round(round_: int, preset: String) -> void:
 			_failed = "round %d (%s) t=%.3f: %s" % [round_, preset, t, why]
 			return
 		_ticks += 1
-		if (sides[0].brain as DotBotBrain).last.state in [&"fight", &"retreat"]:
+		if (sides[0].brain as GSBotBrain).last.state in [&"fight", &"retreat"]:
 			_fights += 1
-		if (sides[0].brain as DotBotBrain).last.fire:
+		if (sides[0].brain as GSBotBrain).last.fire:
 			_fires += 1
 		t += TICK
 
@@ -150,17 +150,17 @@ func _make_sides(round_: int, preset: String, start: Vector3, spots: Array[Vecto
 	for mode in ([0, 1, 2] if _held else [0, 1]):
 		# 0 native on the main thread, 1 script, 2 native on a worker.
 		var native: bool = mode != 1
-		var me := DotBotContact.make(1, Vector3.ZERO)
-		var them := DotBotContact.make(2, start)
+		var me := GSBotContact.make(1, Vector3.ZERO)
+		var them := GSBotContact.make(2, start)
 		var all: Array = [me, them]
 		for b in BYSTANDERS:
-			all.append(DotBotContact.make(10 + b, spots[b]))
-		var world := DotBotWorld.new()
+			all.append(GSBotContact.make(10 + b, spots[b]))
+		var world := GSBotWorld.new()
 		var wall := [false]
 		world.contacts_fn = func() -> Array: return all
 		# The wall hides the target, and the far side of the field from the near.
 		world.line_of_sight_fn = func(a: Vector3, b: Vector3) -> bool: return not wall[0] and (a.distance_to(b) < 30.0 or b.x > a.x)
-		var brain := DotBotBrain.new(round_ * 13 + 5, _settings(preset, round_))
+		var brain := GSBotBrain.new(round_ * 13 + 5, _settings(preset, round_))
 		if not native:
 			brain.aim._demote()
 			brain._mind = null
@@ -168,7 +168,7 @@ func _make_sides(round_: int, preset: String, start: Vector3, spots: Array[Vecto
 	return sides
 
 
-func _row(brain: DotBotBrain, intent: DotBotIntent) -> Array:
+func _row(brain: GSBotBrain, intent: GSBotIntent) -> Array:
 	var a := brain.aim
 	var row: Array = [
 		intent.state, intent.yaw, intent.pitch, intent.fire, intent.crouch, intent.jump,
@@ -180,8 +180,8 @@ func _row(brain: DotBotBrain, intent: DotBotIntent) -> Array:
 	return row
 
 
-## The aim's private state in DotSimBotMind.state()'s order, wherever it lives.
-func _aim_state(a: DotBotAim) -> Array:
+## The aim's private state in GSSimBotMind.state()'s order, wherever it lives.
+func _aim_state(a: GSBotAim) -> Array:
 	if a._n != null:
 		return Array(a._n.state())
 	return [

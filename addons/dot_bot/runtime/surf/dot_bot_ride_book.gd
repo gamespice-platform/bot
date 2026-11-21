@@ -1,15 +1,15 @@
-class_name DotBotRideBook
+class_name GSBotRideBook
 extends RefCounted
 
 ## The rides known per edge on one map version: verified recordings and offline-searched seeds, ranked by measured success.
 ##
-## Rides are entries [code]{id, source, score, data}[/code]. Below [member DotBotRideConfig.target] recordings an edge ranks by score; at it every recording outranks every seed. A new map version drops all.
+## Rides are entries [code]{id, source, score, data}[/code]. Below [member GSBotRideConfig.target] recordings an edge ranks by score; at it every recording outranks every seed. A new map version drops all.
 
 const CHANNEL := "bot.ride.book"
 const RECORDED := "recorded"
 const SEEDED := "seeded"
 
-var config: DotBotRideConfig
+var config: GSBotRideConfig
 var map_id: String = ""
 var map_version: String = ""
 var invalidated: int = 0
@@ -17,8 +17,8 @@ var invalidated: int = 0
 var _edges: Dictionary = {}
 
 
-func _init(p_config: DotBotRideConfig = null) -> void:
-	config = p_config if p_config != null else DotBotRideConfig.new()
+func _init(p_config: GSBotRideConfig = null) -> void:
+	config = p_config if p_config != null else GSBotRideConfig.new()
 
 
 ## Keys the book to a map version; a different one empties it. True when it did.
@@ -26,7 +26,7 @@ func set_map(p_map_id: String, p_version: String) -> bool:
 	var changed := p_map_id != map_id or p_version != map_version
 	if changed and not _edges.is_empty():
 		invalidated += 1
-		DotLog.info(CHANNEL, "Map changed; dropped every ride.", {"from": "%s@%s" % [map_id, map_version], "to": "%s@%s" % [p_map_id, p_version]})
+		GSLog.info(CHANNEL, "Map changed; dropped every ride.", {"from": "%s@%s" % [map_id, map_version], "to": "%s@%s" % [p_map_id, p_version]})
 		_edges = {}
 	map_id = p_map_id
 	map_version = p_version
@@ -37,9 +37,9 @@ func add_seeded(key: String, score: float, data: Variant = null, id: int = 0) ->
 	_add(key, {"id": id, "source": SEEDED, "score": score, "data": data})
 
 
-## Replaces an edge's recordings with the verified ones in [param store]; the value is how many. With a [param reference_yaw] (the edge's course) each recording also carries the pilot cache it was verified as, `data["cache"]` and `data["reference_yaw"]`, which [method DotBotSurfRide.begin_picked] rides in place of replaying the raw commands.
-func load_edge(store: Variant, kind: String, key: String, schema: Variant, tick_rate: float, reference_yaw: float = NAN) -> DotResult:
-	var loaded: DotResult = await store.load(map_id, map_version, kind, key, config.cap)
+## Replaces an edge's recordings with the verified ones in [param store]; the value is how many. With a [param reference_yaw] (the edge's course) each recording also carries the pilot cache it was verified as, `data["cache"]` and `data["reference_yaw"]`, which [method GSBotSurfRide.begin_picked] rides in place of replaying the raw commands.
+func load_edge(store: Variant, kind: String, key: String, schema: Variant, tick_rate: float, reference_yaw: float = NAN) -> GSResult:
+	var loaded: GSResult = await store.load(map_id, map_version, kind, key, config.cap)
 	if not loaded.ok:
 		return loaded
 	var kept: Array = (_edges.get(key, []) as Array).filter(func(r: Dictionary) -> bool: return r["source"] != RECORDED)
@@ -55,12 +55,12 @@ func load_edge(store: Variant, kind: String, key: String, schema: Variant, tick_
 		var hold := 1 if ep.rate <= 0.0 else maxi(1, roundi(tick_rate / ep.rate))
 		var data := {"actions": actions, "action_size": schema.action_size(), "hold": hold}
 		if not is_nan(reference_yaw):
-			data["cache"] = DotBotRideQuantiser.entries(ep, schema, reference_yaw, hold)
+			data["cache"] = GSBotRideQuantiser.entries(ep, schema, reference_yaw, hold)
 			data["reference_yaw"] = reference_yaw
 			data["tracking"] = config.pilot_tracking
 		kept.append({"id": ep.id, "source": RECORDED, "score": ep.score, "data": data})
 		n += 1
-	return DotResult.success(n)
+	return GSResult.success(n)
 
 
 func edge_keys() -> PackedStringArray:
@@ -96,8 +96,8 @@ func success(key: String) -> float:
 	return best
 
 
-## One of an edge's top [member DotBotRideConfig.top] rides, weighted by score from [param rng]; empty with none.
-func choose(key: String, rng: DotRandomStream) -> Dictionary:
+## One of an edge's top [member GSBotRideConfig.top] rides, weighted by score from [param rng]; empty with none.
+func choose(key: String, rng: GSRandomStream) -> Dictionary:
 	var top := ranked(key)
 	if top.size() > config.top:
 		top.resize(config.top)

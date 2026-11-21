@@ -1,8 +1,8 @@
-class_name DotBotAimSolver
+class_name GSBotAimSolver
 extends RefCounted
 
 ## Optional aim solver for simulated bullets (drop and flight time): returns the point to aim at so a
-## bullet meets a moving target. Off unless a game assigns [member DotBotAim.aim_solver].
+## bullet meets a moving target. Off unless a game assigns [member GSBotAim.aim_solver].
 
 const STEP := 1.0 / 120.0
 const GRAVITY := 9.8
@@ -10,7 +10,7 @@ const MAX_TIME := 15.0
 
 
 ## Reads muzzle_velocity, bullet_gravity and drag off [param tuning] by duck typing (a dot-weapon
-## DotWeaponBallistics fits, so does any Object or Dictionary with those names). Null or
+## GSWeaponBallistics fits, so does any Object or Dictionary with those names). Null or
 ## muzzle_velocity <= 0 means hitscan: [param target] comes back unchanged, as it does when no solution exists.
 static func solve(muzzle: Vector3, target: Vector3, velocity: Vector3, tuning: Variant) -> Vector3:
 	var v0 := _read(tuning, "muzzle_velocity", 0.0)

@@ -1,5 +1,5 @@
 @tool
-class_name DotBotPersona
+class_name GSBotPersona
 extends RefCounted
 
 ## One kind of bot character: how often it picks each behaviour with nothing in front of it, how likely a server is to give it out, and how well it shoots.
@@ -21,9 +21,9 @@ var display_name: String = "Balanced"
 var weight: float = 1.0
 ## Weight of each behaviour, in [constant BEHAVIOURS].
 var mix: Dictionary = {HUNT: 1.0, LOOT: 1.0, HOLD: 1.0, SUPPORT: 1.0, SCOUT: 1.0}
-## A [constant DotBotProfile.PRESETS] name, or "" for the server's difficulty.
+## A [constant GSBotProfile.PRESETS] name, or "" for the server's difficulty.
 var difficulty: String = ""
-## `bot_<field>` values over the difficulty ([DotBotProfile.SPEC] fields).
+## `bot_<field>` values over the difficulty ([GSBotProfile.SPEC] fields).
 var skill: Dictionary = {}
 ## `<field>` -> multiplier on the server's value, so a persona stays relative to bot_difficulty.
 var scale: Dictionary = {}
@@ -56,8 +56,8 @@ static func profile_schemas() -> Dictionary:
 
 
 ## A persona from [param values] (a profile's `values` dictionary); unknown keys are ignored.
-static func from_values(p_id: String, values: Dictionary) -> DotBotPersona:
-	var out := DotBotPersona.new()
+static func from_values(p_id: String, values: Dictionary) -> GSBotPersona:
+	var out := GSBotPersona.new()
 	out.id = StringName(p_id)
 	out.display_name = str(values.get("name", "")) if str(values.get("name", "")) != "" else p_id.capitalize()
 	out.weight = maxf(float(values.get("weight", 1.0)), 0.0)
@@ -98,12 +98,12 @@ func pick(roll: float, last: StringName = &"") -> StringName:
 	return BEHAVIOURS[BEHAVIOURS.size() - 1]
 
 
-## A [DotBotProfile] for this persona over [param base]: its difficulty (the base's when blank) and skill values.
+## A [GSBotProfile] for this persona over [param base]: its difficulty (the base's when blank) and skill values.
 ## Null when the persona states neither, so the bot keeps sharing the game's live settings.
-func profile_over(base: DotBotProfile) -> DotBotProfile:
+func profile_over(base: GSBotProfile) -> GSBotProfile:
 	if difficulty == "" and skill.is_empty():
 		return null
-	var out: DotBotProfile = DotBotProfile.preset(difficulty) if difficulty != "" else base.copy()
+	var out: GSBotProfile = GSBotProfile.preset(difficulty) if difficulty != "" else base.copy()
 	if out == null:
 		out = base.copy()
 	for field in skill:
@@ -114,14 +114,14 @@ func profile_over(base: DotBotProfile) -> DotBotProfile:
 ## Writes this persona's profile for one bot into [param out], in place: [param base] (or the persona's
 ## difficulty), its skill values, its scale, then the bot's own [member spread] drawn from [param bot_seed].
 ## turn_rate never rises above the base's: bot_turn_rate is the server's promise of the fastest view.
-func derive_into(out: DotBotProfile, base: DotBotProfile, bot_seed: int) -> void:
-	var start: DotBotProfile = DotBotProfile.preset(difficulty) if difficulty != "" else null
+func derive_into(out: GSBotProfile, base: GSBotProfile, bot_seed: int) -> void:
+	var start: GSBotProfile = GSBotProfile.preset(difficulty) if difficulty != "" else null
 	out.copy_from(start if start != null else base)
 	for field in skill:
 		out.set_number(str(field), float(skill[field]))
 	for field in scale:
 		var name := str(field)
-		if not DotBotProfile.spec_for(name).is_empty():
+		if not GSBotProfile.spec_for(name).is_empty():
 			out.set_number(name, out.get_field(name) * maxf(float(scale[field]), 0.0))
 	if spread > 0.0:
 		var rng := RandomNumberGenerator.new()

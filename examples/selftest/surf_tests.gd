@@ -26,7 +26,7 @@ class ToyCommand:
 class ToySim:
 	extends RefCounted
 	var delta := 1.0 / 64.0
-	var course: DotBotSurfCourse = null
+	var course: GSBotSurfCourse = null
 	var steps := 0
 	func command(yaw: float, move: Vector2, jump: bool) -> ToyCommand:
 		var c := ToyCommand.new()
@@ -45,8 +45,8 @@ class ToySim:
 
 ## A corridor along -z that turns right at its end: straight on is a pit, the goal is round the
 ## corner.
-func _toy_course() -> DotBotSurfCourse:
-	var course := DotBotSurfCourse.new()
+func _toy_course() -> GSBotSurfCourse:
+	var course := GSBotSurfCourse.new()
 	course.start = Vector3.ZERO
 	course.goals.append(AABB(Vector3(4.0, -1.0, -24.0), Vector3(6.0, 2.0, 6.0)))
 	course.pits.append(AABB(Vector3(-50.0, -1.0, -50.0), Vector3(48.0, 2.0, 100.0)))  # x < -2
@@ -75,13 +75,13 @@ func _test_surf() -> void:
 	var course := _toy_course()
 	var sim := ToySim.new()
 	sim.course = course
-	var planner := DotBotSurfPlanner.new()
+	var planner := GSBotSurfPlanner.new()
 	planner.seconds = 12.0
 	var start: ToyState = _toy_starts(1, 1)[0]
 	var found := planner.search(start, course, sim)
 	_check(bool(found["found"]), "the beam finds a way round the corner", str(found["why"]))
-	var ride := DotBotSurfPlanner.trajectory(start, found.get("actions", PackedByteArray()), planner.hold, course, sim)
-	_check(int(ride["event"]) == DotBotSurfCourse.EVENT_GOAL and int(ride["ticks"]) == int(found["ticks"]),
+	var ride := GSBotSurfPlanner.trajectory(start, found.get("actions", PackedByteArray()), planner.hold, course, sim)
+	_check(int(ride["event"]) == GSBotSurfCourse.EVENT_GOAL and int(ride["ticks"]) == int(found["ticks"]),
 		"and its actions replayed arrive on the same tick (the simulator is deterministic)", "%d and %d ticks" % [ride["ticks"], found["ticks"]])
 
 	var lines: Array[String] = []
@@ -91,10 +91,10 @@ func _test_surf() -> void:
 		"a cache is built from several starts and repair rounds", "%d rides, failures per round %s" % [built["found"], str(built["rounds"])])
 
 	# Saved and read back as a game's file keeps it, in units of 2 cm.
-	var rows := DotBotSurfPilot.entries_to_rows(built["rides"], 0.02)
-	var pilot := DotBotSurfPilot.new()
+	var rows := GSBotSurfPilot.entries_to_rows(built["rides"], 0.02)
+	var pilot := GSBotSurfPilot.new()
 	pilot.load_stage({"entries": rows, "lengths": Array(built["lengths"]), "reference_yaw": course.reference_yaw()}, 0.02)
-	_check(pilot.size() == (built["rides"] as PackedFloat32Array).size() / DotBotSurfPilot.STRIDE,
+	_check(pilot.size() == (built["rides"] as PackedFloat32Array).size() / GSBotSurfPilot.STRIDE,
 		"the cache reads back from its rows", "%d entries" % pilot.size())
 	pilot.sim = sim
 	pilot.score = course.score
@@ -106,15 +106,15 @@ func _test_surf() -> void:
 	_surf_forecast(pilot, sim, tries)
 
 	# Riding while aiming elsewhere: the keys are turned for the view, and the wish is the same.
-	var heading_view := DotBotSurfPilot.move_toward(30.0, 30.0)
-	var turned := DotBotSurfPilot.move_toward(30.0, 120.0)
+	var heading_view := GSBotSurfPilot.move_toward(30.0, 30.0)
+	var turned := GSBotSurfPilot.move_toward(30.0, 120.0)
 	var wish_a := _wish(30.0, heading_view)
 	var wish_b := _wish(120.0, turned)
 	_check(heading_view.is_equal_approx(Vector2(0.0, 1.0)) and wish_a.is_equal_approx(wish_b),
 		"a wish is held from any view (the keys turn, the direction does not)", "%s and %s" % [str(wish_a), str(wish_b)])
 	_done()
 
-func _surf_lookup(pilot: DotBotSurfPilot) -> void:
+func _surf_lookup(pilot: GSBotSurfPilot) -> void:
 	# The lookup skips a neighbour cell no entry of which can be nearer than the best so far.
 	# Armed by skipping on `>= 0.0` (every neighbour is skipped and some answers move).
 	var agree := 0
@@ -137,7 +137,7 @@ func _surf_lookup(pilot: DotBotSurfPilot) -> void:
 	_check(agree == asked, "the cache's lookup finds the entry a scan of every entry finds", "%d of %d" % [agree, asked])
 
 
-func _surf_far(pilot: DotBotSurfPilot) -> void:
+func _surf_far(pilot: GSBotSurfPilot) -> void:
 	# A state off every ride (a veto's candidate gone wrong) reads the coarse grid: the nearest
 	# entry too, ring by ring. Much further out it reads a sparse sample: an entry near the
 	# nearest (within 20 m, here), which is all a falling state's action needs.
@@ -161,7 +161,7 @@ func _surf_far(pilot: DotBotSurfPilot) -> void:
 	_check(far_asked >= 5, "and enough of the probes were far", "%d" % far_asked)
 
 
-func _surf_ride_modes(pilot: DotBotSurfPilot, sim: ToySim, tries: Array) -> void:
+func _surf_ride_modes(pilot: GSBotSurfPilot, sim: ToySim, tries: Array) -> void:
 	var arrived := [0, 0]
 	var cost := [0, 0]
 	var ridden := [0, 0]
@@ -170,7 +170,7 @@ func _surf_ride_modes(pilot: DotBotSurfPilot, sim: ToySim, tries: Array) -> void
 		pilot.lookahead_ticks = 0
 		for s: ToyState in tries:
 			var r := pilot.ride(s, sim, 64 * 12)
-			arrived[mode] += 1 if int(r["event"]) == DotBotSurfCourse.EVENT_GOAL else 0
+			arrived[mode] += 1 if int(r["event"]) == GSBotSurfCourse.EVENT_GOAL else 0
 			ridden[mode] += int(r["ticks"])
 		cost[mode] = pilot.lookahead_ticks
 	var plain_cost := float(cost[0]) / maxf(1.0, ridden[0])
@@ -182,7 +182,7 @@ func _surf_ride_modes(pilot: DotBotSurfPilot, sim: ToySim, tries: Array) -> void
 		"%.2f against %.2f simulated ticks a ridden tick; %s" % [rolling_cost, plain_cost, str(pilot.describe())])
 
 
-func _surf_forecast(pilot: DotBotSurfPilot, sim: ToySim, tries: Array) -> void:
+func _surf_forecast(pilot: GSBotSurfPilot, sim: ToySim, tries: Array) -> void:
 	# A forecast spread over ticks ends where, and with the verdict, an all-at-once one does.
 	var same := 0
 	var steps_ok := true
@@ -253,7 +253,7 @@ func _test_ride_edges() -> void:
 		shape.position = centre
 		still.add_child(shape)
 	await get_tree().physics_frame
-	var nav := DotBotNav.new()
+	var nav := GSBotNav.new()
 	var baked := nav.bake(root, {"radius": 0.35, "height": 1.0, "climb": 0.4}, 0, [still])
 	var islands := nav.islands()
 	_check(baked.ok and islands.size() == 2 and nav.island_at(Vector3(0.0, 0.0, 0.0)) != nav.island_at(Vector3(20.0, 0.0, 0.0)),
@@ -280,12 +280,12 @@ func _test_ride_edges() -> void:
 		"with one the route reaches it and marks where the ride starts and ends", "%s %s" % [str(points), str(rides)])
 
 	# The brain walks the route and says when it is at the ride's start.
-	var world := DotBotWorld.new()
+	var world := GSBotWorld.new()
 	world.waypoints_fn = func() -> PackedVector3Array: return PackedVector3Array([Vector3(22.0, 0.0, 0.0)])
 	world.route_detail_fn = nav.route
-	var me := DotBotContact.make(1, Vector3(-2.0, 0.0, 0.0))
+	var me := GSBotContact.make(1, Vector3(-2.0, 0.0, 0.0))
 	world.contacts_fn = func() -> Array: return [me]
-	var brain := DotBotBrain.new(5)
+	var brain := GSBotBrain.new(5)
 	var said := -1
 	var where := Vector3.ZERO
 	var t := 0.0
@@ -336,7 +336,7 @@ func _test_drop_behind_wall() -> void:
 		shape.position = part[1]
 		unbaked.add_child(shape)
 	await get_tree().physics_frame
-	var nav := DotBotNav.new()
+	var nav := GSBotNav.new()
 	var baked := nav.bake(root, {"radius": 0.05, "height": 1.0, "climb": 0.4}, 0, [still])
 	var rim := Vector3(0.1, 1.2, 0.0)
 	var near_mesh := nav.closest(Vector3(1.0, 0.0, 0.0))
@@ -352,39 +352,39 @@ func _test_drop_behind_wall() -> void:
 
 func _ride_steer_checks() -> Vector3:
 	# A ride: the pilot's legs into the brain's intent, the view left alone, and the landing told.
-	var course := DotBotSurfCourse.new()
+	var course := GSBotSurfCourse.new()
 	course.start = Vector3(4.0, 0.0, 0.0)
 	course.goals.append(AABB(Vector3(15.0, -1.0, -5.0), Vector3(10.0, 2.0, 10.0)))
 	course.floor_y = -5.0
 	var _settled := course.settle()
 	var sim := ToySim.new()
-	var cache := DotBotSurfPilot.new()
+	var cache := GSBotSurfPilot.new()
 	cache.load_entries(PackedFloat32Array([4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 4.0]), PackedInt32Array([1]), course.reference_yaw())
-	var ride := DotBotSurfRide.new().begin(cache, course, null, 0)
+	var ride := GSBotSurfRide.new().begin(cache, course, null, 0)
 	var s := ToyState.new()
 	s.position = Vector3(4.0, 0.0, 0.0)
-	var status := DotBotSurfRide.RIDING
+	var status := GSBotSurfRide.RIDING
 	var tick := 0
 	var view_kept := true
-	while status == DotBotSurfRide.RIDING and tick < 64 * 10:
-		var intent := DotBotIntent.new()
+	while status == GSBotSurfRide.RIDING and tick < 64 * 10:
+		var intent := GSBotIntent.new()
 		intent.yaw = 180.0  # looking back the way it came, at somebody
 		status = ride.steer(s, intent, tick)
-		if status != DotBotSurfRide.RIDING:
+		if status != GSBotSurfRide.RIDING:
 			break
 		view_kept = view_kept and intent.yaw == 180.0
 		var _e := sim.step(s, sim.command(intent.yaw, intent.move, intent.jump))
 		tick += 1
-	_check(status == DotBotSurfRide.LANDED and view_kept, "a ride steers to the far floor while looking the other way",
+	_check(status == GSBotSurfRide.LANDED and view_kept, "a ride steers to the far floor while looking the other way",
 		"status %d after %d ticks at %s" % [status, tick, str(s.position)])
-	var stalled := DotBotSurfRide.new().begin(cache, course, null, 0)
+	var stalled := GSBotSurfRide.new().begin(cache, course, null, 0)
 	var pinned := ToyState.new()
 	pinned.position = Vector3(4.0, 0.0, 0.0)
-	var pin_status := DotBotSurfRide.RIDING
+	var pin_status := GSBotSurfRide.RIDING
 	var pin_tick := 0
-	while pin_status == DotBotSurfRide.RIDING and pin_tick < 64 * 10:
-		pin_status = stalled.steer(pinned, DotBotIntent.new(), pin_tick)
+	while pin_status == GSBotSurfRide.RIDING and pin_tick < 64 * 10:
+		pin_status = stalled.steer(pinned, GSBotIntent.new(), pin_tick)
 		pin_tick += 1
-	_check(pin_status == DotBotSurfRide.TIMED_OUT and pin_tick < 64 * 12, "a ride that goes nowhere for 8 s ends instead of running its 30",
+	_check(pin_status == GSBotSurfRide.TIMED_OUT and pin_tick < 64 * 12, "a ride that goes nowhere for 8 s ends instead of running its 30",
 		"status %d after %d ticks" % [pin_status, pin_tick])
 	return s.position

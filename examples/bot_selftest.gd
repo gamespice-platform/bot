@@ -14,7 +14,7 @@ const SECTIONS := 62
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
@@ -107,12 +107,12 @@ func _report() -> void:
 	get_tree().quit(1 if _failed > 0 else 0)
 
 
-## DotBotAim on its own, the way a game with its own decisions uses it.
+## GSBotAim on its own, the way a game with its own decisions uses it.
 func _test_aim() -> void:
-	_section("DotBotAim on its own")
+	_section("GSBotAim on its own")
 
-	var s := DotBotSettings.new()
-	var aim := DotBotAim.new(5, s)
+	var s := GSBotSettings.new()
+	var aim := GSBotAim.new(5, s)
 	var eye := Vector3(0, 1.6, 0)
 	var chest := Vector3(0, 1.25, -12)
 	_check(aim.engage(9, eye, chest, 0.0), "a first sight starts an engagement")
@@ -163,80 +163,80 @@ func _test_aim() -> void:
 func _test_senses() -> void:
 	_section("senses: no walls, a view cone, hearing")
 
-	var s := DotBotSettings.new()
+	var s := GSBotSettings.new()
 	s.set_difficulty("nightmare")
 
 	var sc := _scene(Vector3(0, 0, -15), true)
-	var brain := DotBotBrain.new(1, s)
+	var brain := GSBotBrain.new(1, s)
 	var intents := _run_bot(brain, sc[0], sc[2], 3.0)
-	_check(intents.all(func(i: DotBotIntent) -> bool: return not i.fire and i.target_id == -1),
+	_check(intents.all(func(i: GSBotIntent) -> bool: return not i.fire and i.target_id == -1),
 		"a nightmare bot never targets or fires at somebody behind a wall in front of it")
 
 	sc = _scene(Vector3(0, 0, 15))
-	brain = DotBotBrain.new(1, s)
+	brain = GSBotBrain.new(1, s)
 	intents = _run_bot(brain, sc[0], sc[2], 0.5)
-	_check((intents[0] as DotBotIntent).target_id == -1, "somebody directly behind, in the open, is not seen on the first tick")
+	_check((intents[0] as GSBotIntent).target_id == -1, "somebody directly behind, in the open, is not seen on the first tick")
 
 	sc = _scene(Vector3(0, 0, 15))
-	var world: DotBotWorld = sc[2]
-	brain = DotBotBrain.new(1, s)
+	var world: GSBotWorld = sc[2]
+	brain = GSBotBrain.new(1, s)
 	var _first := brain.think(sc[0], world, 0.0)
 	world.emit_sound(Vector3(0, 0, 15), 1.0, 2, 0.01)
 	intents = _run_bot(brain, sc[0], world, 2.0, TICK)
-	var turned := intents.any(func(i: DotBotIntent) -> bool: return i.target_id == 2)
+	var turned := intents.any(func(i: GSBotIntent) -> bool: return i.target_id == 2)
 	_check(turned, "a gunshot behind turns it round, and then it sees who fired")
 
 	# Made on the same timestamp as the bot's last think: a time comparison missed this one, and
 	# a bot with its back to the shooter died without turning (the duel below found it).
 	sc = _scene(Vector3(0, 0, 15))
 	world = sc[2]
-	brain = DotBotBrain.new(1, s)
+	brain = GSBotBrain.new(1, s)
 	_first = brain.think(sc[0], world, 0.5)
 	world.emit_sound(Vector3(0, 0, 15), 1.0, 2, 0.5)
 	_check(brain.think(sc[0], world, 0.5 + TICK).state == &"listen", "a sound made on the tick the bot last thought is still heard")
 
 	sc = _scene(Vector3(0, 0, 100))
 	world = sc[2]
-	brain = DotBotBrain.new(1, s)
+	brain = GSBotBrain.new(1, s)
 	_first = brain.think(sc[0], world, 0.0)
 	world.emit_sound(Vector3(0, 0, 100), 1.0, 2, 0.01)
 	intents = _run_bot(brain, sc[0], world, 0.5, TICK)
-	_check(intents.all(func(i: DotBotIntent) -> bool: return i.state == &"roam"), "a gunshot past its hearing is not heard")
+	_check(intents.all(func(i: GSBotIntent) -> bool: return i.state == &"roam"), "a gunshot past its hearing is not heard")
 
 	sc = _scene(Vector3(0, 0, -15))
-	brain = DotBotBrain.new(1, s)
+	brain = GSBotBrain.new(1, s)
 	var a := _run_bot(brain, sc[0], sc[2], 1.0)
 	sc = _scene(Vector3(0, 0, -15))
-	var b := _run_bot(DotBotBrain.new(1, s), sc[0], sc[2], 1.0)
+	var b := _run_bot(GSBotBrain.new(1, s), sc[0], sc[2], 1.0)
 	var same := true
 	for k in range(a.size()):
-		same = same and (a[k] as DotBotIntent).yaw == (b[k] as DotBotIntent).yaw and (a[k] as DotBotIntent).fire == (b[k] as DotBotIntent).fire
+		same = same and (a[k] as GSBotIntent).yaw == (b[k] as GSBotIntent).yaw and (a[k] as GSBotIntent).fire == (b[k] as GSBotIntent).fire
 	_check(same, "the same id and inputs play the same bot")
 
 	# Killed in plain view: the bot moves on rather than pre-aiming the body.
 	sc = _scene(Vector3(0, 0, -10))
-	brain = DotBotBrain.new(1, s)
+	brain = GSBotBrain.new(1, s)
 	intents = _run_bot(brain, sc[0], sc[2], 1.0)
-	(sc[1] as DotBotContact).alive = false
+	(sc[1] as GSBotContact).alive = false
 	intents = _run_bot(brain, sc[0], sc[2], 0.2, 1.0)
-	_check((intents.back() as DotBotIntent).state == &"roam", "a target killed in view is not searched for", str((intents.back() as DotBotIntent).state))
+	_check((intents.back() as GSBotIntent).state == &"roam", "a target killed in view is not searched for", str((intents.back() as GSBotIntent).state))
 
 	var hurt := _scene(Vector3(0, 0, 40), true)
-	brain = DotBotBrain.new(1, s)
+	brain = GSBotBrain.new(1, s)
 	_first = brain.think(hurt[0], hurt[2], 0.0)
 	brain.hurt(Vector3(0, 0, 40), 0.0)
 	intents = _run_bot(brain, hurt[0], hurt[2], 1.0, TICK)
-	_check((intents.back() as DotBotIntent).state == &"listen" and absf(wrapf((intents.back() as DotBotIntent).yaw - 180.0, -180.0, 180.0)) < 10.0,
+	_check((intents.back() as GSBotIntent).state == &"listen" and absf(wrapf((intents.back() as GSBotIntent).yaw - 180.0, -180.0, 180.0)) < 10.0,
 		"being shot from behind turns it toward the shooter without seeing them")
 	_done()
 
 
-## The same crowd thought through with and without [member DotBotBrain.target_first].
+## The same crowd thought through with and without [member GSBotBrain.target_first].
 func _test_target_first() -> void:
 	_section("target first: testing the held target alone changes no intent")
 	var fast := _crowd_intents(true)
 	var full := _crowd_intents(false)
-	DotBotBrain.target_first = true
+	GSBotBrain.target_first = true
 	var differs := -1
 	for i in range(mini(fast.size(), full.size())):
 		if fast[i] != full[i]:
@@ -257,29 +257,29 @@ func _test_target_first() -> void:
 
 ## Every intent of six bots over 20 s among eight bodies that circle a wall, die, come back and fire; smoke for a while.
 func _crowd_intents(target_first: bool) -> Array:
-	DotBotBrain.target_first = target_first
+	GSBotBrain.target_first = target_first
 	const PRESETS: Array[String] = ["easy", "medium", "hard", "nightmare", "hard", "medium"]
 	var bodies: Array = []
 	for i in range(8):
-		bodies.append(DotBotContact.make(i + 1, Vector3.ZERO, 0 if i >= 6 else 1 + i % 2))
-	var world := DotBotWorld.new()
+		bodies.append(GSBotContact.make(i + 1, Vector3.ZERO, 0 if i >= 6 else 1 + i % 2))
+	var world := GSBotWorld.new()
 	world.contacts_fn = func() -> Array: return bodies
 	# A wall on x = 0 for |z| < 4: sight across it there is refused.
 	world.line_of_sight_fn = func(a: Vector3, b: Vector3) -> bool:
 		if (a.x < 0.0) == (b.x < 0.0):
 			return true
 		return absf(lerpf(a.z, b.z, a.x / (a.x - b.x))) >= 4.0
-	var brains: Array[DotBotBrain] = []
+	var brains: Array[GSBotBrain] = []
 	for i in range(PRESETS.size()):
-		var s := DotBotSettings.new()
+		var s := GSBotSettings.new()
 		s.set_difficulty(PRESETS[i])
-		brains.append(DotBotBrain.new(i + 1, s))
+		brains.append(GSBotBrain.new(i + 1, s))
 	var out: Array = []
 	var smoked := false
 	for tick in range(int(20.0 / TICK)):
 		var t := tick * TICK
 		for i in range(bodies.size()):
-			var c: DotBotContact = bodies[i]
+			var c: GSBotContact = bodies[i]
 			var w := 0.25 + 0.07 * i
 			var r := 5.0 + 1.5 * i
 			var phase := t * w + i * 0.9
@@ -290,7 +290,7 @@ func _crowd_intents(target_first: bool) -> Array:
 			smoked = true
 			var _id := world.add_sight_blocker(Vector3(4.0, 1.0, 0.0), 3.0, 10.0)
 		for i in range(brains.size()):
-			var me: DotBotContact = bodies[i]
+			var me: GSBotContact = bodies[i]
 			# Bot 6 thinks every third tick, as a staggered one does.
 			if i == 5 and tick % 3 != 0:
 				continue
@@ -307,15 +307,15 @@ func _crowd_intents(target_first: bool) -> Array:
 func _test_turning() -> void:
 	_section("the view turns no faster than bot_turn_rate")
 
-	for preset in DotBotProfile.PRESETS:
-		var s := DotBotSettings.new()
+	for preset in GSBotProfile.PRESETS:
+		var s := GSBotSettings.new()
 		s.set_difficulty(preset)
 		var sc := _scene(Vector3(1.5, 0, 1.0))
-		var brain := DotBotBrain.new(1, s)
+		var brain := GSBotBrain.new(1, s)
 		var intents := _run_bot(brain, sc[0], sc[2], 1.5)
 		var fastest := 0.0
 		for k in range(1, intents.size()):
-			var step := absf(wrapf((intents[k] as DotBotIntent).yaw - (intents[k - 1] as DotBotIntent).yaw, -180.0, 180.0))
+			var step := absf(wrapf((intents[k] as GSBotIntent).yaw - (intents[k - 1] as GSBotIntent).yaw, -180.0, 180.0))
 			fastest = maxf(fastest, step / TICK)
 		print("       %-9s fastest turn %4.0f deg/s (limit %4.0f)" % [preset, fastest, s.profile.turn_rate])
 		_check(fastest <= s.profile.turn_rate * 1.01, "%s turns at most %d deg/s" % [preset, int(s.profile.turn_rate)], str(fastest))
@@ -328,8 +328,8 @@ func _test_reaction_and_aim() -> void:
 	_section("reaction time and aim error, measured")
 
 	var previous_reaction := INF
-	for preset in DotBotProfile.PRESETS:
-		var s := DotBotSettings.new()
+	for preset in GSBotProfile.PRESETS:
+		var s := GSBotSettings.new()
 		s.set_difficulty(preset)
 		var p := s.profile
 		var reactions: Array[float] = []
@@ -339,15 +339,15 @@ func _test_reaction_and_aim() -> void:
 			var off := deg_to_rad(-30.0 + 60.0 * float(trial) / 39.0)
 			var at := Vector3(-sin(off), 0.0, -cos(off)) * 15.0
 			var sc := _scene(at)
-			var brain := DotBotBrain.new(1000 + trial, s)
+			var brain := GSBotBrain.new(1000 + trial, s)
 			var intents := _run_bot(brain, sc[0], sc[2], 2.5)
 			var e := brain.engagement()
 			if not is_nan(float(e["first_shot_at"])):
 				reactions.append(float(e["first_shot_at"]) - float(e["seen_at"]))
 				first_errors.append(float(e["first_shot_error_deg"]))
-			var me: DotBotContact = sc[0]
-			var last := intents.back() as DotBotIntent
-			settled.append(rad_to_deg(last.forward().angle_to((sc[1] as DotBotContact).aim_point() - me.eye())))
+			var me: GSBotContact = sc[0]
+			var last := intents.back() as GSBotIntent
+			settled.append(rad_to_deg(last.forward().angle_to((sc[1] as GSBotContact).aim_point() - me.eye())))
 		var r := _mean(reactions)
 		var fe := _mean(first_errors)
 		var se := _mean(settled)

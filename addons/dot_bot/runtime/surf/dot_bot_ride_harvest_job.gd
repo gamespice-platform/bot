@@ -1,25 +1,25 @@
-class_name DotBotRideHarvestJob
-extends DotJob
+class_name GSBotRideHarvestJob
+extends GSJob
 
-## Replays episodes for [DotBotRideHarvest] a few at a time inside [member DotBotRideConfig.budget_msec], so a server never stalls a frame on it.
+## Replays episodes for [GSBotRideHarvest] a few at a time inside [member GSBotRideConfig.budget_msec], so a server never stalls a frame on it.
 ##
 ## The result's value is [member verdicts]: per episode [code]{episode, ok, score, landed, starts}[/code].
 
 var verdicts: Array = []
 
-var _harvest: DotBotRideHarvest
+var _harvest: GSBotRideHarvest
 var _episodes: Array
 var _index: int = 0
 ## -1 is the unperturbed replay, 0 and up the perturbed starts.
 var _start: int = -1
 var _landed: int = 0
 var _base_ok: bool = false
-var _rng: DotRandomStream = null
-var _run: DotBotRideHarvest.Run = null
+var _rng: GSRandomStream = null
+var _run: GSBotRideHarvest.Run = null
 var _stopped: bool = false
 
 
-func _init(harvest: DotBotRideHarvest, episodes: Array) -> void:
+func _init(harvest: GSBotRideHarvest, episodes: Array) -> void:
 	_harvest = harvest
 	_episodes = episodes
 
@@ -33,7 +33,7 @@ func _step() -> bool:
 		if _stopped or Time.get_ticks_usec() >= deadline or (cfg.slice_steps > 0 and used >= cfg.slice_steps):
 			break
 	if _index >= _episodes.size():
-		_finish(DotResult.success(verdicts))
+		_finish(GSResult.success(verdicts))
 		return false
 	return true
 
@@ -57,13 +57,13 @@ func _one(ep: Variant, deadline: int, allowance: int) -> int:
 		else:
 			var moved: Variant = host.perturb(state, _rng, cfg.perturb_metres, cfg.perturb_speed)
 			if moved == null:
-				_after(ep, DotBotRideHarvest.FAILED)
+				_after(ep, GSBotRideHarvest.FAILED)
 				return 0
 			_run = _harvest.begin_replay(ep, moved)
 	var before := _run.steps
 	var verdict := _run.advance(deadline, allowance)
 	var ran := _run.steps - before
-	if verdict == DotBotRideHarvest.RUNNING:
+	if verdict == GSBotRideHarvest.RUNNING:
 		_stopped = true
 		return ran
 	_run = null
@@ -75,14 +75,14 @@ func _after(ep: Variant, verdict: int) -> void:
 	var cfg := _harvest.config
 	var host: Variant = _harvest.host
 	if _start < 0:
-		_base_ok = verdict == DotBotRideHarvest.LANDED
+		_base_ok = verdict == GSBotRideHarvest.LANDED
 		_start = 0
 		_landed = 0
-		_rng = DotRandomStream.new(cfg.seed + ep.id)
+		_rng = GSRandomStream.new(cfg.seed + ep.id)
 		if not _base_ok or cfg.starts == 0 or not host.has_method(&"perturb"):
 			_close(ep, _base_ok)
 		return
-	if verdict == DotBotRideHarvest.LANDED:
+	if verdict == GSBotRideHarvest.LANDED:
 		_landed += 1
 	_start += 1
 	if _start >= cfg.starts:

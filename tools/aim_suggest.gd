@@ -10,16 +10,16 @@ func _init() -> void:
 		print("usage: aim_suggest.gd -- <store dir> <map id> <map version> [min episodes]")
 		quit(2)
 		return
-	var store := DotBotDemoStoreJson.new(args[0])
-	var counts: DotResult = store.counts(args[1], args[2], DotBotAimStats.KIND)
+	var store := GSBotDemoStoreJson.new(args[0])
+	var counts: GSResult = store.counts(args[1], args[2], GSBotAimStats.KIND)
 	if not counts.ok:
 		print(counts.error.message)
 		quit(1)
 		return
-	var stats := DotBotAimStats.new()
+	var stats := GSBotAimStats.new()
 	if args.size() > 3:
 		stats.min_count = int(args[3])
-	var folded: DotResult = await stats.fold_store(store, args[1], args[2], (counts.value as Dictionary).keys())
+	var folded: GSResult = await stats.fold_store(store, args[1], args[2], (counts.value as Dictionary).keys())
 	if not folded.ok:
 		print(folded.error.message)
 		quit(1)

@@ -9,7 +9,7 @@ The brain sees only what is inside its view cone and in line of sight, and hears
 
 How well it does all that is a profile of about forty numbers. Four presets (`easy`, `medium`, `hard`, `nightmare`) fill them in, and every number is its own cvar, so a server owner can pick a preset and then change any single setting.
 
-It also has a pool of bot names, so a scoreboard never shows "Bot 2", and a roster that adds or removes bots to reach a count (GameSpice Server's `DotBotQuota` says what the count is).
+It also has a pool of bot names, so a scoreboard never shows "Bot 2", and a roster that adds or removes bots to reach a count (GameSpice Server's `GSBotQuota` says what the count is).
 
 ## Install
 You need [Godot 4.7](https://godotengine.org/download). The easiest way to get this addon and the ones it needs is [GameSpice Bootstrap](https://github.com/gamespice-platform/bootstrap), which clones every project and links the addons into each one.
@@ -19,22 +19,22 @@ To add it to your own project by hand, copy `addons/dot_bot/` and [GameSpice Cor
 ## Using it
 
 ```gdscript
-# The world: what a bot may know. Set the callables, or extend DotBotWorld.
-var world := DotBotWorld.new()
-world.contacts_fn = func() -> Array: return my_players_as_contacts()   # Array of DotBotContact
+# The world: what a bot may know. Set the callables, or extend GSBotWorld.
+var world := GSBotWorld.new()
+world.contacts_fn = func() -> Array: return my_players_as_contacts()   # Array of GSBotContact
 world.line_of_sight_fn = func(a: Vector3, b: Vector3) -> bool: return trace.line_of_sight(a, b)
 world.waypoints_fn = func() -> PackedVector3Array: return spawn_points
 # Optional: a walkable way between two places (a navigation graph's corners), so a bot does not
 # walk into the wall between it and a waypoint; and how fast the held weapon's shot flies, so a
 # rocket is led. Without them a bot walks straight and aims every weapon as hitscan.
 world.route_fn = func(from: Vector3, to: Vector3) -> PackedVector3Array: return nav.path(from, to)
-world.projectile_speed_fn = func(shooter: DotBotContact) -> float: return held_weapon_speed(shooter)
+world.projectile_speed_fn = func(shooter: GSBotContact) -> float: return held_weapon_speed(shooter)
 
 # Every gunshot, so bots can hear it.
 world.emit_sound(shooter_position, 1.0, shooter_id, now)
 
 # One brain per bot, sharing the game's settings.
-var brain := DotBotBrain.new(bot_id, DotBotSettings.of(game))
+var brain := GSBotBrain.new(bot_id, GSBotSettings.of(game))
 
 # Each tick: what it would press, written into your own commands.
 var intent := brain.think(me_as_contact, world, now)
@@ -45,12 +45,12 @@ intent.write_fire(fire_command)     # yaw, pitch, attack
 brain.hurt(attacker_eye_position, now)
 ```
 
-`write_move` and `write_fire` read the button bits from your command's own constants (`BUTTON_ATTACK`, `BUTTON_CROUCH`, `BUTTON_JUMP`), so GameSpice Player Controller's `DotFpsCommand` and GameSpice Weapon's `DotWeaponCommand` work as they are.
+`write_move` and `write_fire` read the button bits from your command's own constants (`BUTTON_ATTACK`, `BUTTON_CROUCH`, `BUTTON_JUMP`), so GameSpice Player Controller's `GSFpsCommand` and GameSpice Weapon's `GSWeaponCommand` work as they are.
 
 A game that already decides what its bots do can use just the aiming part, so its bots still turn, miss and react like the presets say:
 
 ```gdscript
-var aim := DotBotAim.new(bot_id, DotBotSettings.of(game))
+var aim := GSBotAim.new(bot_id, GSBotSettings.of(game))
 aim.view_from(body_yaw, body_pitch)                 # each tick, the view going into it
 aim.engage(target_id, eye, target_chest, now)        # each tick it can see its target
 var view := aim.track(eye, target_chest, target_velocity, now, delta)
@@ -62,14 +62,14 @@ fire = aim.trigger(now, eye.distance_to(target_chest))
 On a server, register the cvars on your module. In a solo game, add them to the player's console:
 
 ```gdscript
-DotBotSettings.of(game).bind_cvars(add_cvar, DotConVar.FLAG_NOTIFY, add_command)   # dot-server module
-DotBotSettings.of(game).bind_console(local_console)                                 # dot-console's DotConsoleLocal
+GSBotSettings.of(game).bind_cvars(add_cvar, GSConVar.FLAG_NOTIFY, add_command)   # dot-server module
+GSBotSettings.of(game).bind_console(local_console)                                 # dot-console's GSConsoleLocal
 ```
 
 Names and the bot count:
 
 ```gdscript
-var roster := DotBotRoster.new()
+var roster := GSBotRoster.new()
 roster.keep(quota.wanted(humans, max_players), bot_ids,
     func(name: String) -> int: return add_bot(name),
     func(id: int) -> void: remove_bot(id),
@@ -80,19 +80,19 @@ roster.keep(quota.wanted(humans, max_players), bot_ids,
 
 - `brain.blind_for(now, 3.0, flash_position)` blinds a bot: it sees nothing but still hears.
 - `world.add_sight_blocker(center, radius, until)` makes line of sight through a sphere fail until `until`. It returns an id for `remove_sight_blocker`.
-- Ladders: call `links.link_ladders(nav, boxes)` and assign `world.ladder_fn = links.ladder_of`. The brain faces the ladder, holds forward and hops off at the top. For a game that steers its own bots, `DotBotClimb.begin(...)` then `step(feet, now)` each tick returns `{yaw, move, jump, done}`.
+- Ladders: call `links.link_ladders(nav, boxes)` and assign `world.ladder_fn = links.ladder_of`. The brain faces the ladder, holds forward and hops off at the top. For a game that steers its own bots, `GSBotClimb.begin(...)` then `step(feet, now)` each tick returns `{yaw, move, jump, done}`.
 
-A consumer that must run against older builds can guard with `DotAddonApi.build_level("dot_bot")`. These features need level 8 (blind and smoke) and level 9 to 11 (ladders). See [docs/design.md](docs/design.md).
+A consumer that must run against older builds can guard with `GSAddonApi.build_level("dot_bot")`. These features need level 8 (blind and smoke) and level 9 to 11 (ladders). See [docs/design.md](docs/design.md).
 
 ### Hiding, searching and walking a map
-For games where bots hide and seek rather than fight, three helpers sit beside the brain. `DotBotNav` bakes a navigation mesh from your map's colliders when the map is built (pass the bodies that never move, so a door baked shut is not a wall) and gives paths and seeded random points. `DotBotHiding` scores places by how many of the map's sight lines reach them, picks one apart from the other hiders, and finds somewhere out of a seeker's sight to run to. `DotBotSearch` is a seeker's memory: the likely places first, crossed off once looked at, and the places near a sound put back on the list.
+For games where bots hide and seek rather than fight, three helpers sit beside the brain. `GSBotNav` bakes a navigation mesh from your map's colliders when the map is built (pass the bodies that never move, so a door baked shut is not a wall) and gives paths and seeded random points. `GSBotHiding` scores places by how many of the map's sight lines reach them, picks one apart from the other hiders, and finds somewhere out of a seeker's sight to run to. `GSBotSearch` is a seeker's memory: the likely places first, crossed off once looked at, and the places near a sound put back on the list.
 
 ```gdscript
-var nav := DotBotNav.new()
+var nav := GSBotNav.new()
 nav.bake(map, {"radius": 0.35, "height": 0.95, "climb": 0.4}, 0, [walls_body, furniture_body])
-var spots := DotBotHiding.survey(candidates, watchers, line_of_sight)    # once per map
-var spot := DotBotHiding.choose(spots, me, seeker_starts, taken, stream, settings.profile.map_knowledge)
-var search := DotBotSearch.new()
+var spots := GSBotHiding.survey(candidates, watchers, line_of_sight)    # once per map
+var spot := GSBotHiding.choose(spots, me, seeker_starts, taken, stream, settings.profile.map_knowledge)
+var search := GSBotSearch.new()
 search.setup(spots, settings.profile.map_knowledge)
 var next := search.next(my_feet, now, other_seekers_targets, stream)
 ```
@@ -141,7 +141,7 @@ game-hide-n-seek's `game/hs_bots.gd` is the worked example.
 | `bot_jump` | 0 | 0.05 | 0.15 | 0.2 | 0 to 2 | Jumps per second while fighting up close. |
 | `bot_map_knowledge` | 0.1 | 0.4 | 0.7 | 1 | 0 to 1 | Chance a roaming bot heads where it last knew of an enemy instead of anywhere. |
 | `bot_pickup_weapons` | 1 | 1 | 1 | 1 | 0 or 1 | 1 lets a quiet bot walk to a better weapon lying about and take it with the use key; 0 never. |
-| `bot_stranded_sec` | 6 | 6 | 6 | 6 | 0 to 600 s | Stuck this long with every unstick step tried: `DotBotIntent.stranded` is set (and a warning logged) for the game to respawn the bot, again each interval; 0 never. |
+| `bot_stranded_sec` | 6 | 6 | 6 | 6 | 0 to 600 s | Stuck this long with every unstick step tried: `GSBotIntent.stranded` is set (and a warning logged) for the game to respawn the bot, again each interval; 0 never. |
 | `bot_pickup_range` | 6 | 9 | 12 | 16 | 1 to 100 m | Farthest a bot notices a weapon lying about (it must also see it). |
 | `bot_replan_every` | 0 | 0 | 0 | 0 | 0 or more s | Seconds between a quiet bot's looks over the weapons lying about, each a sight ray per one in range; 0 looks every think. |
 | `bot_role_defend` | 0.3 | 0.3 | 0.3 | 0.3 | 0 to 1 | Share of a team's bots that guard their flag in a flag mode. |
@@ -149,7 +149,7 @@ game-hide-n-seek's `game/hs_bots.gd` is the worked example.
 | `bot_role_support` | 0.3 | 0.3 | 0.3 | 0.3 | 0 to 1 | Share that escort a carrier or hold the middle. All three 0: every bot roams. |
 | `bot_objective_focus` | 0.6 | 0.8 | 0.9 | 0.95 | 0 to 1 | How steadily a bot keeps to its team job; the rest of the time it roams a few seconds. |
 | `bot_defend_radius` | 14 | 14 | 14 | 14 | 3 to 80 | Metres around its flag a defender patrols; it chases no further than twice this. |
-| `bot_policy` | 0 | 0 | 0 | 0 | 0 to 1 | Share of bots driven by the cloned policy (`DotBotPolicy`); needs a net and a passing gate report for the map. |
+| `bot_policy` | 0 | 0 | 0 | 0 | 0 to 1 | Share of bots driven by the cloned policy (`GSBotPolicy`); needs a net and a passing gate report for the map. |
 | `bot_react_jitter` | 0.5 | 0.3 | 0.3 | 0.25 | 0 to 2 | How unevenly the reaction time varies between sightings (0 is the plain 15 percent either way). |
 | `bot_overshoot` | 0.6 | 0.4 | 0.4 | 0.3 | 0 to 1 | How far a fast turn onto a target swings past it before coming back (0 is none). |
 | `bot_track_lag` | 0.12 | 0.05 | 0.04 | 0.03 | 0 to 0.5 | Seconds the bot takes to notice a target changed direction (it aims with the old velocity meanwhile). |

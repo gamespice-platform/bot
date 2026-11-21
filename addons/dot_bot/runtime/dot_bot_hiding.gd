@@ -1,4 +1,4 @@
-class_name DotBotHiding
+class_name GSBotHiding
 extends RefCounted
 
 ## Where to hide: places scored by how few of the map's sight lines reach them, picked apart
@@ -18,7 +18,7 @@ extends RefCounted
 ## [b]The skill is how far down the list it looks.[/b] A good player knows the best spots; a new
 ## one takes the first cupboard it sees. [param skill] (0..1, GameSpice Bot's `bot_map_knowledge`)
 ## picks among the best two at 1 and among the better third at 0, always from the bot's own
-## [DotRandomStream].
+## [GSRandomStream].
 ##
 ## Pure: everything comes in as arguments (spots, positions, a line-of-sight callable), so a
 ## prop-hunt or any hiding game can use it with its own map.
@@ -60,7 +60,7 @@ static func survey(candidates: PackedVector3Array, watchers: PackedVector3Array,
 ## [param reachable] (`(spot: Vector3) -> bool`, e.g. a path short enough for the time left)
 ## says so. [param skill] 0..1. An empty dictionary when nothing qualifies.
 static func choose(spots: Array, me: Vector3, threats: PackedVector3Array, taken: PackedVector3Array,
-		stream: DotRandomStream, skill: float, reachable: Callable = Callable(), spread: float = SPREAD) -> Dictionary:
+		stream: GSRandomStream, skill: float, reachable: Callable = Callable(), spread: float = SPREAD) -> Dictionary:
 	var scored: Array = []
 	for spot: Dictionary in spots:
 		var at: Vector3 = spot["at"]

@@ -2,8 +2,8 @@ extends "res://examples/selftest/surf_tests.gd"
 ## The recorded-episode and ride-harvest sections of the bot suite.
 
 
-func _demo_episode(map_id: String, version: String, kind: String, key: String, score: float = 0.0, verified: bool = false) -> DotBotDemoEpisode:
-	var e := DotBotDemoEpisode.new()
+func _demo_episode(map_id: String, version: String, kind: String, key: String, score: float = 0.0, verified: bool = false) -> GSBotDemoEpisode:
+	var e := GSBotDemoEpisode.new()
 	e.map_id = map_id
 	e.map_version = version
 	e.schema_id = "abc123"
@@ -48,7 +48,7 @@ class RideToySim:
 class RideToyBase:
 	extends RefCounted
 
-	func replay_start(ep: DotBotDemoEpisode) -> RideToyState:
+	func replay_start(ep: GSBotDemoEpisode) -> RideToyState:
 		var s := RideToyState.new()
 		s.position.x = float(ep.start.get("x", 0.0))
 		return s
@@ -56,16 +56,16 @@ class RideToyBase:
 	func replay_command(_sim: Variant, action: PackedFloat32Array, _state: Variant) -> float:
 		return action[0] if action.size() > 0 else 0.0
 
-	func landing(state: RideToyState, _event: int, _ep: DotBotDemoEpisode) -> int:
+	func landing(state: RideToyState, _event: int, _ep: GSBotDemoEpisode) -> int:
 		if state.position.x > 12.0 or (state.position.x >= 10.0 and state.velocity.x > 30.0):
-			return DotBotRideHarvest.FAILED
-		return DotBotRideHarvest.LANDED if state.position.x >= 10.0 else DotBotRideHarvest.GOING
+			return GSBotRideHarvest.FAILED
+		return GSBotRideHarvest.LANDED if state.position.x >= 10.0 else GSBotRideHarvest.GOING
 
 
 class RideToyHost:
 	extends RideToyBase
 
-	func perturb(state: RideToyState, rng: DotRandomStream, metres: float, _speed: float) -> RideToyState:
+	func perturb(state: RideToyState, rng: GSRandomStream, metres: float, _speed: float) -> RideToyState:
 		var c := state.duplicate_state()
 		c.position.x -= metres * rng.next_unit()
 		return c
@@ -79,12 +79,12 @@ class RideNoLanding:
 	extends RefCounted
 
 
-func _ride_schema() -> DotBotDemoSchema:
-	return DotBotDemoSchema.make("ride", 1).add_observation("pos", 3).add_action("thrust", 1)
+func _ride_schema() -> GSBotDemoSchema:
+	return GSBotDemoSchema.make("ride", 1).add_observation("pos", 3).add_action("thrust", 1)
 
 
 ## An episode of [param samples] samples at 16 Hz, each holding [param thrust] for four ticks.
-func _ride_episode(key: String, thrust: float, samples: int = 16, start_x: float = 0.0) -> DotBotDemoEpisode:
+func _ride_episode(key: String, thrust: float, samples: int = 16, start_x: float = 0.0) -> GSBotDemoEpisode:
 	var e := _demo_episode("surf_toy", "v1", "ride", key)
 	e.start = {"x": start_x}
 	e.rate = 16.0
@@ -95,13 +95,13 @@ func _ride_episode(key: String, thrust: float, samples: int = 16, start_x: float
 	return e
 
 
-func _ride_harvest(cfg: DotBotRideConfig = null, host: Variant = null) -> DotBotRideHarvest:
-	return DotBotRideHarvest.new(cfg if cfg != null else DotBotRideConfig.new(), _ride_schema(), RideToySim.new(), host if host != null else RideToyHost.new())
+func _ride_harvest(cfg: GSBotRideConfig = null, host: Variant = null) -> GSBotRideHarvest:
+	return GSBotRideHarvest.new(cfg if cfg != null else GSBotRideConfig.new(), _ride_schema(), RideToySim.new(), host if host != null else RideToyHost.new())
 
 
 func _test_harvest_verify() -> void:
 	_section("ride harvest: replay keeps a ride that lands and rejects one that does not")
-	var cfg := DotBotRideConfig.new()
+	var cfg := GSBotRideConfig.new()
 	cfg.settle_ticks = 0
 	cfg.perturb_metres = 0.3
 	var h := _ride_harvest(cfg)
@@ -115,13 +115,13 @@ func _test_harvest_verify() -> void:
 	_check(score > 0.0 and score < 1.0 and int(v[0]["starts"]) == cfg.starts, "its score is the share of perturbed starts that land", "%.2f" % score)
 	var again := _ride_harvest(cfg).verify([good])
 	_check(is_equal_approx(float(again[0]["score"]), score), "the same seed gives the same score")
-	var settled := DotBotRideConfig.new()
+	var settled := GSBotRideConfig.new()
 	var long_run := _ride_harvest(settled).verify([_ride_episode("1>2", 20.0, 16, -4.0)])
 	_check(long_run[0]["ok"], "ticks past the recording are allowed to settle")
 	var plain := _ride_harvest(null, RideToyHost.new())
 	plain.host = RideToyHostNoPerturb.new()
 	_check(is_equal_approx(float(plain.verify([_ride_episode("1>2", 20.0)])[0]["score"]), 1.0), "without a perturbation a kept ride scores 1")
-	var strict := DotBotRideConfig.new()
+	var strict := GSBotRideConfig.new()
 	strict.min_score = 1.0
 	strict.settle_ticks = 0
 	strict.perturb_metres = 6.0
@@ -130,10 +130,10 @@ func _test_harvest_verify() -> void:
 	var steps := 0
 	while job.step():
 		steps += 1
-	_check(job.result != null and job.result.ok and job.verdicts.size() == 2 and job.state == DotJob.State.DONE, "a job reaches its verdicts", str(steps))
-	_check(h.describe_lines().size() == 1 and h.describe().has("replays") and not DotBotRideConfig.new().apply_dictionary({"starts": 9, "top": 2}, "file", true).is_empty(), "describes itself and takes config from a dictionary")
-	_check(DotBotRideConfig.new().validate().ok, "the defaults are valid")
-	var broken := DotBotRideConfig.new()
+	_check(job.result != null and job.result.ok and job.verdicts.size() == 2 and job.state == GSJob.State.DONE, "a job reaches its verdicts", str(steps))
+	_check(h.describe_lines().size() == 1 and h.describe().has("replays") and not GSBotRideConfig.new().apply_dictionary({"starts": 9, "top": 2}, "file", true).is_empty(), "describes itself and takes config from a dictionary")
+	_check(GSBotRideConfig.new().validate().ok, "the defaults are valid")
+	var broken := GSBotRideConfig.new()
 	broken.top = 0
 	_check(not broken.validate().ok, "a top of 0 is refused")
 	_done()
@@ -141,75 +141,75 @@ func _test_harvest_verify() -> void:
 
 func _test_harvest_store() -> void:
 	_section("ride harvest: verdicts reach the store, the worst ride is replaced at the cap")
-	var store := DotBotDemoStoreMemory.new()
-	var cfg := DotBotRideConfig.new()
+	var store := GSBotDemoStoreMemory.new()
+	var cfg := GSBotRideConfig.new()
 	cfg.cap = 3
 	var h := _ride_harvest(cfg)
 	h.host = RideToyHostNoPerturb.new()
 	var seeds := [_ride_episode("1>2", 20.0), _ride_episode("1>2", 2.0), _ride_episode("1>2", 22.0)]
 	var _a := await store.append(seeds)
-	var res: DotResult = await h.harvest(store, "surf_toy", "v1", "ride", "1>2")
-	var counts: DotResult = await store.counts("surf_toy", "v1", "ride")
+	var res: GSResult = await h.harvest(store, "surf_toy", "v1", "ride", "1>2")
+	var counts: GSResult = await store.counts("surf_toy", "v1", "ride")
 	_check(res.ok and res.value == 2 and counts.value["1>2"] == 2 and store.episodes.size() == 2, "the bad ride is removed and the good ones marked verified", str(store.episodes.size()))
 	# Two more good ones: one fits, the next finds the edge at its cap.
-	for e: DotBotDemoEpisode in store.episodes:
+	for e: GSBotDemoEpisode in store.episodes:
 		e.score = 0.5
 	var more := [_ride_episode("1>2", 21.0)]
 	var _b := await store.append(more)
-	var res2: DotResult = await h.harvest(store, "surf_toy", "v1", "ride", "1>2")
+	var res2: GSResult = await h.harvest(store, "surf_toy", "v1", "ride", "1>2")
 	_check(res2.ok and res2.value == 3 and store.episodes.size() == 3 and h.replaced == 0, "up to the cap nothing is replaced")
 	var _c := await store.append([_ride_episode("1>2", 23.0)])
-	var res3: DotResult = await h.harvest(store, "surf_toy", "v1", "ride", "1>2")
-	var scores: Array = store.episodes.map(func(e: DotBotDemoEpisode) -> float: return e.score)
+	var res3: GSResult = await h.harvest(store, "surf_toy", "v1", "ride", "1>2")
+	var scores: Array = store.episodes.map(func(e: GSBotDemoEpisode) -> float: return e.score)
 	scores.sort()
 	_check(res3.ok and store.episodes.size() == 3 and h.replaced == 1 and scores == [0.5, 1.0, 1.0], "past the cap a better ride replaces the worst-scored one", str(scores))
 	var _d := await store.append([_ride_episode("1>2", 24.0)])
-	var res4: DotResult = await h.harvest(store, "surf_toy", "v1", "ride", "1>2")
+	var res4: GSResult = await h.harvest(store, "surf_toy", "v1", "ride", "1>2")
 	_check(res4.ok and store.episodes.size() == 3 and h.turned_away == 0 and h.replaced == 2, "and again, while the worst is below the newcomer")
 	var _e := await store.append([_ride_episode("1>2", 25.0)])
-	var res5: DotResult = await h.harvest(store, "surf_toy", "v1", "ride", "1>2")
+	var res5: GSResult = await h.harvest(store, "surf_toy", "v1", "ride", "1>2")
 	_check(res5.ok and store.episodes.size() == 3 and h.turned_away == 1, "a newcomer no better than the worst is turned away")
-	var keep := DotBotRideConfig.new()
+	var keep := GSBotRideConfig.new()
 	keep.keep_rejected = true
-	var kept_store := DotBotDemoStoreMemory.new()
+	var kept_store := GSBotDemoStoreMemory.new()
 	var _f := await kept_store.append([_ride_episode("1>2", 2.0)])
-	var _g: DotResult = await _ride_harvest(keep).harvest(kept_store, "surf_toy", "v1", "ride", "1>2")
-	_check(kept_store.episodes.size() == 1 and kept_store.episodes[0].score == DotBotRideHarvest.REJECTED_SCORE and not kept_store.episodes[0].verified
-		and DotBotRideHarvest.unchecked(kept_store.episodes).is_empty(), "keep_rejected marks a rejected ride and it is not replayed again")
+	var _g: GSResult = await _ride_harvest(keep).harvest(kept_store, "surf_toy", "v1", "ride", "1>2")
+	_check(kept_store.episodes.size() == 1 and kept_store.episodes[0].score == GSBotRideHarvest.REJECTED_SCORE and not kept_store.episodes[0].verified
+		and GSBotRideHarvest.unchecked(kept_store.episodes).is_empty(), "keep_rejected marks a rejected ride and it is not replayed again")
 	var dir := "user://dot_bot_ride_%d" % randi()
-	var json := DotBotDemoStoreJson.new(dir)
+	var json := GSBotDemoStoreJson.new(dir)
 	var _o := await json.open()
 	var _p := await json.append([_ride_episode("1>2", 20.0), _ride_episode("1>2", 2.0)])
-	var res6: DotResult = await _ride_harvest(null, RideToyHostNoPerturb.new()).harvest(json, "surf_toy", "v1", "ride", "1>2")
-	var back: DotResult = await DotBotDemoStoreJson.new(dir).load("surf_toy", "v1", "ride", "1>2", 0)
+	var res6: GSResult = await _ride_harvest(null, RideToyHostNoPerturb.new()).harvest(json, "surf_toy", "v1", "ride", "1>2")
+	var back: GSResult = await GSBotDemoStoreJson.new(dir).load("surf_toy", "v1", "ride", "1>2", 0)
 	_check(res6.ok and back.ok and back.value.size() == 1 and back.value[0].verified, "the JSON store takes the verdicts and the removal")
 	_done()
 
 
-func _book(cfg: DotBotRideConfig = null) -> DotBotRideBook:
-	var b := DotBotRideBook.new(cfg)
+func _book(cfg: GSBotRideConfig = null) -> GSBotRideBook:
+	var b := GSBotRideBook.new(cfg)
 	var _c := b.set_map("surf_toy", "v1")
 	return b
 
 
 func _test_ride_book() -> void:
 	_section("ride book: ranking by measured success, recorded above seeded once there are enough")
-	var cfg := DotBotRideConfig.new()
+	var cfg := GSBotRideConfig.new()
 	cfg.target = 3
 	var b := _book(cfg)
 	b.add_seeded("1>2", 0.9, "s1")
 	b.add_seeded("1>2", 0.4, "s2")
-	b._add("1>2", {"id": 1, "source": DotBotRideBook.RECORDED, "score": 0.6, "data": null})
+	b._add("1>2", {"id": 1, "source": GSBotRideBook.RECORDED, "score": 0.6, "data": null})
 	var r := b.ranked("1>2")
 	_check(r.map(func(x: Dictionary) -> float: return x["score"]) == [0.9, 0.6, 0.4], "under the target, rides rank by score", str(r.size()))
 	_check(is_equal_approx(b.success("1>2"), 0.9) and b.success("nowhere") == 0.0, "an edge's success is its best ride's")
 	b.add_seeded("2>3", 0.5, "s")
-	b._add("2>3", {"id": 2, "source": DotBotRideBook.RECORDED, "score": 0.5, "data": null})
-	_check(b.ranked("2>3")[0]["source"] == DotBotRideBook.RECORDED, "a recording wins a tie")
+	b._add("2>3", {"id": 2, "source": GSBotRideBook.RECORDED, "score": 0.5, "data": null})
+	_check(b.ranked("2>3")[0]["source"] == GSBotRideBook.RECORDED, "a recording wins a tie")
 	for i in 2:
-		b._add("1>2", {"id": 10 + i, "source": DotBotRideBook.RECORDED, "score": 0.3, "data": null})
+		b._add("1>2", {"id": 10 + i, "source": GSBotRideBook.RECORDED, "score": 0.3, "data": null})
 	var r2 := b.ranked("1>2")
-	_check(b.recorded_count("1>2") == 3 and r2[0]["source"] == DotBotRideBook.RECORDED and r2[2]["source"] == DotBotRideBook.RECORDED and r2[3]["source"] == DotBotRideBook.SEEDED,
+	_check(b.recorded_count("1>2") == 3 and r2[0]["source"] == GSBotRideBook.RECORDED and r2[2]["source"] == GSBotRideBook.RECORDED and r2[3]["source"] == GSBotRideBook.SEEDED,
 		"at the target every recording ranks above every seed", str(r2.map(func(x: Dictionary) -> String: return x["source"])))
 	_check(is_equal_approx(b.success("1>2"), 0.9), "but the edge's success still counts the seed")
 	_check(b.describe_lines().size() == 3 and b.describe()["edges"].has("1>2"), "the book describes itself")
@@ -218,8 +218,8 @@ func _test_ride_book() -> void:
 
 func _test_ride_book_store() -> void:
 	_section("ride book: loads verified recordings, forgets them on a new map version")
-	var store := DotBotDemoStoreMemory.new()
-	var mk := func(version: String, score: float, ok: bool) -> DotBotDemoEpisode:
+	var store := GSBotDemoStoreMemory.new()
+	var mk := func(version: String, score: float, ok: bool) -> GSBotDemoEpisode:
 		var e := _ride_episode("1>2", 20.0, 2)
 		e.map_version = version
 		e.score = score
@@ -228,69 +228,69 @@ func _test_ride_book_store() -> void:
 	var _a := await store.append([mk.call("v1", 0.8, true), mk.call("v1", 0.9, false), mk.call("v2", 0.7, true)])
 	var b := _book()
 	b.add_seeded("1>2", 0.5, "s")
-	var n: DotResult = await b.load_edge(store, "ride", "1>2", _ride_schema(), 64.0)
+	var n: GSResult = await b.load_edge(store, "ride", "1>2", _ride_schema(), 64.0)
 	var ranked := b.ranked("1>2")
 	_check(n.ok and n.value == 1 and ranked.size() == 2, "only verified recordings of this map version are loaded, seeds kept", "%s" % [n.value])
 	var data: Dictionary = ranked[0]["data"]
 	_check(data["hold"] == 4 and data["action_size"] == 1 and (data["actions"] as PackedFloat32Array).size() == 2, "a recording keeps its actions and its hold in ticks")
 	_check(not b.set_map("surf_toy", "v1") and b.ranked("1>2").size() == 2, "the same version keeps its rides")
 	_check(b.set_map("surf_toy", "v2") and b.ranked("1>2").is_empty() and b.invalidated == 1, "a new map version drops every ride")
-	var n2: DotResult = await b.load_edge(store, "ride", "1>2", _ride_schema(), 64.0)
+	var n2: GSResult = await b.load_edge(store, "ride", "1>2", _ride_schema(), 64.0)
 	_check(n2.value == 1 and is_equal_approx(b.success("1>2"), 0.7), "and the new version loads its own")
-	var dropped: DotResult = await store.prune("surf_toy", "v2")
-	var gone: DotResult = await store.remove([store.episodes[0].id])
+	var dropped: GSResult = await store.prune("surf_toy", "v2")
+	var gone: GSResult = await store.remove([store.episodes[0].id])
 	_check(dropped.value == 2 and gone.value == 1 and store.episodes.is_empty(), "the store prunes old versions and removes by id")
 	_done()
 
 
 func _test_ride_pick() -> void:
 	_section("ride choice: seeded, weighted, and recordings played back")
-	var cfg := DotBotRideConfig.new()
+	var cfg := GSBotRideConfig.new()
 	cfg.target = 2
 	cfg.top = 2
 	var b := _book(cfg)
 	b.add_seeded("1>2", 1.0, "seed")
 	for i in 3:
-		b._add("1>2", {"id": i + 1, "source": DotBotRideBook.RECORDED, "score": [0.9, 0.5, 0.1][i],
+		b._add("1>2", {"id": i + 1, "source": GSBotRideBook.RECORDED, "score": [0.9, 0.5, 0.1][i],
 			"data": {"actions": PackedFloat32Array([1.0, 0.0, 1.0]), "action_size": 1, "hold": 2}})
 	var counts := {}
-	var rng := DotRandomStream.new(5)
+	var rng := GSRandomStream.new(5)
 	for i in 400:
-		var e := DotBotSurfRide.pick(b, "1>2", rng)
+		var e := GSBotSurfRide.pick(b, "1>2", rng)
 		counts[e["id"]] = int(counts.get(e["id"], 0)) + 1
 	_check(counts.has(1) and counts.has(2) and not counts.has(3) and not counts.has(0), "a recording is chosen over the seed once there are enough, among the top two only", str(counts))
 	_check(int(counts[1]) > int(counts[2]), "the likelier ride is the better one", str(counts))
-	var a := DotRandomStream.new(9)
-	var c := DotRandomStream.new(9)
+	var a := GSRandomStream.new(9)
+	var c := GSRandomStream.new(9)
 	var same := true
 	for i in 30:
-		same = same and DotBotSurfRide.pick(b, "1>2", a)["id"] == DotBotSurfRide.pick(b, "1>2", c)["id"]
-	_check(same and DotBotSurfRide.pick(b, "nowhere", a).is_empty(), "the same seed picks the same rides, and an unknown edge gives none")
-	var course := DotBotSurfCourse.new()
+		same = same and GSBotSurfRide.pick(b, "1>2", a)["id"] == GSBotSurfRide.pick(b, "1>2", c)["id"]
+	_check(same and GSBotSurfRide.pick(b, "nowhere", a).is_empty(), "the same seed picks the same rides, and an unknown edge gives none")
+	var course := GSBotSurfCourse.new()
 	course.goals.append(AABB(Vector3(10.0, -1.0, -5.0), Vector3(2.0, 2.0, 10.0)))
 	course.floor_y = -5.0
 	var _s := course.settle()
 	var seen := PackedInt32Array()
-	var decode := func(row: PackedFloat32Array, _state: Variant, intent: DotBotIntent) -> void:
+	var decode := func(row: PackedFloat32Array, _state: Variant, intent: GSBotIntent) -> void:
 		intent.jump = row[0] > 0.5
-	var ride := DotBotSurfRide.new().begin_picked({"id": 4, "source": DotBotRideBook.RECORDED, "score": 1.0,
-		"data": {"actions": PackedFloat32Array([1.0, 0.0, 1.0]), "action_size": 1, "hold": 2}}, DotBotSurfPilot.new(), course, null, 0, decode)
+	var ride := GSBotSurfRide.new().begin_picked({"id": 4, "source": GSBotRideBook.RECORDED, "score": 1.0,
+		"data": {"actions": PackedFloat32Array([1.0, 0.0, 1.0]), "action_size": 1, "hold": 2}}, GSBotSurfPilot.new(), course, null, 0, decode)
 	var state := RideToyState.new()
-	var intent := DotBotIntent.new()
+	var intent := GSBotIntent.new()
 	for t in 6:
 		var st := ride.steer(state, intent, t)
 		seen.append(1 if intent.jump else 0)
-		if st != DotBotSurfRide.RIDING:
+		if st != GSBotSurfRide.RIDING:
 			break
 	_check(seen == PackedInt32Array([1, 1, 0, 0, 1, 1]), "a recorded ride is played back a row per hold, the last held on", str(seen))
 	state.position.x = 5.0
 	var _m := ride.steer(state, intent, 6)
 	state.position.x = 10.5
-	_check(ride.steer(state, intent, 7) == DotBotSurfRide.LANDED and ride.describe()["source"] == "recorded", "and it ends in the goal")
+	_check(ride.steer(state, intent, 7) == GSBotSurfRide.LANDED and ride.describe()["source"] == "recorded", "and it ends in the goal")
 	_done()
 
 
-func _place_episode(label: String, day: String, at: Vector3, fight: float = 0.0, ticks: int = 80) -> DotBotDemoEpisode:
+func _place_episode(label: String, day: String, at: Vector3, fight: float = 0.0, ticks: int = 80) -> GSBotDemoEpisode:
 	var e := _demo_episode("hm_toy", "v1", "place", label)
 	e.day = day
 	e.rate = 4.0
@@ -304,7 +304,7 @@ func _place_episode(label: String, day: String, at: Vector3, fight: float = 0.0,
 
 func _test_heatmap() -> void:
 	_section("demo heatmap: 1 Hz on a 2 m grid, a minimum count, decay, weighted waypoints")
-	var map := DotBotDemoHeatmap.new()
+	var map := GSBotDemoHeatmap.new()
 	map.fight_index = 3
 	var a := Vector3(3.0, 0.0, 3.0)
 	var b := Vector3(21.0, 0.0, 21.0)
@@ -326,25 +326,25 @@ func _test_heatmap() -> void:
 	var w := map.weighted(pts, "", 4)
 	_check(w.size() == 6 and w.count(a) == 4 and w.count(b) == 1 and w.count(c) == 1, "waypoints repeat by popularity, an unused place once", str(w.size()))
 	var fn := map.waypoints_fn(pts, "red", 4)
-	_check(fn.is_valid() and (fn.call() as PackedVector3Array).size() == 6, "waypoints_fn is a callable for DotBotWorld")
-	var world := DotBotWorld.new()
+	_check(fn.is_valid() and (fn.call() as PackedVector3Array).size() == 6, "waypoints_fn is a callable for GSBotWorld")
+	var world := GSBotWorld.new()
 	world.waypoints_fn = fn
 	_check(world.waypoints().size() == 6, "and the world reads it")
-	var old := DotBotDemoHeatmap.new()
+	var old := GSBotDemoHeatmap.new()
 	old.min_episodes = 1
 	var _o1 := old.fold(_place_episode("red", "2026-10-22", a), "2026-11-05")
 	var _o2 := old.fold(_place_episode("red", "2026-11-05", a), "2026-11-05")
 	_check(absf(old.weight_at(a) - 60.0 * 1.5 / 3.0) < 0.01, "a sample 14 days old counts half", str(old.weight_at(a)))
-	var store := DotBotDemoStoreMemory.new()
+	var store := GSBotDemoStoreMemory.new()
 	var _ap := await store.append([_place_episode("red", "2026-11-05", a), _place_episode("red", "2026-11-05", a), _place_episode("red", "2026-11-05", a)])
-	var fed := DotBotDemoHeatmap.new()
-	var res: DotResult = await fed.fold_store(store, "hm_toy", "v1", ["red"], 100, "2026-11-05")
+	var fed := GSBotDemoHeatmap.new()
+	var res: GSResult = await fed.fold_store(store, "hm_toy", "v1", ["red"], 100, "2026-11-05")
 	_check(res.ok and res.value == 3 and fed.weight_at(a) == 60.0, "folded from a store", str(res.value))
 	_done()
 
 
 ## An `engage` episode at 10 Hz of 20 frames (error, fired, tracking): the first shot at tick [param shot], a steady error.
-func _engage_episode(label: String, shot: int, err: float, track: float = 2.0, outcome: String = "kill") -> DotBotDemoEpisode:
+func _engage_episode(label: String, shot: int, err: float, track: float = 2.0, outcome: String = "kill") -> GSBotDemoEpisode:
 	var e := _demo_episode("aim_toy", "v1", "engage", label)
 	e.rate = 10.0
 	e.frame_size = 3
@@ -358,7 +358,7 @@ func _engage_episode(label: String, shot: int, err: float, track: float = 2.0, o
 
 func _test_aim_stats() -> void:
 	_section("demo aim stats: percentile sketches, the cheat floor, suggest onto SPEC")
-	var stats := DotBotAimStats.new()
+	var stats := GSBotAimStats.new()
 	stats.track_index = 2
 	for r in range(2, 10):
 		for _j in 5:
@@ -378,8 +378,8 @@ func _test_aim_stats() -> void:
 	var ride := _engage_episode("fc", 4, 3.0)
 	ride.kind = "ride"
 	_check(not stats.fold(other) and not stats.fold(ride), "another map version or kind is refused")
-	var filtered := DotBotAimStats.new()
-	filtered.include_fn = func(ep: DotBotDemoEpisode) -> bool: return ep.outcome != "flagged"
+	var filtered := GSBotAimStats.new()
+	filtered.include_fn = func(ep: GSBotDemoEpisode) -> bool: return ep.outcome != "flagged"
 	_check(not filtered.fold(_engage_episode("fc", 4, 3.0, 2.0, "flagged")) and filtered.dropped == 1 and filtered.fold(_engage_episode("fc", 4, 3.0)), "include_fn drops a flagged session")
 	_check(is_nan(filtered.percentile("reaction", 50.0)) and filtered.suggest().is_empty(), "too few episodes gives no percentile and no suggestion")
 	var table := stats.suggest()
@@ -389,7 +389,7 @@ func _test_aim_stats() -> void:
 	_check(not table.has("nightmare") and easy["reaction"] > medium["reaction"] and medium["reaction"] > hard["reaction"], "easy is slower than medium than hard")
 	_check(absf(medium["reaction"] - p50) < 0.05 and easy["aim_error"] > hard["aim_error"], "medium sits at the median, easy aims worse than hard")
 	_check(hard["reaction"] >= 0.12 and hard["aim_floor"] >= 0.3, "no preset is harder than nightmare's own floor", str(hard))
-	var quick := DotBotAimStats.new()
+	var quick := GSBotAimStats.new()
 	quick.track_index = 2
 	for _i in 40:
 		var _f := quick.fold(_engage_episode("fc", 1, 0.5, 0.1))
@@ -398,23 +398,23 @@ func _test_aim_stats() -> void:
 	_check(quick.percentiles().has("reaction") and (quick.percentiles()["reaction"] as Dictionary).has("p80"), "percentiles for a consumer that wants numbers")
 	var lines := stats.suggest_lines()
 	_check(lines.size() == 10 and lines[0].begins_with("field"), "the printed table is a header and nine rows", str(lines.size()))
-	var store := DotBotDemoStoreMemory.new()
+	var store := GSBotDemoStoreMemory.new()
 	var batch := []
 	for _i in 35:
 		batch.append(_engage_episode("fc", 5, 3.0))
 	var _ap := await store.append(batch)
-	var fed := DotBotAimStats.new()
-	var res: DotResult = await fed.fold_store(store, "aim_toy", "v1", ["fc"])
+	var fed := GSBotAimStats.new()
+	var res: GSResult = await fed.fold_store(store, "aim_toy", "v1", ["fc"])
 	_check(res.ok and res.value == 35 and fed.percentile("reaction", 50.0) > 0.45, "folded from a store", str(res.value))
 	_done()
 
 
 ## A schema of 3 observed and 2 acted floats and an episode for it of [param rows] rows whose values name their episode and row (so a read-back is checked value by value).
-func _bc_schema() -> DotBotDemoSchema:
-	return DotBotDemoSchema.make("ride", 2).add_observation("pos", 2, 10.0).add_observation("speed", 1, 5.0).add_action("thrust", 1, 1.0).add_action("jump", 1, 1.0, true)
+func _bc_schema() -> GSBotDemoSchema:
+	return GSBotDemoSchema.make("ride", 2).add_observation("pos", 2, 10.0).add_observation("speed", 1, 5.0).add_action("thrust", 1, 1.0).add_action("jump", 1, 1.0, true)
 
 
-func _bc_episode(schema: DotBotDemoSchema, id: int, map_id: String, rows: int) -> DotBotDemoEpisode:
+func _bc_episode(schema: GSBotDemoSchema, id: int, map_id: String, rows: int) -> GSBotDemoEpisode:
 	var e := _demo_episode(map_id, "v1", "ride", "edge_%d" % (id % 3), 0.0, true)
 	e.id = id
 	e.schema_id = schema.schema_id()
@@ -429,20 +429,20 @@ func _bc_episode(schema: DotBotDemoSchema, id: int, map_id: String, rows: int) -
 
 
 func _bc_tamper(src: String, dst: String, edit: Callable) -> void:
-	var _rm := await DotPaths.remove_tree(dst)
-	var _mk := DotPaths.ensure_dir(dst)
+	var _rm := await GSPaths.remove_tree(dst)
+	var _mk := GSPaths.ensure_dir(dst)
 	for f in DirAccess.get_files_at(src):
 		DirAccess.copy_absolute(src.path_join(f), dst.path_join(f))
-	var m: Dictionary = DotPaths.read_json(src.path_join("manifest.json")).value
+	var m: Dictionary = GSPaths.read_json(src.path_join("manifest.json")).value
 	edit.call(m)
-	var _w := DotPaths.write_json(dst.path_join("manifest.json"), m)
+	var _w := GSPaths.write_json(dst.path_join("manifest.json"), m)
 
 
 func _test_bc_export() -> void:
 	_section("bc export: manifest and float32 shards, split by episode, read back, untrusted loads")
 	var root := "user://dot_bot_bc_%d" % randi()
 	var schema := _bc_schema()
-	var ex := DotBotDemoExport.new(schema)
+	var ex := GSBotDemoExport.new(schema)
 	ex.max_shard_rows = 30
 	var originals := {}
 	for i in 10:
@@ -460,9 +460,9 @@ func _test_bc_export() -> void:
 	_check(ex.add(lone) and not ex.add(unverified) and not ex.add(other) and not ex.add(nan) and not ex.add(again) and ex.rejected == 4, "unverified, another schema, a NaN and a repeated id are refused and counted", str(ex.rejected))
 
 	var dir := root.path_join("a")
-	var wrote: DotResult = ex.write(dir)
+	var wrote: GSResult = ex.write(dir)
 	_check(wrote.ok, "written", wrote.error.message if not wrote.ok else "")
-	var loaded: DotResult = DotBotDemoExport.load_manifest(dir)
+	var loaded: GSResult = GSBotDemoExport.load_manifest(dir)
 	_check(loaded.ok, "the manifest loads back", loaded.error.message if not loaded.ok else "")
 	if not loaded.ok:
 		_done()
@@ -477,7 +477,7 @@ func _test_bc_export() -> void:
 	var worst := 0
 	for i in (m["shards"] as Array).size():
 		var shard: Dictionary = m["shards"][i]
-		var floats: DotResult = DotBotDemoExport.read_shard(dir, m, i)
+		var floats: GSResult = GSBotDemoExport.read_shard(dir, m, i)
 		if not floats.ok:
 			read_ok = false
 			continue
@@ -486,7 +486,7 @@ func _test_bc_export() -> void:
 		var at := 0
 		for pair: Array in shard["episodes"]:
 			split_of[pair[0]] = shard["split"] + "@" + shard["map_id"]
-			var want: PackedFloat32Array = (originals[pair[0]] as DotBotDemoEpisode).ticks if originals.has(pair[0]) else lone.ticks
+			var want: PackedFloat32Array = (originals[pair[0]] as GSBotDemoEpisode).ticks if originals.has(pair[0]) else lone.ticks
 			var got := data.slice(at * 5, (at + pair[1]) * 5)
 			rows_of[pair[0]] = got == want
 			at += pair[1]
@@ -515,25 +515,25 @@ func _test_bc_export() -> void:
 
 
 ## Part of [method _test_bc_export]: the same episodes give the same split, another seed another, and an existing export is kept unless asked.
-func _test_bc_rewrite(schema: DotBotDemoSchema, originals: Dictionary, lone: DotBotDemoEpisode, root: String, m: Dictionary, dir: String, ex: DotBotDemoExport) -> void:
-	var second := DotBotDemoExport.new(schema)
+func _test_bc_rewrite(schema: GSBotDemoSchema, originals: Dictionary, lone: GSBotDemoEpisode, root: String, m: Dictionary, dir: String, ex: GSBotDemoExport) -> void:
+	var second := GSBotDemoExport.new(schema)
 	second.max_shard_rows = 30
 	for id: int in originals:
 		var _a := second.add(originals[id])
 	var _b := second.add(lone)
 	var _c := second.write(root.path_join("b"))
-	var again_m: Dictionary = DotBotDemoExport.load_manifest(root.path_join("b")).value
+	var again_m: Dictionary = GSBotDemoExport.load_manifest(root.path_join("b")).value
 	_check(JSON.stringify(again_m["shards"]) == JSON.stringify(m["shards"]) and JSON.stringify(again_m["held_out"]) == JSON.stringify(m["held_out"]), "the same episodes give the same split and bytes")
-	var reseeded := DotBotDemoExport.new(schema)
+	var reseeded := GSBotDemoExport.new(schema)
 	reseeded.split_seed = "other"
 	for id: int in originals:
 		var _d := reseeded.add(originals[id])
 	var _e := reseeded.write(root.path_join("c"))
-	var seeded_m: Dictionary = DotBotDemoExport.load_manifest(root.path_join("c")).value
+	var seeded_m: Dictionary = GSBotDemoExport.load_manifest(root.path_join("c")).value
 	_check(JSON.stringify(seeded_m["held_out"]) != JSON.stringify(m["held_out"]), "another seed holds out other episodes")
 
-	_check(ex.write(dir).code() == DotError.CODE_CONFLICT, "an existing export is not overwritten by default")
-	var fewer := DotBotDemoExport.new(schema)
+	_check(ex.write(dir).code() == GSError.CODE_CONFLICT, "an existing export is not overwritten by default")
+	var fewer := GSBotDemoExport.new(schema)
 	fewer.max_shard_rows = 1000
 	var _f := fewer.add(originals[1])
 	var _g := fewer.add(originals[2])
@@ -541,74 +541,74 @@ func _test_bc_rewrite(schema: DotBotDemoSchema, originals: Dictionary, lone: Dot
 
 
 ## The rest of [method _test_bc_export]: tampered manifests and shards are refused, and an export collected from a store.
-func _test_bc_untrusted(root: String, schema: DotBotDemoSchema, originals: Dictionary) -> void:
+func _test_bc_untrusted(root: String, schema: GSBotDemoSchema, originals: Dictionary) -> void:
 	# Untrusted input: each edit of a good manifest must be refused with a reason.
 	var t := root.path_join("t")
-	var clean := DotBotDemoExport.new(schema)
+	var clean := GSBotDemoExport.new(schema)
 	clean.max_shard_rows = 30
 	for id: int in originals:
 		var _h := clean.add(originals[id])
 	var _i := clean.write(root.path_join("good"))
 	var good := root.path_join("good")
 	var cases := {
-		"a newer version": [func(x: Dictionary) -> void: x["version"] = 2, DotError.CODE_VERSION],
-		"another format": [func(x: Dictionary) -> void: x["format"] = "pickle", DotError.CODE_INVALID],
-		"a path in a shard name": [func(x: Dictionary) -> void: x["shards"][0]["file"] = "../manifest.json", DotError.CODE_INVALID],
-		"an absolute shard name": [func(x: Dictionary) -> void: x["shards"][0]["file"] = "/etc/passwd", DotError.CODE_INVALID],
-		"a shard listed twice": [func(x: Dictionary) -> void: x["shards"][1]["file"] = x["shards"][0]["file"], DotError.CODE_INVALID],
-		"a huge row count": [func(x: Dictionary) -> void: x["shards"][0]["rows"] = 1e12, DotError.CODE_INVALID],
-		"a fractional row count": [func(x: Dictionary) -> void: x["shards"][0]["rows"] = 2.5, DotError.CODE_INVALID],
-		"rows that do not add up": [func(x: Dictionary) -> void: x["shards"][0]["rows"] += 1, DotError.CODE_INVALID],
-		"a bad split name": [func(x: Dictionary) -> void: x["shards"][0]["split"] = "test", DotError.CODE_INVALID],
-		"a short hash": [func(x: Dictionary) -> void: x["shards"][0]["sha256"] = "abc", DotError.CODE_INVALID],
-		"a frame size that is not the fields": [func(x: Dictionary) -> void: x["frame_size"] = 6, DotError.CODE_INVALID],
-		"a zero scale": [func(x: Dictionary) -> void: x["observation"][0]["scale"] = 0, DotError.CODE_INVALID],
-		"a field with a huge size": [func(x: Dictionary) -> void: x["observation"][0]["size"] = 1e9, DotError.CODE_INVALID],
-		"a repeated field name": [func(x: Dictionary) -> void: x["action"][0]["name"] = "pos", DotError.CODE_INVALID],
-		"shards that are not a list": [func(x: Dictionary) -> void: x["shards"] = "all", DotError.CODE_INVALID],
-		"a held-out start that is not an object": [func(x: Dictionary) -> void: x["held_out"][0]["start"] = 5, DotError.CODE_INVALID],
+		"a newer version": [func(x: Dictionary) -> void: x["version"] = 2, GSError.CODE_VERSION],
+		"another format": [func(x: Dictionary) -> void: x["format"] = "pickle", GSError.CODE_INVALID],
+		"a path in a shard name": [func(x: Dictionary) -> void: x["shards"][0]["file"] = "../manifest.json", GSError.CODE_INVALID],
+		"an absolute shard name": [func(x: Dictionary) -> void: x["shards"][0]["file"] = "/etc/passwd", GSError.CODE_INVALID],
+		"a shard listed twice": [func(x: Dictionary) -> void: x["shards"][1]["file"] = x["shards"][0]["file"], GSError.CODE_INVALID],
+		"a huge row count": [func(x: Dictionary) -> void: x["shards"][0]["rows"] = 1e12, GSError.CODE_INVALID],
+		"a fractional row count": [func(x: Dictionary) -> void: x["shards"][0]["rows"] = 2.5, GSError.CODE_INVALID],
+		"rows that do not add up": [func(x: Dictionary) -> void: x["shards"][0]["rows"] += 1, GSError.CODE_INVALID],
+		"a bad split name": [func(x: Dictionary) -> void: x["shards"][0]["split"] = "test", GSError.CODE_INVALID],
+		"a short hash": [func(x: Dictionary) -> void: x["shards"][0]["sha256"] = "abc", GSError.CODE_INVALID],
+		"a frame size that is not the fields": [func(x: Dictionary) -> void: x["frame_size"] = 6, GSError.CODE_INVALID],
+		"a zero scale": [func(x: Dictionary) -> void: x["observation"][0]["scale"] = 0, GSError.CODE_INVALID],
+		"a field with a huge size": [func(x: Dictionary) -> void: x["observation"][0]["size"] = 1e9, GSError.CODE_INVALID],
+		"a repeated field name": [func(x: Dictionary) -> void: x["action"][0]["name"] = "pos", GSError.CODE_INVALID],
+		"shards that are not a list": [func(x: Dictionary) -> void: x["shards"] = "all", GSError.CODE_INVALID],
+		"a held-out start that is not an object": [func(x: Dictionary) -> void: x["held_out"][0]["start"] = 5, GSError.CODE_INVALID],
 	}
 	for what: String in cases:
 		await _bc_tamper(good, t, cases[what][0])
-		var res: DotResult = DotBotDemoExport.load_manifest(t)
+		var res: GSResult = GSBotDemoExport.load_manifest(t)
 		_check(not res.ok and res.code() == cases[what][1], "refused: %s" % what, res.code() if not res.ok else "loaded")
 	var big := FileAccess.open(t.path_join("manifest.json"), FileAccess.WRITE)
-	big.store_buffer(("{\"pad\":\"" + "x".repeat(DotBotDemoExport.MAX_MANIFEST_BYTES) + "\"}").to_utf8_buffer())
+	big.store_buffer(("{\"pad\":\"" + "x".repeat(GSBotDemoExport.MAX_MANIFEST_BYTES) + "\"}").to_utf8_buffer())
 	big.close()
-	_check(not DotBotDemoExport.load_manifest(t).ok, "refused: a manifest past the size limit")
+	_check(not GSBotDemoExport.load_manifest(t).ok, "refused: a manifest past the size limit")
 	var junk := FileAccess.open(t.path_join("manifest.json"), FileAccess.WRITE)
 	junk.store_string("{not json")
 	junk.close()
-	_check(DotBotDemoExport.load_manifest(t).code() == DotError.CODE_PARSE, "refused: malformed JSON is a parse error")
-	_check(DotBotDemoExport.load_manifest(root.path_join("nowhere")).code() == DotError.CODE_IO, "refused: a directory with no manifest")
+	_check(GSBotDemoExport.load_manifest(t).code() == GSError.CODE_PARSE, "refused: malformed JSON is a parse error")
+	_check(GSBotDemoExport.load_manifest(root.path_join("nowhere")).code() == GSError.CODE_IO, "refused: a directory with no manifest")
 
-	var gm: Dictionary = DotBotDemoExport.load_manifest(good).value
+	var gm: Dictionary = GSBotDemoExport.load_manifest(good).value
 	await _bc_tamper(good, t, func(_x: Dictionary) -> void: pass)
 	var shard0: Dictionary = gm["shards"][0]
 	var f0 := FileAccess.open(t.path_join(shard0["file"]), FileAccess.READ_WRITE)
 	f0.seek(0)
 	f0.store_32(0x7f800001)
 	f0.close()
-	_check(DotBotDemoExport.read_shard(t, gm, 0).code() == DotError.CODE_INTEGRITY, "refused: a shard whose bytes changed")
+	_check(GSBotDemoExport.read_shard(t, gm, 0).code() == GSError.CODE_INTEGRITY, "refused: a shard whose bytes changed")
 	var nan_hash := FileAccess.get_sha256(t.path_join(shard0["file"]))
 	var forged: Dictionary = gm.duplicate(true)
 	forged["shards"][0]["sha256"] = nan_hash
-	var nan_read: DotResult = DotBotDemoExport.read_shard(t, forged, 0)
+	var nan_read: GSResult = GSBotDemoExport.read_shard(t, forged, 0)
 	_check(not nan_read.ok and "finite" in nan_read.error.message, "refused: a NaN in a shard whose hash was forged to match", nan_read.error.message if not nan_read.ok else "")
 	var cut := FileAccess.open(t.path_join(shard0["file"]), FileAccess.WRITE)
 	cut.store_32(1)
 	cut.close()
-	_check(DotBotDemoExport.read_shard(t, gm, 0).code() == DotError.CODE_INTEGRITY, "refused: a truncated shard")
+	_check(GSBotDemoExport.read_shard(t, gm, 0).code() == GSError.CODE_INTEGRITY, "refused: a truncated shard")
 	var trav: Dictionary = gm.duplicate(true)
 	trav["shards"][0]["file"] = "../x.f32"
-	_check(DotBotDemoExport.read_shard(good, trav, 0).code() == DotError.CODE_INVALID and not DotBotDemoExport.read_shard(good, gm, 99).ok, "refused: a hand-built manifest naming a path, or an index past the end")
+	_check(GSBotDemoExport.read_shard(good, trav, 0).code() == GSError.CODE_INVALID and not GSBotDemoExport.read_shard(good, gm, 99).ok, "refused: a hand-built manifest naming a path, or an index past the end")
 
-	var store := DotBotDemoStoreMemory.new()
+	var store := GSBotDemoStoreMemory.new()
 	var batch := [_bc_episode(schema, 1, "map_c", 4), _bc_episode(schema, 2, "map_c", 4), _bc_episode(schema, 3, "map_c", 4)]
 	var _ap := await store.append(batch)
-	var from_store := DotBotDemoExport.new(schema)
-	var got: DotResult = await from_store.collect(store, "map_c", "v1", ["edge_0", "edge_1", "edge_2"])
+	var from_store := GSBotDemoExport.new(schema)
+	var got: GSResult = await from_store.collect(store, "map_c", "v1", ["edge_0", "edge_1", "edge_2"])
 	_check(got.ok and got.value == 3, "collected from a store", str(got.value))
-	var described := DotBotDemoExport.schema_from_dictionary({"kind": "ride", "version": 2, "observation": [["pos", 2, 10], ["speed", 1, 5]], "action": [["thrust", 1, 1], ["jump", 1, 1, true]]})
-	_check(described.ok and (described.value as DotBotDemoSchema).schema_id() == schema.schema_id(), "a schema described in JSON has the id of the one built in code")
-	var _rm := await DotPaths.remove_tree(root)
+	var described := GSBotDemoExport.schema_from_dictionary({"kind": "ride", "version": 2, "observation": [["pos", 2, 10], ["speed", 1, 5]], "action": [["thrust", 1, 1], ["jump", 1, 1, true]]})
+	_check(described.ok and (described.value as GSBotDemoSchema).schema_id() == schema.schema_id(), "a schema described in JSON has the id of the one built in code")
+	var _rm := await GSPaths.remove_tree(root)

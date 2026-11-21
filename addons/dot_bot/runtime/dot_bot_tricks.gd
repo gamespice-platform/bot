@@ -1,8 +1,8 @@
-class_name DotBotTricks
+class_name GSBotTricks
 extends RefCounted
 
 ## The movement tricks a bot chains: slide, jump, wall run, wall jump, duck, air-jump.
-## It only presses buttons a person could ([member DotBotIntent.crouch], jump, air_jump), so the
+## It only presses buttons a person could ([member GSBotIntent.crouch], jump, air_jump), so the
 ## motor refuses what a body cannot do; frequency and timing are SPEC rows on a seeded stream.
 
 ## Default flat speeds below which no slide or wall run is tried: the motor needs about this much.
@@ -51,7 +51,7 @@ func reset() -> void:
 
 ## Adds this tick's tricks to [param out]. [param scenario] is one of close, chase, flee, cover,
 ## fight or roam; [param up] is how far above the bot its target stands (0 with none).
-func apply(me: DotBotContact, world: DotBotWorld, p: DotBotProfile, rng: DotRandomStream, scenario: StringName, up: float, yaw: float, now: float, dt: float, out: DotBotIntent) -> void:
+func apply(me: GSBotContact, world: GSBotWorld, p: GSBotProfile, rng: GSRandomStream, scenario: StringName, up: float, yaw: float, now: float, dt: float, out: GSBotIntent) -> void:
 	var flat := Vector2(me.velocity.x, me.velocity.z)
 	var speed := flat.length()
 	var heading := flat / speed if speed > 1.0 else _heading_of(out, yaw)
@@ -70,7 +70,7 @@ func apply(me: DotBotContact, world: DotBotWorld, p: DotBotProfile, rng: DotRand
 
 
 ## Hops while closing a distance, and the duck of a bot waiting in cover.
-func _ground_tricks(me: DotBotContact, p: DotBotProfile, rng: DotRandomStream, scenario: StringName, now: float, dt: float, out: DotBotIntent) -> void:
+func _ground_tricks(me: GSBotContact, p: GSBotProfile, rng: GSRandomStream, scenario: StringName, now: float, dt: float, out: GSBotIntent) -> void:
 	if me.grounded and dt > 0.0 and (scenario == &"close" or scenario == &"chase") and not out.jump:
 		var speed := Vector2(me.velocity.x, me.velocity.z).length()
 		if speed > 4.0 and rng.next_unit() < p.jump * 2.5 * p.trick_chain * dt:
@@ -91,7 +91,7 @@ func _ground_tricks(me: DotBotContact, p: DotBotProfile, rng: DotRandomStream, s
 
 
 ## The launch: to get away when hurt, or up to a target above. Only when the game says it is ready.
-func _air_jump(me: DotBotContact, p: DotBotProfile, rng: DotRandomStream, scenario: StringName, up: float, now: float, out: DotBotIntent) -> void:
+func _air_jump(me: GSBotContact, p: GSBotProfile, rng: GSRandomStream, scenario: StringName, up: float, now: float, out: GSBotIntent) -> void:
 	if not me.air_jump_ready or now < _air_next:
 		return
 	var wants := (scenario == &"flee" and me.health < 0.5) or up > 2.4
@@ -105,7 +105,7 @@ func _air_jump(me: DotBotContact, p: DotBotProfile, rng: DotRandomStream, scenar
 
 
 ## Looks for a chance to start a slide, a slide-jump or a wall run.
-func _look(me: DotBotContact, world: DotBotWorld, p: DotBotProfile, rng: DotRandomStream, scenario: StringName, heading: Vector2, speed: float, now: float) -> void:
+func _look(me: GSBotContact, world: GSBotWorld, p: GSBotProfile, rng: GSRandomStream, scenario: StringName, heading: Vector2, speed: float, now: float) -> void:
 	if not me.grounded or speed < slide_speed or not WEIGHTS.has(scenario):
 		return
 	var weight: float = WEIGHTS[scenario]
@@ -124,13 +124,13 @@ func _look(me: DotBotContact, world: DotBotWorld, p: DotBotProfile, rng: DotRand
 		_start_slide(p, rng, now)
 
 
-func _start_slide(p: DotBotProfile, rng: DotRandomStream, now: float) -> void:
+func _start_slide(p: GSBotProfile, rng: GSRandomStream, now: float) -> void:
 	_phase = Phase.SLIDE_WAIT
 	_at = now + p.trick_delay * (0.4 + 0.8 * rng.next_unit())
 
 
 ## The wall beside the heading that a run could follow, as its normal, or zero.
-func _find_wall(me: DotBotContact, world: DotBotWorld, heading: Vector2) -> Vector3:
+func _find_wall(me: GSBotContact, world: GSBotWorld, heading: Vector2) -> Vector3:
 	var from := me.position + Vector3.UP * 1.0
 	var best := Vector3.ZERO
 	var best_d := INF
@@ -149,7 +149,7 @@ func _find_wall(me: DotBotContact, world: DotBotWorld, heading: Vector2) -> Vect
 	return best
 
 
-func _step(me: DotBotContact, p: DotBotProfile, rng: DotRandomStream, heading: Vector2, speed: float, now: float, out: DotBotIntent) -> void:
+func _step(me: GSBotContact, p: GSBotProfile, rng: GSRandomStream, heading: Vector2, speed: float, now: float, out: GSBotIntent) -> void:
 	match _phase:
 		Phase.SLIDE_WAIT:
 			if now < _at:
@@ -209,7 +209,7 @@ func _end(now: float) -> void:
 
 
 ## Bends the move to run along the wall, nudged into it so the run starts and keeps its hold.
-func _steer_along(out: DotBotIntent, heading: Vector2) -> void:
+func _steer_along(out: GSBotIntent, heading: Vector2) -> void:
 	var n := Vector2(_wall.x, _wall.z).normalized()
 	var along := Vector2(-n.y, n.x)
 	if along.dot(heading) < 0.0:
@@ -219,7 +219,7 @@ func _steer_along(out: DotBotIntent, heading: Vector2) -> void:
 	out.move = m
 
 
-func _heading_of(out: DotBotIntent, yaw: float) -> Vector2:
+func _heading_of(out: GSBotIntent, yaw: float) -> Vector2:
 	var y := deg_to_rad(yaw)
 	var f := Vector2(-sin(y), -cos(y))
 	var r := Vector2(cos(y), -sin(y))

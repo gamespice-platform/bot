@@ -1,5 +1,5 @@
 @tool
-class_name DotBotProfile
+class_name GSBotProfile
 extends Resource
 
 ## How a bot plays, as numbers: how fast it reacts, how badly it aims at first and how fast
@@ -9,7 +9,7 @@ extends Resource
 ## server owner can reason about; "reacts in 0.21 s, opens 2.8 degrees off and settles to 0.7"
 ## does. So `easy`, `medium`, `hard` and `nightmare` are four columns of [constant SPEC], and
 ## every row is a cvar (`bot_<field>`) that stays individually overridable after a preset
-## is chosen ([DotBotSettings]).
+## is chosen ([GSBotSettings]).
 ##
 ## [b]What the presets aim at.[/b] Medium is the default: an ordinary player who wins some
 ## fights. Hard is a good human: reaction about a fifth of a second, a first shot that is
@@ -18,10 +18,10 @@ extends Resource
 ## because a bot that reacts on the tick it sees you and never misses is not a harder
 ## opponent, it is a different game.
 ##
-## [b]Every field is read by the brain[/b] ([DotBotBrain]); the suite checks that every row
+## [b]Every field is read by the brain[/b] ([GSBotBrain]); the suite checks that every row
 ## of [constant SPEC] names a property here, so a setting can not be decoration.
 
-# No log channel: numbers, presets and their parsing. DotBotSettings logs the changes.
+# No log channel: numbers, presets and their parsing. GSBotSettings logs the changes.
 
 ## The presets, in the order a menu lists them.
 const PRESETS := ["easy", "medium", "hard", "nightmare"]
@@ -76,9 +76,9 @@ const SPEC := [
 	["map_knowledge", 0.0, 1.0, 0.1, 0.4, 0.7, 1.0, "Chance a roaming bot heads where it last knew of an enemy instead of anywhere."],
 	["pickup_weapons", 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, "1 lets a quiet bot walk to a better weapon lying about and take it with the use key; 0 never."],
 	["pickup_range", 1.0, 100.0, 6.0, 9.0, 12.0, 16.0, "Farthest a bot notices a weapon lying about, metres (it must also see it)."],
-	["stranded_sec", 0.0, 600.0, 6.0, 6.0, 6.0, 6.0, "Seconds a bot may stay stuck (pushing, going nowhere, every unstick step tried) before it reports itself stranded on a sealed island, DotBotIntent.stranded, for the game to respawn it; 0 never reports."],
+	["stranded_sec", 0.0, 600.0, 6.0, 6.0, 6.0, 6.0, "Seconds a bot may stay stuck (pushing, going nowhere, every unstick step tried) before it reports itself stranded on a sealed island, GSBotIntent.stranded, for the game to respawn it; 0 never reports."],
 	["replan_every", 0.0, 10.0, 0.0, 0.0, 0.0, 0.0, "Seconds between a quiet bot's looks over the weapons lying about, each a sight ray per one in range (0 looks every think)."],
-	# Objective: team games that hand the bots a DotBotObjective (capture the flag).
+	# Objective: team games that hand the bots a GSBotObjective (capture the flag).
 	["role_defend", 0.0, 1.0, 0.3, 0.3, 0.3, 0.3, "Share of a team's bots that guard their own flag."],
 	["role_attack", 0.0, 1.0, 0.4, 0.4, 0.4, 0.4, "Share of a team's bots that go for the enemy flag and bring it home."],
 	["role_support", 0.0, 1.0, 0.3, 0.3, 0.3, 0.3, "Share of a team's bots that escort their carrier or push the middle."],
@@ -93,7 +93,7 @@ const SPEC := [
 	["glance", 0.0, 1.0, 0.8, 0.6, 0.5, 0.4, "How often a roaming bot turns its head to look aside and holds the look (0 never)."],
 	["hesitate", 0.0, 2.0, 0.35, 0.2, 0.12, 0.06, "Seconds a bot may stand still when it first sights somebody before it starts moving."],
 	["hurt_delay", 0.0, 1.0, 0.25, 0.15, 0.1, 0.06, "Seconds before a bot that was hit turns toward the shooter (0 is instant)."],
-	# Styles: how a bot plays the weapon in its hand (DotBotStyle). Only for a game that says which class it holds.
+	# Styles: how a bot plays the weapon in its hand (GSBotStyle). Only for a game that says which class it holds.
 	["styles", 0.0, 2.0, 0.6, 1.0, 1.0, 1.0, "How strongly a bot plays its weapon's style (a sniper holding an angle, a shotgun rushing): 0 is the one generic way, 1 the style table as written, above 1 exaggerated."],
 	["style_variety", 0.0, 1.0, 0.35, 0.3, 0.25, 0.2, "How much a style varies from one life to the next (range, strafing, patience, peek timing), and the chance a bot picks its style again on a respawn."],
 ]
@@ -178,11 +178,11 @@ const COL_HELP := 7
 
 
 ## A profile set to [param name]'s column, or null for a name that is not a preset.
-static func preset(name: String) -> DotBotProfile:
+static func preset(name: String) -> GSBotProfile:
 	var column := preset_column(name)
 	if column < 0:
 		return null
-	var out := DotBotProfile.new()
+	var out := GSBotProfile.new()
 	out.apply_preset(name)
 	return out
 
@@ -220,14 +220,14 @@ static func preset_value(name: String, field: String) -> float:
 
 ## Every field to [param name]'s column. A name that is not a preset is refused and nothing
 ## changes, so a typo leaves the bots as they were rather than half-changed.
-func apply_preset(name: String) -> DotResult:
+func apply_preset(name: String) -> GSResult:
 	var column := preset_column(name)
 	if column < 0:
-		return DotResult.fail(DotError.CODE_INVALID, "bot_difficulty is %s, not '%s'." % [", ".join(PRESETS), name])
+		return GSResult.fail(GSError.CODE_INVALID, "bot_difficulty is %s, not '%s'." % [", ".join(PRESETS), name])
 	for row: Array in SPEC:
 		set(StringName(row[COL_FIELD]), float(row[column]))
 	preset_name = name.strip_edges().to_lower()
-	return DotResult.success(preset_name)
+	return GSResult.success(preset_name)
 
 
 ## Whether [param field]'s maximum is a fact, not a taste: a chance or fraction (max 1) or the view cone
@@ -253,7 +253,7 @@ static func _warn_over(row: Array, value: float) -> void:
 	var field := String(row[COL_FIELD])
 	if value > float(row[COL_MAX]) and not _warned_over.has(field):
 		_warned_over[field] = true
-		DotLog.warn("bot", "bot setting is above its usual maximum; used as given", {"field": field, "value": value, "usual_max": row[COL_MAX]})
+		GSLog.warn("bot", "bot setting is above its usual maximum; used as given", {"field": field, "value": value, "usual_max": row[COL_MAX]})
 
 
 static var _warned_over: Dictionary = {}
@@ -262,20 +262,20 @@ static var _warned_over: Dictionary = {}
 ## Sets one field from text. Refuses an unknown field, a non-number, a value under its minimum or over a
 ## fact-maximum (a chance over 1, a view cone over 360), changing nothing; a value over a guide maximum is
 ## used, with a warning.
-func set_field(field: String, text: String) -> DotResult:
+func set_field(field: String, text: String) -> GSResult:
 	var row := spec_for(field)
 	if row.is_empty():
-		return DotResult.fail(DotError.CODE_INVALID, "no bot setting '%s'" % field)
+		return GSResult.fail(GSError.CODE_INVALID, "no bot setting '%s'" % field)
 	var clean := text.strip_edges()
 	if not clean.is_valid_float():
-		return DotResult.fail(DotError.CODE_INVALID, "bot_%s takes a number, not '%s'" % [field, text])
+		return GSResult.fail(GSError.CODE_INVALID, "bot_%s takes a number, not '%s'" % [field, text])
 	var value := clean.to_float()
 	var why := _refusal(row, value)
 	if not why.is_empty():
-		return DotResult.fail(DotError.CODE_INVALID, why)
+		return GSResult.fail(GSError.CODE_INVALID, why)
 	_warn_over(row, value)
 	set(StringName(field), value)
-	return DotResult.success(value)
+	return GSResult.success(value)
 
 
 ## Sets one field to a number; false for an unknown field. A derived value (a persona's scale and
@@ -291,7 +291,7 @@ func set_number(field: String, value: float) -> bool:
 		used = clampf(value, float(row[COL_MIN]), float(row[COL_MAX]))
 		if not _warned_over.has(field + "!"):
 			_warned_over[field + "!"] = true
-			DotLog.warn("bot", why + "; pulled to the nearest allowed value", {"field": field, "used": used})
+			GSLog.warn("bot", why + "; pulled to the nearest allowed value", {"field": field, "used": used})
 	else:
 		_warn_over(row, value)
 	set(StringName(field), used)
@@ -299,7 +299,7 @@ func set_number(field: String, value: float) -> bool:
 
 
 ## Every field copied from [param other], in place, so a brain holding this sees it.
-func copy_from(other: DotBotProfile) -> void:
+func copy_from(other: GSBotProfile) -> void:
 	preset_name = other.preset_name
 	for row: Array in SPEC:
 		var key := StringName(row[COL_FIELD])
@@ -311,8 +311,8 @@ func get_field(field: String) -> float:
 
 
 ## A copy that shares nothing with this one.
-func copy() -> DotBotProfile:
-	var out := DotBotProfile.new()
+func copy() -> GSBotProfile:
+	var out := GSBotProfile.new()
 	out.preset_name = preset_name
 	for field in fields():
 		out.set(StringName(field), get_field(field))

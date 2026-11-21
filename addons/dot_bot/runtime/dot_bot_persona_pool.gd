@@ -1,4 +1,4 @@
-class_name DotBotPersonaPool
+class_name GSBotPersonaPool
 extends RefCounted
 
 ## The personas a server draws from, and who got which.
@@ -7,7 +7,7 @@ extends RefCounted
 
 const CHANNEL := "dot.bot"
 
-var personas: Array[DotBotPersona] = []
+var personas: Array[GSBotPersona] = []
 ## id -> weight from [method parse_override]; empty for the personas' own.
 var override: Dictionary = {}
 
@@ -21,11 +21,11 @@ func load_from(set: Object) -> int:
 		for id: String in set.call(&"list_ids"):
 			var res: Variant = set.call(&"load_profile", id)
 			if res == null or not res.ok:
-				DotLog.warn(CHANNEL, "bot persona skipped", {"id": id})
+				GSLog.warn(CHANNEL, "bot persona skipped", {"id": id})
 				continue
 			var values: Dictionary = res.value.values
 			if bool(values.get("enabled", true)):
-				personas.append(DotBotPersona.from_values(id, values))
+				personas.append(GSBotPersona.from_values(id, values))
 	return personas.size()
 
 
@@ -46,25 +46,25 @@ func set_override(text: String) -> void:
 
 
 ## The weight [param persona] has now.
-func weight_of(persona: DotBotPersona) -> float:
+func weight_of(persona: GSBotPersona) -> float:
 	if override.is_empty():
 		return persona.weight
 	return float(override.get(persona.id, 0.0))
 
 
 ## The personas that can be drawn, in order.
-func candidates() -> Array[DotBotPersona]:
-	var out: Array[DotBotPersona] = []
+func candidates() -> Array[GSBotPersona]:
+	var out: Array[GSBotPersona] = []
 	for p in personas:
 		if weight_of(p) > 0.0:
 			out.append(p)
 	if out.is_empty():
-		out.append(DotBotPersona.new())
+		out.append(GSBotPersona.new())
 	return out
 
 
 ## One persona by weight; [param roll] is 0 to 1.
-func draw(roll: float) -> DotBotPersona:
+func draw(roll: float) -> GSBotPersona:
 	var list := candidates()
 	var total := 0.0
 	for p in list:
@@ -78,30 +78,30 @@ func draw(roll: float) -> DotBotPersona:
 
 
 ## The persona for [param bot]: kept for as long as the bot lasts, drawn with [param rng] the first time.
-func assign(bot: StringName, rng: RandomNumberGenerator) -> DotBotPersona:
+func assign(bot: StringName, rng: RandomNumberGenerator) -> GSBotPersona:
 	if _given.has(bot):
 		return _given[bot]
 	var p := draw(rng.randf())
 	_given[bot] = p
-	DotLog.debug(CHANNEL, "bot persona drawn", {"bot": String(bot), "persona": String(p.id)})
+	GSLog.debug(CHANNEL, "bot persona drawn", {"bot": String(bot), "persona": String(p.id)})
 	return p
 
 
 ## The persona [param bot] holds, or null.
-func given(bot: StringName) -> DotBotPersona:
+func given(bot: StringName) -> GSBotPersona:
 	return _given.get(bot, null)
 
 
 ## Like [method assign], but dealt rather than drawn: the persona furthest below its weight's share of the
 ## bots already given one, ties by [param rng]. A team of eight gets eight characters, not five balanced ones.
-func deal(bot: StringName, rng: RandomNumberGenerator) -> DotBotPersona:
+func deal(bot: StringName, rng: RandomNumberGenerator) -> GSBotPersona:
 	if _given.has(bot):
 		return _given[bot]
 	var counts := {}
 	for held in _given:
-		var given_id: StringName = (_given[held] as DotBotPersona).id
+		var given_id: StringName = (_given[held] as GSBotPersona).id
 		counts[given_id] = int(counts.get(given_id, 0)) + 1
-	var best: DotBotPersona = null
+	var best: GSBotPersona = null
 	var best_score := INF
 	var ties := 0
 	for p in candidates():
@@ -116,7 +116,7 @@ func deal(bot: StringName, rng: RandomNumberGenerator) -> DotBotPersona:
 			if rng.randi_range(1, ties) == 1:
 				best = p
 	_given[bot] = best
-	DotLog.debug(CHANNEL, "bot persona dealt", {"bot": String(bot), "persona": String(best.id)})
+	GSLog.debug(CHANNEL, "bot persona dealt", {"bot": String(bot), "persona": String(best.id)})
 	return best
 
 
@@ -132,5 +132,5 @@ func reset_assignments() -> void:
 func describe() -> Dictionary:
 	var given := {}
 	for bot in _given:
-		given[String(bot)] = String((_given[bot] as DotBotPersona).id)
+		given[String(bot)] = String((_given[bot] as GSBotPersona).id)
 	return {"personas": personas.size(), "override": override.duplicate(), "given": given}

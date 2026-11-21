@@ -1,4 +1,4 @@
-class_name DotBotSettings
+class_name GSBotSettings
 extends RefCounted
 
 ## The live bot settings of one game: the chosen preset, the individual overrides, and the
@@ -6,7 +6,7 @@ extends RefCounted
 ##
 ## [codeblock]
 ## bot_difficulty   easy | medium | hard | nightmare   (default medium)
-## bot_<field>      every row of DotBotProfile.SPEC: bot_reaction, bot_aim_error, ...
+## bot_<field>      every row of GSBotProfile.SPEC: bot_reaction, bot_aim_error, ...
 ## bot_settings     (command) every value, overridden ones marked
 ## bot_settings_reset (command) drop the overrides, back to the preset's values
 ## [/codeblock]
@@ -18,12 +18,12 @@ extends RefCounted
 ## hold the value the bots use, so `bot_reaction` typed alone answers truthfully.
 ##
 ## [b]Server and solo, one object.[/b] [method bind_cvars] takes GameSpice Server's
-## `DotModule.add_cvar` and [method bind_console] GameSpice Console's `DotConsoleLocal`, both by
+## `GSModule.add_cvar` and [method bind_console] GameSpice Console's `GSConsoleLocal`, both by
 ## duck typing, so this addon depends on GameSpice Core alone and a solo game with no server in
 ## the process has the same names.
 ##
 ## [b]Per game, never per process.[/b] [method attach] puts it on a node as metadata, never
-## in [DotRegistry], because this family runs two servers in one process in its suites and
+## in [GSRegistry], because this family runs two servers in one process in its suites and
 ## they must not share a difficulty.
 
 const CHANNEL := "dot.bot"
@@ -36,7 +36,7 @@ const COMMAND_SHOW := "bot_settings"
 const COMMAND_RESET := "bot_settings_reset"
 const CVAR_STYLE_FILE := "bot_style_file"
 const CVAR_STYLE_WEIGHTS := "bot_style_weights"
-const STYLE_FILE_HELP := "A JSON file of weapon class -> [style rows] over the built-in bot styles (DotBotStyle.DEFAULTS); empty for the built-in ones."
+const STYLE_FILE_HELP := "A JSON file of weapon class -> [style rows] over the built-in bot styles (GSBotStyle.DEFAULTS); empty for the built-in ones."
 const STYLE_WEIGHTS_HELP := "Bot style weights over the table, class.style=weight comma separated (sniper.camper=6,smg.flanker=0)."
 
 ## Emitted after anything changed.
@@ -44,7 +44,7 @@ signal changed
 
 ## The values every bot uses now: the preset with the overrides on top. Never replaced, so a
 ## brain may hold it.
-var profile: DotBotProfile = DotBotProfile.preset(DotBotProfile.DEFAULT_PRESET)
+var profile: GSBotProfile = GSBotProfile.preset(GSBotProfile.DEFAULT_PRESET)
 
 ## Fields set by hand, field -> value. They survive a preset change.
 var overrides: Dictionary = {}
@@ -59,12 +59,12 @@ var _cvars: Dictionary = {}
 var _writing: bool = false
 
 ## For [method derived]: what this follows, and the base revision it last derived from.
-var _base: DotBotSettings = null
-var _persona: DotBotPersona = null
+var _base: GSBotSettings = null
+var _persona: GSBotPersona = null
 var _seed: int = 0
 var _base_revision: int = -1
 
-## The style table [method set_style_config] built; empty is [constant DotBotStyle.DEFAULTS].
+## The style table [method set_style_config] built; empty is [constant GSBotStyle.DEFAULTS].
 var _style_table: Dictionary = {}
 var _style_file: String = ""
 var _style_weights: String = ""
@@ -72,20 +72,20 @@ var _style_stamp: int = 0
 
 
 ## The settings on [param node], made (at the default preset) and attached if missing.
-static func of(node: Object) -> DotBotSettings:
+static func of(node: Object) -> GSBotSettings:
 	if node == null:
-		return DotBotSettings.new()
+		return GSBotSettings.new()
 	if node.has_meta(META):
 		var held: Variant = node.get_meta(META)
-		if held is DotBotSettings:
+		if held is GSBotSettings:
 			return held
-	var made := DotBotSettings.new()
+	var made := GSBotSettings.new()
 	node.set_meta(META, made)
 	return made
 
 
 ## Puts [param settings] on [param node], replacing what was there.
-static func attach(node: Object, settings: DotBotSettings) -> DotBotSettings:
+static func attach(node: Object, settings: GSBotSettings) -> GSBotSettings:
 	if node != null:
 		node.set_meta(META, settings)
 	return settings
@@ -93,8 +93,8 @@ static func attach(node: Object, settings: DotBotSettings) -> DotBotSettings:
 
 ## One bot's own settings: [param persona] over [param base] for [param bot_seed]. Call [method sync]
 ## before reading it; it follows the base when that changes (a cvar, a preset).
-static func derived(base: DotBotSettings, persona: DotBotPersona, bot_seed: int) -> DotBotSettings:
-	var out := DotBotSettings.new()
+static func derived(base: GSBotSettings, persona: GSBotPersona, bot_seed: int) -> GSBotSettings:
+	var out := GSBotSettings.new()
 	out._base = base
 	out._persona = persona
 	out._seed = bot_seed
@@ -118,10 +118,10 @@ func difficulty() -> String:
 
 
 ## Chooses a preset. Every setting not overridden takes the preset's value.
-func set_difficulty(name: String) -> DotResult:
-	var fresh := DotBotProfile.preset(name)
+func set_difficulty(name: String) -> GSResult:
+	var fresh := GSBotProfile.preset(name)
 	if fresh == null:
-		return DotResult.fail(DotError.CODE_INVALID, "bot_difficulty is %s, not '%s'." % [", ".join(DotBotProfile.PRESETS), name])
+		return GSResult.fail(GSError.CODE_INVALID, "bot_difficulty is %s, not '%s'." % [", ".join(GSBotProfile.PRESETS), name])
 
 	var _applied := profile.apply_preset(name)
 	for field: String in overrides:
@@ -129,19 +129,19 @@ func set_difficulty(name: String) -> DotResult:
 
 	_write_cvars()
 	_bump()
-	DotLog.info(CHANNEL, "bot difficulty", {"preset": profile.preset_name, "overrides": overrides.keys()})
-	return DotResult.success(profile.preset_name)
+	GSLog.info(CHANNEL, "bot difficulty", {"preset": profile.preset_name, "overrides": overrides.keys()})
+	return GSResult.success(profile.preset_name)
 
 
 ## Overrides one setting. [param field] is a SPEC field, without the `bot_` prefix.
-func set_value(field: String, text: String) -> DotResult:
+func set_value(field: String, text: String) -> GSResult:
 	var res := profile.set_field(field, text)
 	if not res.ok:
 		return res
 	overrides[field] = float(res.value)
 	_write_cvar(field)
 	_bump()
-	DotLog.debug(CHANNEL, "bot setting overridden", {"field": field, "value": res.value})
+	GSLog.debug(CHANNEL, "bot setting overridden", {"field": field, "value": res.value})
 	return res
 
 
@@ -157,14 +157,14 @@ func is_overridden(field: String) -> bool:
 
 # --- Styles ---------------------------------------------------------------------
 
-## The weapon-class style table every bot reads ([DotBotStyle]); a derived bot reads its base's.
+## The weapon-class style table every bot reads ([GSBotStyle]); a derived bot reads its base's.
 func style_table() -> Dictionary:
 	if _base != null:
 		return _base.style_table()
 	return _style_script().DEFAULTS if _style_table.is_empty() else _style_table
 
 
-# DotBotStyle by uid, not by name: it names this class back, and a script loop stays in memory
+# GSBotStyle by uid, not by name: it names this class back, and a script loop stays in memory
 # for good (Godot 4.7).
 static var _style: Script = null
 
@@ -175,38 +175,38 @@ static func _style_script() -> Script:
 	return _style
 
 
-## Bumped when the table changes; a [DotBotStyle] compares it.
+## Bumped when the table changes; a [GSBotStyle] compares it.
 func style_stamp() -> int:
 	return _base.style_stamp() if _base != null else _style_stamp
 
 
-## Builds the style table from [param file] (JSON, see [method DotBotStyle.build_table]; empty
+## Builds the style table from [param file] (JSON, see [method GSBotStyle.build_table]; empty
 ## for none) and [param weights] over the built-in one. On an error nothing changes.
-func set_style_config(file: String, weights: String) -> DotResult:
+func set_style_config(file: String, weights: String) -> GSResult:
 	var text := ""
 	var path := file.strip_edges()
 	if path != "":
 		if not FileAccess.file_exists(path):
-			return DotResult.fail(DotError.CODE_INVALID, "bot_style_file: no file '%s'." % path)
+			return GSResult.fail(GSError.CODE_INVALID, "bot_style_file: no file '%s'." % path)
 		text = FileAccess.get_file_as_string(path)
 	var style := _style_script()
 	var built: Dictionary = style.build_table(style.DEFAULTS, text, weights.strip_edges())
 	if not bool(built["ok"]):
-		DotLog.warn(CHANNEL, "bot styles not changed", {"error": built["error"]})
-		return DotResult.fail(DotError.CODE_INVALID, String(built["error"]))
+		GSLog.warn(CHANNEL, "bot styles not changed", {"error": built["error"]})
+		return GSResult.fail(GSError.CODE_INVALID, String(built["error"]))
 	_style_table = {} if path == "" and weights.strip_edges() == "" else built["table"]
 	_style_file = path
 	_style_weights = weights.strip_edges()
 	_style_stamp += 1
-	DotLog.info(CHANNEL, "bot styles", {"file": _style_file, "weights": _style_weights})
-	return DotResult.success(_style_stamp)
+	GSLog.info(CHANNEL, "bot styles", {"file": _style_file, "weights": _style_weights})
+	return GSResult.success(_style_stamp)
 
 
 # --- Server cvars ---------------------------------------------------------------
 
 ## Registers `bot_difficulty` and every `bot_<field>` through [param add], which is called as
 ## [code]add(name, default, description, flags)[/code] and returns the cvar (GameSpice Server's
-## [code]DotModule.add_cvar[/code]), and the two commands through [param add_command] when it
+## [code]GSModule.add_cvar[/code]), and the two commands through [param add_command] when it
 ## is valid ([code]add_command(name, handler, description)[/code], the handler taking a
 ## context with [code]reply[/code]). Returns the cvars made.
 ##
@@ -217,7 +217,7 @@ func bind_cvars(add: Callable, flags: int = 0, add_command: Callable = Callable(
 
 	var diff: Variant = add.call(
 		CVAR_DIFFICULTY, profile.preset_name,
-		"Bot difficulty preset: %s. Sets every bot_* setting not overridden by hand." % ", ".join(DotBotProfile.PRESETS),
+		"Bot difficulty preset: %s. Sets every bot_* setting not overridden by hand." % ", ".join(GSBotProfile.PRESETS),
 		flags
 	)
 	if diff is Object and diff != null:
@@ -225,25 +225,25 @@ func bind_cvars(add: Callable, flags: int = 0, add_command: Callable = Callable(
 		if cv.has_method(&"with_validator"):
 			# A static method, not a lambda: a lambda's script can be gone before the console
 			# that holds it at engine teardown, which aborts the process at exit.
-			cv.call(&"with_validator", DotBotSettings._valid_preset)
+			cv.call(&"with_validator", GSBotSettings._valid_preset)
 		if cv.has_signal(&"changed"):
 			cv.connect(&"changed", _on_difficulty_cvar.bind(cv))
 		_cvars[CVAR_DIFFICULTY] = cv
 		made.append(cv)
 
-	for row: Array in DotBotProfile.SPEC:
-		var field := String(row[DotBotProfile.COL_FIELD])
+	for row: Array in GSBotProfile.SPEC:
+		var field := String(row[GSBotProfile.COL_FIELD])
 		var cvar_name := "bot_" + field
-		var c: Variant = add.call(cvar_name, DotBotProfile._fmt(profile.get_field(field)), String(row[DotBotProfile.COL_HELP]), flags)
+		var c: Variant = add.call(cvar_name, GSBotProfile._fmt(profile.get_field(field)), String(row[GSBotProfile.COL_HELP]), flags)
 		if not (c is Object) or c == null:
 			continue
 		var cv := c as Object
 		if cv.has_method(&"with_range"):
 			# A guide maximum is not a limit: only the minimum, and a fact-maximum (a chance, the view cone), bound the cvar.
-			if DotBotProfile.is_hard_max(field):
-				cv.call(&"with_range", float(row[DotBotProfile.COL_MIN]), float(row[DotBotProfile.COL_MAX]))
+			if GSBotProfile.is_hard_max(field):
+				cv.call(&"with_range", float(row[GSBotProfile.COL_MIN]), float(row[GSBotProfile.COL_MAX]))
 			elif cv.has_method(&"with_min"):
-				cv.call(&"with_min", float(row[DotBotProfile.COL_MIN]))
+				cv.call(&"with_min", float(row[GSBotProfile.COL_MIN]))
 		if cv.has_signal(&"changed"):
 			cv.connect(&"changed", _on_field_cvar.bind(field, cv))
 		_cvars[cvar_name] = cv
@@ -266,8 +266,8 @@ func bind_cvars(add: Callable, flags: int = 0, add_command: Callable = Callable(
 	# the preset writes every setting's cvar, which would wipe a waiting override.
 	var waiting := _cvar_string(CVAR_DIFFICULTY)
 	var waiting_fields := {}
-	for row: Array in DotBotProfile.SPEC:
-		var field := String(row[DotBotProfile.COL_FIELD])
+	for row: Array in GSBotProfile.SPEC:
+		var field := String(row[GSBotProfile.COL_FIELD])
 		var text := _cvar_string("bot_" + field)
 		if text != "" and text.is_valid_float() and not is_equal_approx(text.to_float(), profile.get_field(field)):
 			waiting_fields[field] = text
@@ -283,10 +283,10 @@ func bind_cvars(add: Callable, flags: int = 0, add_command: Callable = Callable(
 	return made
 
 
-static func _valid_preset(value: String) -> DotResult:
-	if DotBotProfile.preset_column(value) >= 0:
-		return DotResult.success(value.strip_edges().to_lower())
-	return DotResult.fail(DotError.CODE_INVALID, "bot_difficulty is %s." % ", ".join(DotBotProfile.PRESETS))
+static func _valid_preset(value: String) -> GSResult:
+	if GSBotProfile.preset_column(value) >= 0:
+		return GSResult.success(value.strip_edges().to_lower())
+	return GSResult.fail(GSError.CODE_INVALID, "bot_difficulty is %s." % ", ".join(GSBotProfile.PRESETS))
 
 
 func _on_difficulty_cvar(_old: String, new_value: String, _cv: Object) -> void:
@@ -330,14 +330,14 @@ func _cvar_string(cvar_name: String) -> String:
 func _write_cvars() -> void:
 	if _cvars.has(CVAR_DIFFICULTY):
 		_force(_cvars[CVAR_DIFFICULTY], profile.preset_name)
-	for field in DotBotProfile.fields():
+	for field in GSBotProfile.fields():
 		_write_cvar(field)
 
 
 func _write_cvar(field: String) -> void:
 	var cv: Variant = _cvars.get("bot_" + field)
 	if cv is Object and cv != null:
-		_force(cv, DotBotProfile._fmt(profile.get_field(field)))
+		_force(cv, GSBotProfile._fmt(profile.get_field(field)))
 
 
 func _force(cv: Object, text: String) -> void:
@@ -361,15 +361,15 @@ func bind_console(local: Object) -> bool:
 		return false
 
 	local.call(&"add_var", StringName(CVAR_DIFFICULTY),
-		"Bot difficulty preset: %s." % ", ".join(DotBotProfile.PRESETS),
+		"Bot difficulty preset: %s." % ", ".join(GSBotProfile.PRESETS),
 		func() -> Variant: return profile.preset_name,
 		func(v: Variant) -> Variant: return set_difficulty(str(v))
 	)
 
-	for row: Array in DotBotProfile.SPEC:
-		var field := String(row[DotBotProfile.COL_FIELD])
-		local.call(&"add_var", StringName("bot_" + field), String(row[DotBotProfile.COL_HELP]),
-			func() -> Variant: return DotBotProfile._fmt(profile.get_field(field)),
+	for row: Array in GSBotProfile.SPEC:
+		var field := String(row[GSBotProfile.COL_FIELD])
+		local.call(&"add_var", StringName("bot_" + field), String(row[GSBotProfile.COL_HELP]),
+			func() -> Variant: return GSBotProfile._fmt(profile.get_field(field)),
 			func(v: Variant) -> Variant: return set_value(field, str(v))
 		)
 
@@ -410,6 +410,6 @@ func describe() -> Dictionary:
 
 func describe_lines() -> PackedStringArray:
 	var out := PackedStringArray(["bot_difficulty %s" % profile.preset_name])
-	for field in DotBotProfile.fields():
-		out.append("%s bot_%-14s %s" % ["*" if overrides.has(field) else " ", field, DotBotProfile._fmt(profile.get_field(field))])
+	for field in GSBotProfile.fields():
+		out.append("%s bot_%-14s %s" % ["*" if overrides.has(field) else " ", field, GSBotProfile._fmt(profile.get_field(field))])
 	return out

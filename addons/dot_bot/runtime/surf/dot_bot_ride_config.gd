@@ -1,5 +1,5 @@
-class_name DotBotRideConfig
-extends DotConfig
+class_name GSBotRideConfig
+extends GSConfig
 
 ## The ride harvest's numbers: exported defaults < JSON file < environment < command line.
 
@@ -59,11 +59,11 @@ func cli_prefix() -> String:
 	return "--bot-harvest-"
 
 
-func validate() -> DotResult:
+func validate() -> GSResult:
 	if starts < 0 or settle_ticks < 0 or pilot_horizon < 0 or slice_steps < 0 or top < 1 or cap < 1 or target < 1:
-		return DotResult.fail(DotError.CODE_INVALID, "harvest starts and settle_ticks are 0 or more; top, cap and target are 1 or more.")
+		return GSResult.fail(GSError.CODE_INVALID, "harvest starts and settle_ticks are 0 or more; top, cap and target are 1 or more.")
 	if budget_msec <= 0.0 or perturb_metres < 0.0 or perturb_speed < 0.0 or floor_weight < 0.0:
-		return DotResult.fail(DotError.CODE_INVALID, "harvest budget_msec must be above 0; perturbation and floor_weight 0 or more.")
+		return GSResult.fail(GSError.CODE_INVALID, "harvest budget_msec must be above 0; perturbation and floor_weight 0 or more.")
 	if min_score < 0.0 or min_score > 1.0:
-		return DotResult.fail(DotError.CODE_INVALID, "harvest min_score is 0 to 1.")
-	return DotResult.success(self)
+		return GSResult.fail(GSError.CODE_INVALID, "harvest min_score is 0 to 1.")
+	return GSResult.success(self)

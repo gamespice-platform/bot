@@ -1,11 +1,11 @@
-class_name DotBotSurfPlanner
+class_name GSBotSurfPlanner
 extends RefCounted
 
 ## Finds a way down a surf ramp by trying inputs on the real motor, offline, and grows the cache
-## a [DotBotSurfPilot] rides from.
+## a [GSBotSurfPilot] rides from.
 ##
 ## [b]A beam search over held actions.[/b] From the start, every action in
-## [constant DotBotSurfPilot.ACTIONS] is held for [member hold] ticks on a copy of each state in
+## [constant GSBotSurfPilot.ACTIONS] is held for [member hold] ticks on a copy of each state in
 ## the beam; a child that enters a pit or falls below the course is dropped, one that reaches the
 ## goal ends the search, and the rest are ranked by the course's score (progress plus energy) and
 ## cut back to [member width]. All children are the same age, so the first to arrive is the
@@ -18,7 +18,7 @@ extends RefCounted
 ## which keeps the other face and the slower, higher lines alive long enough to be needed.
 ##
 ## [b]Why search, and not learn.[/b] The simulator is the motor (GameSpice Player Controller's
-## [code]DotFpsSimulator[/code]) and the motor is deterministic, so a found sequence of actions
+## [code]GSFpsSimulator[/code]) and the motor is deterministic, so a found sequence of actions
 ## is a proof that the ramp can be ridden, not an estimate; the cost is paid once per map by a
 ## tool, not per bot. [method build]'s repair rounds are the learning: they search again from the
 ## states the pilot itself fails from, which no search from the start visits (imitation learning's
@@ -54,7 +54,7 @@ var trace: Callable = Callable()
 
 ## Searches from [param start] (not changed). Returns `{"found": bool, "actions":
 ## PackedByteArray (one per held step), "ticks": int (to the goal), "why": String}`.
-func search(start: Variant, course: DotBotSurfCourse, sim: Variant) -> Dictionary:
+func search(start: Variant, course: GSBotSurfCourse, sim: Variant) -> Dictionary:
 	var reference := course.reference_yaw()
 	var beam: Array = [{"state": start.duplicate_state(), "actions": PackedByteArray(), "score": 0.0}]
 	var delta: float = sim.delta
@@ -69,21 +69,21 @@ func search(start: Variant, course: DotBotSurfCourse, sim: Variant) -> Dictionar
 				"why": "no progress for %.0f s (at %.2f s)" % [stall_seconds, depth * hold * delta]}
 		var best: Dictionary = {}
 		for node: Dictionary in beam:
-			for action in range(DotBotSurfPilot.ACTIONS.size()):
+			for action in range(GSBotSurfPilot.ACTIONS.size()):
 				var s: Variant = node["state"].duplicate_state()
 				var event := 0
 				var t := 0
 				while t < hold:
-					event = sim.step(s, DotBotSurfPilot.command_for(sim, action, s, reference))
+					event = sim.step(s, GSBotSurfPilot.command_for(sim, action, s, reference))
 					t += 1
-					if event != DotBotSurfCourse.EVENT_NONE:
+					if event != GSBotSurfCourse.EVENT_NONE:
 						break
 				expanded += 1
 				var actions: PackedByteArray = (node["actions"] as PackedByteArray).duplicate()
 				actions.append(action)
-				if event == DotBotSurfCourse.EVENT_GOAL:
+				if event == GSBotSurfCourse.EVENT_GOAL:
 					return {"found": true, "actions": actions, "ticks": depth * hold + t, "why": ""}
-				if event != DotBotSurfCourse.EVENT_NONE:
+				if event != GSBotSurfCourse.EVENT_NONE:
 					deaths += 1
 					continue
 				var key := _key(s)
@@ -109,7 +109,7 @@ func search(start: Variant, course: DotBotSurfCourse, sim: Variant) -> Dictionar
 ## `{"entries": PackedFloat32Array (x, y, z, vx, vy, vz, action per tick, metres), "ticks": int,
 ## "event": int}`. The search's answer replayed, which is the same ride because the motor is
 ## deterministic, and what the pilot learns from.
-static func trajectory(start: Variant, actions: PackedByteArray, hold_ticks: int, course: DotBotSurfCourse, sim: Variant) -> Dictionary:
+static func trajectory(start: Variant, actions: PackedByteArray, hold_ticks: int, course: GSBotSurfCourse, sim: Variant) -> Dictionary:
 	var reference := course.reference_yaw()
 	var s: Variant = start.duplicate_state()
 	var entries := PackedFloat32Array()
@@ -120,9 +120,9 @@ static func trajectory(start: Variant, actions: PackedByteArray, hold_ticks: int
 			var p: Vector3 = s.position
 			var v: Vector3 = s.velocity
 			entries.append_array([p.x, p.y, p.z, v.x, v.y, v.z, float(action)])
-			event = sim.step(s, DotBotSurfPilot.command_for(sim, action, s, reference))
+			event = sim.step(s, GSBotSurfPilot.command_for(sim, action, s, reference))
 			ticks += 1
-			if event != DotBotSurfCourse.EVENT_NONE:
+			if event != GSBotSurfCourse.EVENT_NONE:
 				return {"entries": entries, "ticks": ticks, "event": event}
 	return {"entries": entries, "ticks": ticks, "event": event}
 
@@ -147,8 +147,8 @@ func _key(s: Variant) -> Vector4i:
 ## Returns `{"rides": PackedFloat32Array (the entries), "lengths": PackedInt32Array (entries per
 ## ride), "seconds": Array (each ride's length), "searches": int, "found": int, "rounds": Array
 ## (failures per round)}`.
-func build(starts: Array, repairs: Array, rounds: int, course: DotBotSurfCourse, sim: Variant,
-		ride_sim: Variant, say: Callable, pilot: DotBotSurfPilot = null) -> Dictionary:
+func build(starts: Array, repairs: Array, rounds: int, course: GSBotSurfCourse, sim: Variant,
+		ride_sim: Variant, say: Callable, pilot: GSBotSurfPilot = null) -> Dictionary:
 	var rides := PackedFloat32Array()
 	var lengths := PackedInt32Array()
 	var ride_seconds: Array = []
@@ -170,7 +170,7 @@ func build(starts: Array, repairs: Array, rounds: int, course: DotBotSurfCourse,
 		say.call("start %d: a ride of %.2f s, %.1f s searching" % [i, float(ride["ticks"]) * delta, (Time.get_ticks_msec() - t0) / 1000.0])
 	var max_ticks := int(seconds / delta)
 	if pilot == null:
-		pilot = DotBotSurfPilot.new()
+		pilot = GSBotSurfPilot.new()
 	for round in range(rounds):
 		if lengths.is_empty():
 			break
@@ -180,7 +180,7 @@ func build(starts: Array, repairs: Array, rounds: int, course: DotBotSurfCourse,
 		var failures := 0
 		for j in range(repairs.size()):
 			var r := pilot.ride(repairs[j], ride_sim, max_ticks)
-			if int(r["event"]) == DotBotSurfCourse.EVENT_GOAL:
+			if int(r["event"]) == GSBotSurfCourse.EVENT_GOAL:
 				continue
 			failures += 1
 			var trail: Array = r["trail"]
@@ -202,24 +202,24 @@ func build(starts: Array, repairs: Array, rounds: int, course: DotBotSurfCourse,
 				# The next ride of this round already learns from this repair.
 				pilot.load_entries(rides, lengths, course.reference_yaw())
 				say.call("round %d, ride %d: %s at %.2f s; a ride of %.2f s from %.2f s in, %.1f s searching" % [
-					round, j, "fell" if int(r["event"]) != DotBotSurfCourse.EVENT_NONE else "stalled",
+					round, j, "fell" if int(r["event"]) != GSBotSurfCourse.EVENT_NONE else "stalled",
 					float(r["ticks"]) * delta, float(ride["ticks"]) * delta, float(k * 16) * delta,
 					(Time.get_ticks_msec() - t0) / 1000.0])
 				break
 		per_round.append(failures)
-		say.call("round %d: %d of %d rides failed; the cache has %d entries" % [round, failures, repairs.size(), rides.size() / DotBotSurfPilot.STRIDE])
+		say.call("round %d: %d of %d rides failed; the cache has %d entries" % [round, failures, repairs.size(), rides.size() / GSBotSurfPilot.STRIDE])
 		if failures == 0:
 			break
 	return {"rides": rides, "lengths": lengths, "seconds": ride_seconds, "searches": searches, "found": found_count, "rounds": per_round}
 
 
 ## One search and its replay, or {} when the search found nothing.
-func _search_ride(from: Variant, course: DotBotSurfCourse, sim: Variant) -> Dictionary:
+func _search_ride(from: Variant, course: GSBotSurfCourse, sim: Variant) -> Dictionary:
 	var found := search(from, course, sim)
 	if not bool(found["found"]):
 		return {}
 	var ride := trajectory(from, found["actions"], hold, course, sim)
-	if int(ride["event"]) != DotBotSurfCourse.EVENT_GOAL:
+	if int(ride["event"]) != GSBotSurfCourse.EVENT_GOAL:
 		push_error("a found ride did not replay to the goal: the simulator is not deterministic")
 		return {}
 	return ride

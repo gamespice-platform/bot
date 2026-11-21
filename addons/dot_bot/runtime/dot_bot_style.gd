@@ -1,4 +1,4 @@
-class_name DotBotStyle
+class_name GSBotStyle
 extends RefCounted
 
 ## How one bot plays the weapon in its hand: a sniper finds an angle, holds it, peeks, ducks back
@@ -6,11 +6,11 @@ extends RefCounted
 ## reloads behind something.
 ##
 ## [b]A table of weighted styles per weapon class.[/b] [constant DEFAULTS] lists, for each class the
-## game names in [member DotBotContact.weapon_class], a few styles with a weight. A bot rolls one
+## game names in [member GSBotContact.weapon_class], a few styles with a weight. A bot rolls one
 ## per class from its own stream and keeps it (it is that bot's way with a sniper), picking again on
 ## a respawn with chance `bot_style_variety`. A server changes the table with `bot_style_file` (a
 ## JSON file in the same shape) and `bot_style_weights` (`sniper.camper=6,smg.flanker=0`), see
-## [method DotBotSettings.style_table].
+## [method GSBotSettings.style_table].
 ##
 ## [b]A style is numbers, then a few phases.[/b] The numbers scale or bias the profile the brain
 ## already uses (preferred range, reach, strafing, bursts; the per-engagement stop, crouch,
@@ -24,7 +24,7 @@ extends RefCounted
 ##
 ## [b]Cheap.[/b] Per tick: a string compare and a few branches. Cover is looked for once per peek
 ## (up to six rays), a vantage once per hold (up to eighteen rays), from this bot's own
-## [DotRandomStream] ([code]dot_bot_style[/code]), so the brain's own stream is untouched and a bot
+## [GSRandomStream] ([code]dot_bot_style[/code]), so the brain's own stream is untouched and a bot
 ## with no weapon class, or `bot_styles 0`, plays exactly as before.
 
 const CHANNEL := "dot.bot"
@@ -205,7 +205,7 @@ var face: Vector3 = Vector3.INF
 ## Counts for a suite: phases entered by name.
 var entered: Dictionary = {}
 
-var _rng: DotRandomStream = null
+var _rng: GSRandomStream = null
 ## class -> picked row index, kept across lives.
 var _picked: Dictionary = {}
 var _settings_rev: int = -1
@@ -231,7 +231,7 @@ var _vantage_next: float = -INF
 
 
 func _init(id: int = 0) -> void:
-	_rng = DotRandomStream.new(id).stream(&"dot_bot_style")
+	_rng = GSRandomStream.new(id).stream(&"dot_bot_style")
 
 
 func label() -> String:
@@ -243,7 +243,7 @@ func phase_name() -> String:
 
 
 ## Follows the weapon in hand and the settings; one compare a tick when nothing changed.
-func refresh(me: DotBotContact, settings: DotBotSettings) -> void:
+func refresh(me: GSBotContact, settings: GSBotSettings) -> void:
 	var held := String(me.weapon_class)
 	var stamp := settings.style_stamp()
 	if held == klass and settings.revision == _settings_rev and stamp == _table_stamp:
@@ -270,7 +270,7 @@ func refresh(me: DotBotContact, settings: DotBotSettings) -> void:
 
 
 ## A new life: perhaps a new style per class, and this life's jitter.
-func respawn(settings: DotBotSettings) -> void:
+func respawn(settings: GSBotSettings) -> void:
 	var p := settings.profile
 	_end()
 	_vantage_next = -INF
@@ -292,7 +292,7 @@ func _roll_life(v: float) -> void:
 	_j_peek = maxf(0.2, 1.0 + 2.0 * v * (2.0 * _rng.next_unit() - 1.0))
 
 
-func _set_row(given: Dictionary, p: DotBotProfile) -> void:
+func _set_row(given: Dictionary, p: GSBotProfile) -> void:
 	active = not given.is_empty()
 	row = NEUTRAL.duplicate()
 	row.merge(given, true)
@@ -328,10 +328,10 @@ func on_kill() -> void:
 
 # --- Steering ---------------------------------------------------------------------
 
-# [param b] is the DotBotBrain, typed by its base: the brain names this class, and a script loop
+# [param b] is the GSBotBrain, typed by its base: the brain names this class, and a script loop
 # stays in memory for good (Godot 4.7).
 ## After the brain's fight: the style's own legs over the generic ones.
-func after_fight(b: RefCounted, me: DotBotContact, c: DotBotContact, world: DotBotWorld, now: float, dt: float, out: DotBotIntent) -> void:
+func after_fight(b: RefCounted, me: GSBotContact, c: GSBotContact, world: GSBotWorld, now: float, dt: float, out: GSBotIntent) -> void:
 	var flat := Vector2(c.position.x - me.position.x, c.position.z - me.position.z)
 	var dist := flat.length()
 	if phase == HIDE:
@@ -370,7 +370,7 @@ func after_fight(b: RefCounted, me: DotBotContact, c: DotBotContact, world: DotB
 
 ## With nothing in sight: true when a phase takes this tick (the brain then skips its search,
 ## listen and roam). [param free] is false while an objective or a pickup has the bot.
-func lead(b: RefCounted, me: DotBotContact, world: DotBotWorld, now: float, dt: float, out: DotBotIntent, free: bool) -> bool:
+func lead(b: RefCounted, me: GSBotContact, world: GSBotWorld, now: float, dt: float, out: GSBotIntent, free: bool) -> bool:
 	_exposed_since = -INF
 	_shots = 0
 	if world == null:
@@ -399,7 +399,7 @@ func lead(b: RefCounted, me: DotBotContact, world: DotBotWorld, now: float, dt: 
 	return false
 
 
-func _lead_hide(b: RefCounted, me: DotBotContact, world: DotBotWorld, now: float, dt: float, out: DotBotIntent, free: bool, eye: Vector3) -> bool:
+func _lead_hide(b: RefCounted, me: GSBotContact, world: GSBotWorld, now: float, dt: float, out: GSBotIntent, free: bool, eye: Vector3) -> bool:
 	if now >= phase_until and (_at(me, spot) or now > phase_since + TRAVEL_MAX):
 		if _killed or _rng.next_unit() < float(row["reposition"]):
 			_to_vantage(me, world, now, peek_spot)
@@ -421,7 +421,7 @@ func _lead_hide(b: RefCounted, me: DotBotContact, world: DotBotWorld, now: float
 	return true
 
 
-func _lead_return(b: RefCounted, me: DotBotContact, world: DotBotWorld, now: float, dt: float, out: DotBotIntent, free: bool, eye: Vector3) -> bool:
+func _lead_return(b: RefCounted, me: GSBotContact, world: GSBotWorld, now: float, dt: float, out: GSBotIntent, free: bool, eye: Vector3) -> bool:
 	if _at(me, spot) or now >= phase_until:
 		if row["roam"] == "camp" and free:
 			_begin(HOLD, now, now + _between(row["patience"]) * _j_patience)
@@ -437,7 +437,7 @@ func _lead_return(b: RefCounted, me: DotBotContact, world: DotBotWorld, now: flo
 	return true
 
 
-func _lead_move(b: RefCounted, me: DotBotContact, world: DotBotWorld, now: float, dt: float, out: DotBotIntent, free: bool, eye: Vector3) -> bool:
+func _lead_move(b: RefCounted, me: GSBotContact, world: GSBotWorld, now: float, dt: float, out: GSBotIntent, free: bool, eye: Vector3) -> bool:
 	if not free:
 		_end()
 		return false
@@ -454,7 +454,7 @@ func _lead_move(b: RefCounted, me: DotBotContact, world: DotBotWorld, now: float
 	return true
 
 
-func _lead_hold(b: RefCounted, me: DotBotContact, world: DotBotWorld, now: float, dt: float, out: DotBotIntent, free: bool, eye: Vector3) -> bool:
+func _lead_hold(b: RefCounted, me: GSBotContact, world: GSBotWorld, now: float, dt: float, out: GSBotIntent, free: bool, eye: Vector3) -> bool:
 	if not free or b._hurt_at > phase_since:
 		# Shot from somewhere it is not watching: this angle is burnt.
 		var burnt: bool = b._hurt_at > phase_since
@@ -504,7 +504,7 @@ func _end() -> void:
 
 
 ## Back out of [param c]'s sight to cover near by, remembering where it peeked from.
-func _hide(b: RefCounted, me: DotBotContact, c: DotBotContact, world: DotBotWorld, now: float, dt: float, out: DotBotIntent, why: StringName) -> void:
+func _hide(b: RefCounted, me: GSBotContact, c: GSBotContact, world: GSBotWorld, now: float, dt: float, out: GSBotIntent, why: StringName) -> void:
 	var at := cover_near(me.position, c.position, c.eye(), world, _rng)
 	peek_spot = me.position
 	threat = c.position
@@ -515,11 +515,11 @@ func _hide(b: RefCounted, me: DotBotContact, c: DotBotContact, world: DotBotWorl
 	out.state = &"cover"
 	out.crouch = false
 	b._scene = &"flee"
-	DotLog.trace(CHANNEL, "bot takes cover", {"bot": b.id, "why": why, "style": label()})
+	GSLog.trace(CHANNEL, "bot takes cover", {"bot": b.id, "why": why, "style": label()})
 
 
 ## Off to a vantage away from [param away_from]; no phase when none was found.
-func _to_vantage(me: DotBotContact, world: DotBotWorld, now: float, away_from: Vector3) -> void:
+func _to_vantage(me: GSBotContact, world: GSBotWorld, now: float, away_from: Vector3) -> void:
 	var picked := vantage(me.position, away_from, world, _rng)
 	if picked.is_empty():
 		_end()
@@ -533,14 +533,14 @@ func _to_vantage(me: DotBotContact, world: DotBotWorld, now: float, away_from: V
 
 
 ## Walks toward [param dest] (quietly when [param quiet]); the flat direction taken.
-func _go(b: RefCounted, me: DotBotContact, world: DotBotWorld, dest: Vector3, quiet: bool, out: DotBotIntent) -> Vector2:
+func _go(b: RefCounted, me: GSBotContact, world: GSBotWorld, dest: Vector3, quiet: bool, out: GSBotIntent) -> Vector2:
 	var dir: Vector2 = b._toward(me, world, dest)
 	b._set_move(out, dir)
 	out.walk = quiet
 	return dir
 
 
-func _at(me: DotBotContact, where: Vector3) -> bool:
+func _at(me: GSBotContact, where: Vector3) -> bool:
 	return where == Vector3.INF or Vector2(where.x - me.position.x, where.z - me.position.z).length() < ARRIVE
 
 
@@ -559,7 +559,7 @@ const COVER_RAYS := 6
 
 ## A standable spot near [param here] that [param threat_eye] cannot see (a crouched head), tried
 ## away from the threat and to either side; failing that, a few metres straight back.
-static func cover_near(here: Vector3, threat_pos: Vector3, threat_eye: Vector3, world: DotBotWorld, rng: DotRandomStream) -> Vector3:
+static func cover_near(here: Vector3, threat_pos: Vector3, threat_eye: Vector3, world: GSBotWorld, rng: GSRandomStream) -> Vector3:
 	var away := Vector2(here.x - threat_pos.x, here.z - threat_pos.z)
 	away = away.normalized() if away.length() > 0.01 else Vector2(0.0, 1.0)
 	var flip := 1.0 if rng.next_unit() < 0.5 else -1.0
@@ -584,7 +584,7 @@ static func cover_near(here: Vector3, threat_pos: Vector3, threat_eye: Vector3, 
 	return _back_off(here, away, world, snaps)
 
 
-static func _back_off(here: Vector3, away: Vector2, world: DotBotWorld, snaps: bool) -> Vector3:
+static func _back_off(here: Vector3, away: Vector2, world: GSBotWorld, snaps: bool) -> Vector3:
 	var at := here + Vector3(away.x, 0.0, away.y) * 5.0
 	if snaps:
 		var snapped := world.walkable_near(at)
@@ -594,7 +594,7 @@ static func _back_off(here: Vector3, away: Vector2, world: DotBotWorld, snaps: b
 
 ## A vantage: a waypoint that sees other waypoints far off, higher the better, not too near
 ## [param away_from]. `{at, face}` or empty.
-static func vantage(here: Vector3, away_from: Vector3, world: DotBotWorld, rng: DotRandomStream) -> Dictionary:
+static func vantage(here: Vector3, away_from: Vector3, world: GSBotWorld, rng: GSRandomStream) -> Dictionary:
 	var points := world.waypoints()
 	var n := points.size()
 	if n == 0:

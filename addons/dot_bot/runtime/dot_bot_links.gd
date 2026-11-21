@@ -1,24 +1,24 @@
-class_name DotBotLinks
+class_name GSBotLinks
 extends RefCounted
 
-## What a converted map's own entities add to [DotBotNav]: teleports the mesh can use, kill volumes it must keep clear of, and touch doors a body opens by walking into them.
+## What a converted map's own entities add to [GSBotNav]: teleports the mesh can use, kill volumes it must keep clear of, and touch doors a body opens by walking into them.
 ##
-## [method read] takes a built map world by duck typing (GameSpice Map's `DotMapWorld`), so no other addon is named. A teleport is an edge (id at or above [constant TELEPORT_ID]), not a ride; only what a runner can fire now is used. Usage: docs/design.md.
+## [method read] takes a built map world by duck typing (GameSpice Map's `GSMapWorld`), so no other addon is named. A teleport is an edge (id at or above [constant TELEPORT_ID]), not a ride; only what a runner can fire now is used. Usage: docs/design.md.
 
 const CHANNEL := "dot.bot.links"
 
 ## Ride ids from here up are teleports, so a game's own ride ids (surf edges) are never confused with them.
 const TELEPORT_ID := 1000000
-## Ride ids from here up are drops off the mesh's rims ([method DotBotNav.find_drops]).
+## Ride ids from here up are drops off the mesh's rims ([method GSBotNav.find_drops]).
 const DROP_ID := 2000000
 ## Ride ids from here up are the legs of a platform ride (a train carrying a body between two stops).
 const PLATFORM_ID := 3000000
 ## Shortest drop that gets an edge: below a step's climb the mesh walks it, and a drop a little over one (a pool floor
 ## 1.2 m down) is a floor the bake does not join either.
 const DROP_MIN := 0.6
-## Ride ids from here up are jumps across a gap ([method DotBotNav.find_hops]).
+## Ride ids from here up are jumps across a gap ([method GSBotNav.find_hops]).
 const HOP_ID := 4000000
-## Ride ids from here up join neighbouring islands ([method DotBotNav.find_stitches]).
+## Ride ids from here up join neighbouring islands ([method GSBotNav.find_stitches]).
 const STITCH_ID := 6000000
 ## Ride ids from here up are ladders, climbed by the brain itself ([method ladder_of]), not handed to a game's rider.
 const LADDER_ID := 5000000
@@ -95,13 +95,13 @@ var unlock_doors: Array[Dictionary] = []
 
 
 ## Reads [param world]'s teleports, kill volumes and touch doors. [param options]: `lethal`, `margin`, and `nav_export`
-## (GameSpice Map's `DotMapNavLinks.read(world)`, which [method apply_export] takes; a game that passes none is unchanged).
-static func read(world: Object, options: Dictionary = {}) -> DotBotLinks:
-	var links := DotBotLinks.new()
+## (GameSpice Map's `GSMapNavLinks.read(world)`, which [method apply_export] takes; a game that passes none is unchanged).
+static func read(world: Object, options: Dictionary = {}) -> GSBotLinks:
+	var links := GSBotLinks.new()
 	links.lethal = float(options.get("lethal", links.lethal))
 	links.margin = float(options.get("margin", links.margin))
 	if world == null:
-		DotLog.debug(CHANNEL, "no world to read; bots get no teleports, kills or doors")
+		GSLog.debug(CHANNEL, "no world to read; bots get no teleports, kills or doors")
 		return links
 
 	if world.has_method("ladder_boxes"):
@@ -125,7 +125,7 @@ static func read(world: Object, options: Dictionary = {}) -> DotBotLinks:
 	return links
 
 
-## Takes GameSpice Map's door and teleport export (`DotMapNavLinks.read`): every opener of a closed door or disabled teleport becomes a gadget (a shot button is kind `"shoot"`) with the entities it reaches in `feeds`.
+## Takes GameSpice Map's door and teleport export (`GSMapNavLinks.read`): every opener of a closed door or disabled teleport becomes a gadget (a shot button is kind `"shoot"`) with the entities it reaches in `feeds`.
 ## [member unlock_doors] keeps `{"entity", "box", "opened_by"}` per openable door. Plain data in.
 func apply_export(export: Dictionary) -> void:
 	var by_index := {}
@@ -162,7 +162,7 @@ func apply_export(export: Dictionary) -> void:
 
 
 ## Cuts the kill volumes out of the next bake of [param nav], so a path ends short of one.
-func carve(nav: DotBotNav) -> void:
+func carve(nav: GSBotNav) -> void:
 	nav.avoid.clear()
 	for box in kills:
 		nav.avoid.append(box)
@@ -170,15 +170,15 @@ func carve(nav: DotBotNav) -> void:
 
 ## Joins each teleport not yet joined to [param nav] (which must be ready) as an edge from the mesh point inside its
 ## box to its destination, ids [constant TELEPORT_ID] up in the order read. Returns [member joined].
-func join(nav: DotBotNav) -> Dictionary:
+func join(nav: GSBotNav) -> Dictionary:
 	var _done := join_step(nav)
 	return joined
 
 
 ## [method join] a slice at a time, for a map whose drop, hop and stitch search outlasts a frame: true when
 ## done, [member joined] then set. The first call joins teleports, ladders and platforms; each call searches
-## until [param until_usec] ([method Time.get_ticks_usec], 0 to the end), with [member DotBotNav.held] set meanwhile.
-func join_step(nav: DotBotNav, until_usec: int = 0) -> bool:
+## until [param until_usec] ([method Time.get_ticks_usec], 0 to the end), with [member GSBotNav.held] set meanwhile.
+func join_step(nav: GSBotNav, until_usec: int = 0) -> bool:
 	if _jobs.is_empty():
 		_stepping = _join_now(nav)
 		if drops and not _dropped_once:
@@ -204,7 +204,7 @@ func join_step(nav: DotBotNav, until_usec: int = 0) -> bool:
 	return true
 
 
-func _join_now(nav: DotBotNav) -> Dictionary:
+func _join_now(nav: GSBotNav) -> Dictionary:
 	var stats := {"joined": 0, "off_mesh": 0, "stranded": 0}
 	off_mesh.clear()
 	for i in teleports.size():
@@ -234,20 +234,20 @@ func _join_now(nav: DotBotNav) -> Dictionary:
 
 
 ## Joins [param boxes] (ladder volumes in world space) into [param nav] as one-way climbs and returns the links, or null when none attached.
-## Give the result's `ladder_of` to [member DotBotWorld.ladder_fn]; the game's own mesh needs no other change.
-static func link_ladders(nav: DotBotNav, boxes: Array) -> DotBotLinks:
+## Give the result's `ladder_of` to [member GSBotWorld.ladder_fn]; the game's own mesh needs no other change.
+static func link_ladders(nav: GSBotNav, boxes: Array) -> GSBotLinks:
 	if nav == null or boxes.is_empty():
 		return null
-	var links := DotBotLinks.new()
+	var links := GSBotLinks.new()
 	links.drops = false
 	for box: AABB in boxes:
 		links.ladders.append({"box": box})
 	var stats := links.join(nav)
-	DotLog.debug(CHANNEL, "ladders linked", {"ladders": boxes.size(), "edges": int(stats.get("ladders", 0))})
+	GSLog.debug(CHANNEL, "ladders linked", {"ladders": boxes.size(), "edges": int(stats.get("ladders", 0))})
 	return links if int(stats.get("ladders", 0)) > 0 else null
 
 
-## The ladder behind ride [param ride_id] as `{"box", "from", "to"}`, or an empty dictionary: what [member DotBotWorld.ladder_fn] answers.
+## The ladder behind ride [param ride_id] as `{"box", "from", "to"}`, or an empty dictionary: what [member GSBotWorld.ladder_fn] answers.
 func ladder_of(ride_id: int) -> Dictionary:
 	var i := ride_id - LADDER_ID
 	if i < 0 or i >= ladders.size() or not ladders[i].has("from"):
@@ -256,7 +256,7 @@ func ladder_of(ride_id: int) -> Dictionary:
 
 
 ## One-way up edges from each ladder's foot to its top, both on the mesh; returns how many were added.
-func _join_ladders(nav: DotBotNav) -> int:
+func _join_ladders(nav: GSBotNav) -> int:
 	var added := 0
 	for i in ladders.size():
 		var l := ladders[i]
@@ -275,7 +275,7 @@ func _join_ladders(nav: DotBotNav) -> int:
 
 
 ## The mesh point nearest to where a body would stand at [param y] out from either face of the ladder.
-func _ladder_end(nav: DotBotNav, box: AABB, y: float, offsets: Array) -> Vector3:
+func _ladder_end(nav: GSBotNav, box: AABB, y: float, offsets: Array) -> Vector3:
 	var along_x := box.size.x < box.size.z
 	var centre := box.get_center()
 	var best := Vector3.INF
@@ -293,7 +293,7 @@ func _ladder_end(nav: DotBotNav, box: AABB, y: float, offsets: Array) -> Vector3
 
 
 ## Takes in the teleports a button has enabled since [method read] and joins them. Returns how many are new.
-func refresh(nav: DotBotNav, destinations: Dictionary) -> int:
+func refresh(nav: GSBotNav, destinations: Dictionary) -> int:
 	var fresh := 0
 	for l in later.duplicate():
 		var node: Object = l["node"]
@@ -309,7 +309,7 @@ func refresh(nav: DotBotNav, destinations: Dictionary) -> int:
 
 ## The nearest gadget not in [param done] whose teleport is still disabled ([param any]: every gadget), within [param within] metres of walking from [param feet];
 ## it gains `"at"` (the mesh point) and `"metres"`, or an empty dictionary.
-func next_gadget(nav: DotBotNav, feet: Vector3, done: Dictionary, any: bool = false, within: float = 60.0) -> Dictionary:
+func next_gadget(nav: GSBotNav, feet: Vector3, done: Dictionary, any: bool = false, within: float = 60.0) -> Dictionary:
 	var best := {}
 	var best_metres := within
 	for g in gadgets:
@@ -336,7 +336,7 @@ func next_gadget(nav: DotBotNav, feet: Vector3, done: Dictionary, any: bool = fa
 
 ## The nearest joined teleport not in [param taken] (teleport index to anything) that a bot at [param feet] can walk to:
 ## `{"index", "kind": "teleport", "box", "at", "metres"}` shaped like a gadget, or an empty dictionary.
-func next_teleport(nav: DotBotNav, feet: Vector3, taken: Dictionary) -> Dictionary:
+func next_teleport(nav: GSBotNav, feet: Vector3, taken: Dictionary) -> Dictionary:
 	var best := {}
 	var best_metres := INF
 	for i in teleports.size():
@@ -468,7 +468,7 @@ func platform_link_near(at: Vector3, reach: float) -> Dictionary:
 	return {}
 
 
-func _join_platforms(nav: DotBotNav) -> int:
+func _join_platforms(nav: GSBotNav) -> int:
 	var count := 0
 	for i in platforms.size():
 		var stops: Array = platforms[i]["stops"]
@@ -670,7 +670,7 @@ func _available(gadget: Dictionary) -> bool:
 
 
 ## The mesh point a bot stands on to fire [param gadget], INF when the mesh never gets there.
-func _stand(nav: DotBotNav, gadget: Dictionary) -> Vector3:
+func _stand(nav: GSBotNav, gadget: Dictionary) -> Vector3:
 	var box: AABB = gadget["box"]
 	if gadget["kind"] == "walk":
 		return _entry(nav, box, 0.0)
@@ -697,7 +697,7 @@ func _grown(box: AABB) -> AABB:
 
 
 ## A mesh point inside [param box], nearest its middle, or INF when the floor never enters it.
-static func _entry(nav: DotBotNav, box: AABB, slack: float = 0.0) -> Vector3:
+static func _entry(nav: GSBotNav, box: AABB, slack: float = 0.0) -> Vector3:
 	var best := Vector3.INF
 	var best_d := INF
 	var middle := box.get_center()

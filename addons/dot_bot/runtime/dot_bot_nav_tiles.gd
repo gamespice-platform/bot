@@ -1,7 +1,7 @@
-class_name DotBotNavTiles
+class_name GSBotNavTiles
 extends RefCounted
 
-## A navigation bake cut into square tiles and joined into one mesh, for a map [DotBotNav] could not bake in one grid.
+## A navigation bake cut into square tiles and joined into one mesh, for a map [GSBotNav] could not bake in one grid.
 ##
 ## Godot's baker refuses a bake whose cell grid is over 30 million cells ("suspiciously big") while
 ## `navigation/baking/use_crash_prevention_checks` is on, and one Recast poly mesh holds under 65535
@@ -11,8 +11,8 @@ extends RefCounted
 ## the line is split at the other side's vertices, so every seam is a shared edge, the navigation
 ## server connects it, and a path crosses it.
 ##
-## Nothing is clamped: a size the engine would refuse, or a negative one, is a failed [DotResult] with the reason.
-## [DotBotNav] owns one of these; a game sets the bake's agent key `tile`, it names this class never.
+## Nothing is clamped: a size the engine would refuse, or a negative one, is a failed [GSResult] with the reason.
+## [GSBotNav] owns one of these; a game sets the bake's agent key `tile`, it names this class never.
 
 const CHANNEL := "dot.bot.nav"
 
@@ -63,7 +63,7 @@ func border() -> float:
 ## Plans the tiles for [param source] baked with [param target]'s settings. [param asked] is the tile side in metres:
 ## 0 = auto (one grid while the map is within the engine's limit, else [constant AUTO_TILE] tiles), above 0 always tiles.
 ## Success holds the tile count (0 for one grid); a size the engine would refuse, a negative one or one under four borders fails.
-func plan(source: NavigationMeshSourceGeometryData3D, target: NavigationMesh, asked: float) -> DotResult:
+func plan(source: NavigationMeshSourceGeometryData3D, target: NavigationMesh, asked: float) -> GSResult:
 	reset()
 	mesh = target
 	var engine_checks := bool(ProjectSettings.get_setting("navigation/baking/use_crash_prevention_checks", true))
@@ -71,26 +71,26 @@ func plan(source: NavigationMeshSourceGeometryData3D, target: NavigationMesh, as
 	var cell := mesh.cell_size
 
 	if is_nan(asked) or asked < 0.0:
-		return DotResult.fail(DotError.CODE_INVALID, "the bake's tile is %s; it is metres, 0 for auto" % str(asked))
+		return GSResult.fail(GSError.CODE_INVALID, "the bake's tile is %s; it is metres, 0 for auto" % str(asked))
 
 	var side := asked
 
 	if side == 0.0:
 		if not engine_checks or grid_cells(bounds.size, cell) <= ENGINE_MAX_CELLS:
-			return DotResult.success(0)
+			return GSResult.success(0)
 		side = AUTO_TILE
 
 	side = ceilf(side / cell - 0.001) * cell
 	var pad := border()
 
 	if side < 4.0 * pad:
-		return DotResult.fail(DotError.CODE_INVALID,
+		return GSResult.fail(GSError.CODE_INVALID,
 			"the bake's tile %.2f m is under four times the %.2f m border each tile bakes around it; raise it or use 0 for auto" % [side, pad])
 
 	var with_border := Vector3(side + 2.0 * pad, 0.0, side + 2.0 * pad)
 
 	if engine_checks and grid_cells(with_border, cell) > ENGINE_MAX_CELLS:
-		return DotResult.fail(DotError.CODE_INVALID,
+		return GSResult.fail(GSError.CODE_INVALID,
 			"the bake's tile %.0f m needs %d cells a tile, over the engine's %d while navigation/baking/use_crash_prevention_checks is on; lower it or use 0 for auto" % [
 				side, grid_cells(with_border, cell), ENGINE_MAX_CELLS])
 
@@ -104,10 +104,10 @@ func plan(source: NavigationMeshSourceGeometryData3D, target: NavigationMesh, as
 			boxes.append(AABB(_origin + Vector3(tx * side, 0.0, tz * side), Vector3(side, height, side)))
 
 	side_m = side
-	DotLog.info(CHANNEL, "navigation bake: the map is baked in tiles", {
+	GSLog.info(CHANNEL, "navigation bake: the map is baked in tiles", {
 		"extent": "%.0fx%.0f m" % [bounds.size.x, bounds.size.z], "cells": grid_cells(bounds.size, cell),
 		"tile": snappedf(side, 0.001), "tiles": "%dx%d" % [_counts.x, _counts.y], "border": snappedf(pad, 0.001)})
-	return DotResult.success(boxes.size())
+	return GSResult.success(boxes.size())
 
 
 ## A copy of the mesh's settings that bakes [param box] and a border round it.
@@ -155,7 +155,7 @@ func join(parts: Array[NavigationMesh]) -> int:
 	for t in range(0, tris.size(), 3):
 		mesh.add_polygon(PackedInt32Array([tris[t], tris[t + 1], tris[t + 2]]))
 
-	DotLog.info(CHANNEL, "navigation bake: tiles joined", {"tiles": parts.size(), "polygons": tris.size() / 3,
+	GSLog.info(CHANNEL, "navigation bake: tiles joined", {"tiles": parts.size(), "polygons": tris.size() / 3,
 		"vertices": kept.size(), "seam_splits": seams, "join_ms": snappedf((Time.get_ticks_usec() - began) / 1000.0, 0.1)})
 	return seams
 

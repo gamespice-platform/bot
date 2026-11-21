@@ -1,11 +1,11 @@
-class_name DotBotMlp
+class_name GSBotMlp
 extends RefCounted
 
 ## A small multilayer perceptron run in GDScript: the behaviour-cloning policy's forward pass.
 ## Weights are `<name>.dotmlp` (a JSON header) and a sibling `<name>.f32` (little-endian float32: per layer the weights row-major, [out][in], then the biases).
 ## Both are untrusted: sizes, the hash, every float and every shape are checked before use. [method forward] allocates nothing (the buffers are made at load) and gives the same result for the same input, every call.
 
-# No log channel: loading answers with a DotResult; its caller logs.
+# No log channel: loading answers with a GSResult; its caller logs.
 const FORMAT := "dotbot-mlp"
 const VERSION := 1
 const HEADER_EXT := "dotmlp"
@@ -59,34 +59,34 @@ func multiply_adds() -> int:
 	return n
 
 
-## Loads `<stem>.dotmlp` and its sibling `.f32` (pass the stem or either file). With a [param schema] (a DotBotDemoSchema, duck typed) the header's schema id and the input and output sizes must match it, or the file is refused.
-static func load_file(path: String, schema: Variant = null) -> DotResult:
+## Loads `<stem>.dotmlp` and its sibling `.f32` (pass the stem or either file). With a [param schema] (a GSBotDemoSchema, duck typed) the header's schema id and the input and output sizes must match it, or the file is refused.
+static func load_file(path: String, schema: Variant = null) -> GSResult:
 	var stem := path
 	if path.get_extension() == HEADER_EXT or path.get_extension() == WEIGHTS_EXT:
 		stem = path.get_basename()
 	var header_path := stem + "." + HEADER_EXT
 	var weights_path := stem + "." + WEIGHTS_EXT
-	var hsize := DotPaths.file_size(header_path)
+	var hsize := GSPaths.file_size(header_path)
 	if hsize < 0:
-		return DotResult.fail(DotError.CODE_IO, "No %s." % header_path.get_file())
+		return GSResult.fail(GSError.CODE_IO, "No %s." % header_path.get_file())
 	if hsize > MAX_HEADER_BYTES:
-		return DotResult.fail(DotError.CODE_INVALID, "The header is %d bytes; the limit is %d." % [hsize, MAX_HEADER_BYTES])
-	var wsize := DotPaths.file_size(weights_path)
+		return GSResult.fail(GSError.CODE_INVALID, "The header is %d bytes; the limit is %d." % [hsize, MAX_HEADER_BYTES])
+	var wsize := GSPaths.file_size(weights_path)
 	if wsize < 0:
-		return DotResult.fail(DotError.CODE_IO, "No %s." % weights_path.get_file())
+		return GSResult.fail(GSError.CODE_IO, "No %s." % weights_path.get_file())
 	if wsize > MAX_WEIGHT_BYTES:
-		return DotResult.fail(DotError.CODE_INVALID, "The weights are %d bytes; the limit is %d." % [wsize, MAX_WEIGHT_BYTES])
-	var parsed := DotPaths.read_json(header_path)
+		return GSResult.fail(GSError.CODE_INVALID, "The weights are %d bytes; the limit is %d." % [wsize, MAX_WEIGHT_BYTES])
+	var parsed := GSPaths.read_json(header_path)
 	if not parsed.ok:
 		return parsed
-	var bytes := DotPaths.read_bytes(weights_path)
+	var bytes := GSPaths.read_bytes(weights_path)
 	if not bytes.ok:
 		return bytes
 	return from_data(parsed.value, bytes.value, schema)
 
 
 ## Builds a net from a parsed header and the weights' bytes, with every check [method load_file] makes.
-static func from_data(header: Variant, weight_bytes: PackedByteArray, schema: Variant = null) -> DotResult:
+static func from_data(header: Variant, weight_bytes: PackedByteArray, schema: Variant = null) -> GSResult:
 	if not header is Dictionary:
 		return _bad("the header is not an object.")
 	var h: Dictionary = header
@@ -94,7 +94,7 @@ static func from_data(header: Variant, weight_bytes: PackedByteArray, schema: Va
 		return _bad("the format is not '%s'." % FORMAT)
 	if not _is_int(h.get("version")) or int(h["version"]) != VERSION:
 		return _bad("version %s is not supported (only %d)." % [str(h.get("version")).left(MAX_NAME), VERSION])
-	var m := DotBotMlp.new()
+	var m := GSBotMlp.new()
 	for key in ["schema_id", "kind"]:
 		if not h.get(key) is String or String(h[key]) == "" or String(h[key]).length() > MAX_NAME:
 			return _bad("'%s' is missing or too long." % key)
@@ -139,26 +139,26 @@ static func from_data(header: Variant, weight_bytes: PackedByteArray, schema: Va
 
 	if schema != null:
 		if schema.schema_id() != m.schema_id:
-			return DotResult.fail(DotError.CODE_INVALID, "The weights are for schema '%s', the game's is '%s'." % [m.schema_id, schema.schema_id()])
+			return GSResult.fail(GSError.CODE_INVALID, "The weights are for schema '%s', the game's is '%s'." % [m.schema_id, schema.schema_id()])
 		if schema.observation_size() != m.input_size() or schema.action_size() != m.output_size():
-			return DotResult.fail(DotError.CODE_INVALID, "The net is %d in, %d out; the schema is %d in, %d out." % [m.input_size(), m.output_size(), schema.observation_size(), schema.action_size()])
+			return GSResult.fail(GSError.CODE_INVALID, "The net is %d in, %d out; the schema is %d in, %d out." % [m.input_size(), m.output_size(), schema.observation_size(), schema.action_size()])
 
 	if weight_bytes.size() != params * 4:
-		return DotResult.fail(DotError.CODE_INTEGRITY, "The weights are %d bytes, expected %d." % [weight_bytes.size(), params * 4])
+		return GSResult.fail(GSError.CODE_INTEGRITY, "The weights are %d bytes, expected %d." % [weight_bytes.size(), params * 4])
 	if not h.get("sha256") is String or String(h["sha256"]) == "":
 		return _bad("'sha256' of the weights is missing.")
 	if _sha256(weight_bytes) != String(h["sha256"]).to_lower():
-		return DotResult.fail(DotError.CODE_INTEGRITY, "The weights do not match the header's hash.")
+		return GSResult.fail(GSError.CODE_INTEGRITY, "The weights do not match the header's hash.")
 	m._weights = weight_bytes.to_float32_array()
 	for v in m._weights:
 		if not is_finite(v):
-			return DotResult.fail(DotError.CODE_INTEGRITY, "The weights hold a value that is not finite.")
+			return GSResult.fail(GSError.CODE_INTEGRITY, "The weights hold a value that is not finite.")
 
 	for w in m.sizes:
 		m._width = maxi(m._width, w)
 	m._work.resize(m._width * 2)
 	m._out.resize(m.output_size())
-	return DotResult.success(m)
+	return GSResult.success(m)
 
 
 ## A header and the weights' bytes for a net, for a trainer's output and for tests: [param layers] is one {w: PackedFloat32Array ([out][in] row-major), b: PackedFloat32Array} per layer.
@@ -216,7 +216,7 @@ func forward(obs: PackedFloat32Array) -> PackedFloat32Array:
 
 
 func describe() -> String:
-	return "DotBotMlp(%s, schema %s, %s, %d multiply-adds)" % [kind, schema_id, "-".join(Array(sizes).map(str)), multiply_adds()]
+	return "GSBotMlp(%s, schema %s, %s, %d multiply-adds)" % [kind, schema_id, "-".join(Array(sizes).map(str)), multiply_adds()]
 
 
 static func _sha256(bytes: PackedByteArray) -> String:
@@ -230,5 +230,5 @@ static func _is_int(v: Variant) -> bool:
 	return (v is int) or (v is float and is_finite(v) and v == floorf(v) and absf(v) < 1e9)
 
 
-static func _bad(why: String) -> DotResult:
-	return DotResult.fail(DotError.CODE_INVALID, "Not a usable net: %s" % why)
+static func _bad(why: String) -> GSResult:
+	return GSResult.fail(GSError.CODE_INVALID, "Not a usable net: %s" % why)

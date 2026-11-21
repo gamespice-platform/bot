@@ -1,7 +1,7 @@
-class_name DotBotNavGeometry
+class_name GSBotNavGeometry
 extends RefCounted
 
-## Pure mesh geometry for [DotBotNav]: islands, their lookup grid, triangle heights, edge keys.
+## Pure mesh geometry for [GSBotNav]: islands, their lookup grid, triangle heights, edge keys.
 
 ## Grid cell for [method grid], metres.
 const ISLAND_CELL := 2.0
@@ -62,7 +62,7 @@ static func _summarise(mesh: NavigationMesh, vertices: PackedVector3Array, polyg
 	return {"area": area, "polygons": polygons, "bounds": bounds, "centre": weighted / maxf(area, 0.0001)}
 
 
-## The island's triangles bucketed by [constant ISLAND_CELL] cell, for [method DotBotNav.on_island].
+## The island's triangles bucketed by [constant ISLAND_CELL] cell, for [method GSBotNav.on_island].
 static func grid(mesh: NavigationMesh, island: Dictionary) -> Dictionary:
 	var cells: Dictionary = {}
 	var vertices := mesh.get_vertices()

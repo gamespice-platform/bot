@@ -1,4 +1,4 @@
-class_name DotBotDemoExport
+class_name GSBotDemoExport
 extends RefCounted
 
 ## Verified episodes of one schema as a behaviour-cloning dataset: `manifest.json` and `shard_N.f32` files, split into train and held-out by episode.
@@ -35,38 +35,38 @@ var split_seed: String = "bc1"
 ## Episodes [method add] refused: not verified, another schema, a bad frame, a non-finite value or a repeated id.
 var rejected: int = 0
 
-var _schema: DotBotDemoSchema
+var _schema: GSBotDemoSchema
 # "map_id@version" -> {map_id, map_version, episodes: Array}
 var _groups: Dictionary = {}
 var _seen: Dictionary = {}
 
 
-func _init(p_schema: DotBotDemoSchema = null) -> void:
+func _init(p_schema: GSBotDemoSchema = null) -> void:
 	_schema = p_schema
 
 
 ## A schema from the plain description a tool reads from JSON: {kind, version, observation: [[name, size, scale]], action: [[name, size, scale, discrete]]}.
-static func schema_from_dictionary(d: Dictionary) -> DotResult:
-	var s := DotBotDemoSchema.make(String(d.get("kind", "")), int(d.get("version", 1)))
+static func schema_from_dictionary(d: Dictionary) -> GSResult:
+	var s := GSBotDemoSchema.make(String(d.get("kind", "")), int(d.get("version", 1)))
 	var obs: Variant = d.get("observation", [])
 	var act: Variant = d.get("action", [])
 	if not obs is Array or not act is Array:
-		return DotResult.fail(DotError.CODE_INVALID, "A schema's observation and action are lists of rows.")
+		return GSResult.fail(GSError.CODE_INVALID, "A schema's observation and action are lists of rows.")
 	for row: Variant in obs:
 		if not row is Array or (row as Array).size() < 2:
-			return DotResult.fail(DotError.CODE_INVALID, "An observation row is [name, size, scale].")
+			return GSResult.fail(GSError.CODE_INVALID, "An observation row is [name, size, scale].")
 		var r := row as Array
 		s.add_observation(String(r[0]), int(r[1]), float(r[2]) if r.size() > 2 else 1.0)
 	for row: Variant in act:
 		if not row is Array or (row as Array).size() < 2:
-			return DotResult.fail(DotError.CODE_INVALID, "An action row is [name, size, scale, discrete].")
+			return GSResult.fail(GSError.CODE_INVALID, "An action row is [name, size, scale, discrete].")
 		var r := row as Array
 		s.add_action(String(r[0]), int(r[1]), float(r[2]) if r.size() > 2 else 1.0, bool(r[3]) if r.size() > 3 else false)
 	return s.validate()
 
 
 ## Adds one episode; false (and counted in [member rejected]) when it cannot be learned from.
-func add(ep: DotBotDemoEpisode) -> bool:
+func add(ep: GSBotDemoEpisode) -> bool:
 	if _schema == null or not _schema.validate().ok or not ep.verified or ep.kind != _schema.kind or ep.schema_id != _schema.schema_id():
 		rejected += 1
 		return false
@@ -91,16 +91,16 @@ func add(ep: DotBotDemoEpisode) -> bool:
 
 
 ## Adds the schema's episodes of [param labels] on one map version from a store; the value is how many were added.
-func collect(store: DotBotDemoStore, map_id: String, map_version: String, labels: Array, limit: int = 0) -> DotResult:
+func collect(store: GSBotDemoStore, map_id: String, map_version: String, labels: Array, limit: int = 0) -> GSResult:
 	var added := 0
 	for label: String in labels:
-		var res: DotResult = await store.load(map_id, map_version, _schema.kind, label, limit)
+		var res: GSResult = await store.load(map_id, map_version, _schema.kind, label, limit)
 		if not res.ok:
 			return res
-		for ep: DotBotDemoEpisode in res.value:
+		for ep: GSBotDemoEpisode in res.value:
 			if add(ep):
 				added += 1
-	return DotResult.success(added)
+	return GSResult.success(added)
 
 
 func episode_count() -> int:
@@ -111,19 +111,19 @@ func episode_count() -> int:
 
 
 ## Writes the shards and then the manifest into [param dir]; the manifest's presence means the export is whole. A directory that already holds one is refused unless [param overwrite]. The value is the manifest dictionary.
-func write(dir: String, overwrite: bool = false) -> DotResult:
+func write(dir: String, overwrite: bool = false) -> GSResult:
 	if _schema == null or not _schema.validate().ok:
-		return DotResult.fail(DotError.CODE_INVALID, "An export needs a valid schema.")
+		return GSResult.fail(GSError.CODE_INVALID, "An export needs a valid schema.")
 	if episode_count() == 0:
-		return DotResult.fail(DotError.CODE_INVALID, "No verified episodes of '%s' to export." % _schema.kind)
+		return GSResult.fail(GSError.CODE_INVALID, "No verified episodes of '%s' to export." % _schema.kind)
 	if max_shard_rows < 1 or held_out_fraction < 0.0 or held_out_fraction >= 1.0:
-		return DotResult.fail(DotError.CODE_INVALID, "max_shard_rows is 1 or more and held_out_fraction is in [0, 1).")
-	var made := DotPaths.ensure_dir(dir)
+		return GSResult.fail(GSError.CODE_INVALID, "max_shard_rows is 1 or more and held_out_fraction is in [0, 1).")
+	var made := GSPaths.ensure_dir(dir)
 	if not made.ok:
 		return made
 	if FileAccess.file_exists(dir.path_join(MANIFEST)):
 		if not overwrite:
-			return DotResult.fail(DotError.CODE_CONFLICT, "'%s' already holds an export." % dir)
+			return GSResult.fail(GSError.CODE_CONFLICT, "'%s' already holds an export." % dir)
 		DirAccess.remove_absolute(dir.path_join(MANIFEST))
 	_remove_shards(dir)
 
@@ -143,7 +143,7 @@ func write(dir: String, overwrite: bool = false) -> DotResult:
 			var run: Array = []
 			var run_rows := 0
 			for i in pending.size() + 1:
-				var ep: DotBotDemoEpisode = pending[i] if i < pending.size() else null
+				var ep: GSBotDemoEpisode = pending[i] if i < pending.size() else null
 				var rows: int = 0 if ep == null else ep.sample_count()
 				if not run.is_empty() and (ep == null or run_rows + rows > max_shard_rows):
 					var wrote := _write_shard(dir, shards.size(), part, group, run, frame)
@@ -174,22 +174,22 @@ func write(dir: String, overwrite: bool = false) -> DotResult:
 		"split": {"seed": split_seed, "held_out_fraction": held_out_fraction},
 		"maps": maps, "shards": shards, "held_out": held_out, "totals": totals, "rejected": rejected,
 	}
-	var saved := DotPaths.write_json(dir.path_join(MANIFEST), manifest)
+	var saved := GSPaths.write_json(dir.path_join(MANIFEST), manifest)
 	if not saved.ok:
 		return saved
-	DotLog.info(CHANNEL, "exported %d train and %d held-out episodes of '%s' to %s" % [totals["train_episodes"], totals["held_out_episodes"], _schema.kind, dir])
-	return DotResult.success(manifest)
+	GSLog.info(CHANNEL, "exported %d train and %d held-out episodes of '%s' to %s" % [totals["train_episodes"], totals["held_out_episodes"], _schema.kind, dir])
+	return GSResult.success(manifest)
 
 
 ## The manifest of [param dir], checked in full; the value holds only what was checked, every count an int. Fails CODE_IO, CODE_PARSE, CODE_VERSION or CODE_INVALID.
-static func load_manifest(dir: String) -> DotResult:
+static func load_manifest(dir: String) -> GSResult:
 	var path := dir.path_join(MANIFEST)
 	if not FileAccess.file_exists(path):
-		return DotResult.fail(DotError.CODE_IO, "No %s in '%s'." % [MANIFEST, dir])
-	var size := DotPaths.file_size(path)
+		return GSResult.fail(GSError.CODE_IO, "No %s in '%s'." % [MANIFEST, dir])
+	var size := GSPaths.file_size(path)
 	if size > MAX_MANIFEST_BYTES:
-		return DotResult.fail(DotError.CODE_INVALID, "The manifest is %d bytes; the limit is %d." % [size, MAX_MANIFEST_BYTES])
-	var parsed := DotPaths.read_json(path)
+		return GSResult.fail(GSError.CODE_INVALID, "The manifest is %d bytes; the limit is %d." % [size, MAX_MANIFEST_BYTES])
+	var parsed := GSPaths.read_json(path)
 	if not parsed.ok:
 		return parsed
 	if not parsed.value is Dictionary:
@@ -198,7 +198,7 @@ static func load_manifest(dir: String) -> DotResult:
 	if not m.get("format") is String or String(m["format"]) != FORMAT:
 		return _bad("it is not a %s export." % FORMAT)
 	if _count(m.get("version"), 1, 1 << 30) != VERSION:
-		return DotResult.fail(DotError.CODE_VERSION, "Export version %s; this reads version %d." % [str(m.get("version")).left(MAX_NAME), VERSION])
+		return GSResult.fail(GSError.CODE_VERSION, "Export version %s; this reads version %d." % [str(m.get("version")).left(MAX_NAME), VERSION])
 	var out := {"format": FORMAT, "version": VERSION}
 	for key in ["kind", "schema_id"]:
 		var s := _name(m.get(key))
@@ -257,11 +257,11 @@ static func load_manifest(dir: String) -> DotResult:
 		return held
 	out["held_out"] = held.value
 	out["totals"] = totals
-	return DotResult.success(out)
+	return GSResult.success(out)
 
 
 ## One entry of a manifest's [code]shards[/code], checked; adds its file to [param files] and its rows to [param totals].
-static func _manifest_shard(item: Variant, name_check: RegEx, files: Dictionary, totals: Dictionary, frame: int) -> DotResult:
+static func _manifest_shard(item: Variant, name_check: RegEx, files: Dictionary, totals: Dictionary, frame: int) -> GSResult:
 	if not item is Dictionary:
 		return _bad("a shard entry is not an object.")
 	var e: Dictionary = item
@@ -294,11 +294,11 @@ static func _manifest_shard(item: Variant, name_check: RegEx, files: Dictionary,
 		return _bad("shard '%s' has no usable map id and version." % file)
 	files[file] = true
 	totals[split] += rows_n
-	return DotResult.success({"file": file, "split": split, "rows": rows_n, "sha256": hash_hex.to_lower(), "episodes": eps, "map_id": map_id, "map_version": e["map_version"]})
+	return GSResult.success({"file": file, "split": split, "rows": rows_n, "sha256": hash_hex.to_lower(), "episodes": eps, "map_id": map_id, "map_version": e["map_version"]})
 
 
 ## A manifest's [code]held_out[/code] list, checked.
-static func _manifest_held(m: Dictionary) -> DotResult:
+static func _manifest_held(m: Dictionary) -> GSResult:
 	var held_in: Variant = m.get("held_out", [])
 	if not held_in is Array or (held_in as Array).size() > MAX_HELD_OUT:
 		return _bad("'held_out' is not a list of at most %d." % MAX_HELD_OUT)
@@ -317,39 +317,39 @@ static func _manifest_held(m: Dictionary) -> DotResult:
 			"id": h_id, "map_id": _name(h.get("map_id")), "map_version": _name(h.get("map_version"), true), "key": _name(h.get("key"), true),
 			"rate": float(h_rate), "outcome": _name(h.get("outcome"), true), "rows": h_rows, "start": h_start,
 		})
-	return DotResult.success(held)
+	return GSResult.success(held)
 
 
 ## The rows of shard [param index] of a manifest [method load_manifest] returned, as one flat array of frame_size floats per row. The file's size, hash and every value are checked first.
-static func read_shard(dir: String, manifest: Dictionary, index: int) -> DotResult:
+static func read_shard(dir: String, manifest: Dictionary, index: int) -> GSResult:
 	var shards: Array = manifest.get("shards", [])
 	if index < 0 or index >= shards.size():
-		return DotResult.fail(DotError.CODE_INVALID, "No shard %d." % index)
+		return GSResult.fail(GSError.CODE_INVALID, "No shard %d." % index)
 	var shard: Dictionary = shards[index]
 	var file := String(shard["file"])
 	# load_manifest matched the name already; a manifest built by hand is held to it too.
 	if RegEx.create_from_string(SHARD_PATTERN).search(file) == null:
-		return DotResult.fail(DotError.CODE_INVALID, "'%s' is not a shard file name." % file.left(MAX_NAME))
+		return GSResult.fail(GSError.CODE_INVALID, "'%s' is not a shard file name." % file.left(MAX_NAME))
 	var path := dir.path_join(file)
 	var want: int = int(shard["rows"]) * int(manifest["frame_size"]) * 4
-	var have := DotPaths.file_size(path)
+	var have := GSPaths.file_size(path)
 	if have != want or want > MAX_SHARD_BYTES:
-		return DotResult.fail(DotError.CODE_INTEGRITY, "Shard '%s' is %d bytes, expected %d." % [file, have, want])
+		return GSResult.fail(GSError.CODE_INTEGRITY, "Shard '%s' is %d bytes, expected %d." % [file, have, want])
 	if FileAccess.get_sha256(path) != String(shard["sha256"]):
-		return DotResult.fail(DotError.CODE_INTEGRITY, "Shard '%s' does not match its hash." % file)
-	var bytes := DotPaths.read_bytes(path)
+		return GSResult.fail(GSError.CODE_INTEGRITY, "Shard '%s' does not match its hash." % file)
+	var bytes := GSPaths.read_bytes(path)
 	if not bytes.ok:
 		return bytes
 	var floats := (bytes.value as PackedByteArray).to_float32_array()
 	for v in floats:
 		if not is_finite(v):
-			return DotResult.fail(DotError.CODE_INTEGRITY, "Shard '%s' holds a value that is not finite." % file)
-	return DotResult.success(floats)
+			return GSResult.fail(GSError.CODE_INTEGRITY, "Shard '%s' holds a value that is not finite." % file)
+	return GSResult.success(floats)
 
 
 func _split(episodes: Array) -> Dictionary:
 	var keyed: Array = []
-	for ep: DotBotDemoEpisode in episodes:
+	for ep: GSBotDemoEpisode in episodes:
 		keyed.append([("%s|%s|%s|%d" % [split_seed, ep.map_id, ep.map_version, ep.id]).sha256_text(), ep])
 	keyed.sort_custom(func(a: Array, b: Array) -> bool: return a[0] < b[0])
 	var n := keyed.size()
@@ -358,21 +358,21 @@ func _split(episodes: Array) -> Dictionary:
 	for i in n:
 		(out[SPLIT_HELD_OUT if i < held_n else SPLIT_TRAIN] as Array).append(keyed[i][1])
 	for list: Array in out.values():
-		list.sort_custom(func(a: DotBotDemoEpisode, b: DotBotDemoEpisode) -> bool: return a.id < b.id)
+		list.sort_custom(func(a: GSBotDemoEpisode, b: GSBotDemoEpisode) -> bool: return a.id < b.id)
 	return out
 
 
-func _write_shard(dir: String, number: int, part: String, group: Dictionary, run: Array, frame: int) -> DotResult:
+func _write_shard(dir: String, number: int, part: String, group: Dictionary, run: Array, frame: int) -> GSResult:
 	var rows := PackedFloat32Array()
 	var eps: Array = []
-	for ep: DotBotDemoEpisode in run:
+	for ep: GSBotDemoEpisode in run:
 		rows.append_array(ep.ticks)
 		eps.append([ep.id, ep.sample_count()])
 	var file := "shard_%d.f32" % number
-	var saved := DotPaths.write_bytes(dir.path_join(file), rows.to_byte_array())
+	var saved := GSPaths.write_bytes(dir.path_join(file), rows.to_byte_array())
 	if not saved.ok:
 		return saved
-	return DotResult.success({
+	return GSResult.success({
 		"file": file, "split": part, "map_id": group["map_id"], "map_version": group["map_version"],
 		"rows": rows.size() / frame, "sha256": FileAccess.get_sha256(dir.path_join(file)), "episodes": eps,
 	})
@@ -382,8 +382,8 @@ static func _field_dicts(rows: Array) -> Array:
 	var out: Array = []
 	for row: Array in rows:
 		out.append({
-			"name": row[DotBotDemoSchema.COL_NAME], "size": row[DotBotDemoSchema.COL_SIZE],
-			"scale": row[DotBotDemoSchema.COL_SCALE], "discrete": row[DotBotDemoSchema.COL_DISCRETE],
+			"name": row[GSBotDemoSchema.COL_NAME], "size": row[GSBotDemoSchema.COL_SIZE],
+			"scale": row[GSBotDemoSchema.COL_SCALE], "discrete": row[GSBotDemoSchema.COL_DISCRETE],
 		})
 	return out
 
@@ -419,5 +419,5 @@ static func _name(v: Variant, allow_empty: bool = false) -> String:
 	return s
 
 
-static func _bad(why: String) -> DotResult:
-	return DotResult.fail(DotError.CODE_INVALID, "Export manifest: " + why)
+static func _bad(why: String) -> GSResult:
+	return GSResult.fail(GSError.CODE_INVALID, "Export manifest: " + why)

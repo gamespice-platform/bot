@@ -4,53 +4,53 @@ extends "res://examples/selftest/eval_tests.gd"
 
 ## A one-input net whose output is its bias: move (0.3, 0.4), look (yaw 100, pitch 0), fire and jump as logits.
 func _policy_parts(jump_logit: float = -1.0) -> Array:
-	var schema := DotBotDemoSchema.make("policy", 1).add_observation("one", 1, 1.0).add_action("move", 2).add_action("look", 2).add_action("fire", 1, 1.0, true).add_action("jump", 1, 1.0, true)
+	var schema := GSBotDemoSchema.make("policy", 1).add_observation("one", 1, 1.0).add_action("move", 2).add_action("look", 2).add_action("fire", 1, 1.0, true).add_action("jump", 1, 1.0, true)
 	var layers := [{"w": PackedFloat32Array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]), "b": PackedFloat32Array([0.3, 0.4, 100.0, 0.0, 1.0, jump_logit])}]
-	var enc := DotBotMlp.encode("sidP", "roam", PackedInt32Array([1, 6]), PackedStringArray(["linear"]), PackedFloat32Array([1.0]), layers)
-	return [DotBotMlp.from_data(enc["header"], enc["weights"]).value, schema]
+	var enc := GSBotMlp.encode("sidP", "roam", PackedInt32Array([1, 6]), PackedStringArray(["linear"]), PackedFloat32Array([1.0]), layers)
+	return [GSBotMlp.from_data(enc["header"], enc["weights"]).value, schema]
 
 
-func _policy_for(jump_logit: float = -1.0) -> DotBotPolicy:
+func _policy_for(jump_logit: float = -1.0) -> GSBotPolicy:
 	var parts := _policy_parts(jump_logit)
-	var pol := DotBotPolicy.new()
+	var pol := GSBotPolicy.new()
 	var r := pol.set_net(parts[0], parts[1])
 	_check(r.ok, "a net with a schema of its own output size is accepted")
-	pol.observe_fn = func(_me: DotBotContact, _w: DotBotWorld, into: PackedFloat32Array) -> void: into[0] = 1.0
+	pol.observe_fn = func(_me: GSBotContact, _w: GSBotWorld, into: PackedFloat32Array) -> void: into[0] = 1.0
 	return pol
 
 
 func _policy_report(on: Array, pass_: bool = true, schema_id: String = "sidP") -> Dictionary:
-	return {"format": DotBotEvalGate.FORMAT, "version": 1, "kind": "roam", "schema_id": schema_id, "maps": {}, "policy_on": on, "pass": pass_}
+	return {"format": GSBotEvalGate.FORMAT, "version": 1, "kind": "roam", "schema_id": schema_id, "maps": {}, "policy_on": on, "pass": pass_}
 
 
 func _test_policy() -> void:
 	_section("bot_policy: a cloned net behind the gate, off unless it passes")
 
-	_check(DotBotProfile.spec_for("policy").size() > 0 and DotBotProfile.new().policy == 0.0, "bot_policy is a setting and 0 by default")
-	for preset in DotBotProfile.PRESETS:
-		_check(DotBotProfile.preset_value(preset, "policy") == 0.0, "%s leaves the policy off" % preset)
-	_check(not DotBotProfile.new().set_field("policy", "3").ok, "bot_policy over 1 is refused")
+	_check(GSBotProfile.spec_for("policy").size() > 0 and GSBotProfile.new().policy == 0.0, "bot_policy is a setting and 0 by default")
+	for preset in GSBotProfile.PRESETS:
+		_check(GSBotProfile.preset_value(preset, "policy") == 0.0, "%s leaves the policy off" % preset)
+	_check(not GSBotProfile.new().set_field("policy", "3").ok, "bot_policy over 1 is refused")
 
 	var parts := _policy_parts()
-	var bad := DotBotPolicy.new()
-	var short := DotBotDemoSchema.make("policy", 1).add_observation("one").add_action("move", 2)
+	var bad := GSBotPolicy.new()
+	var short := GSBotDemoSchema.make("policy", 1).add_observation("one").add_action("move", 2)
 	_check(not bad.set_net(parts[0], short).ok and bad.net == null, "a schema whose actions are not the net's output size is refused")
 
 	# Baseline: the same scene with no policy.
 	var sc := _scene(Vector3(0, 0, -6.0))
-	var plain := DotBotBrain.new(1, DotBotSettings.new())
+	var plain := GSBotBrain.new(1, GSBotSettings.new())
 	var base := _run_bot(plain, sc[0], sc[2], 1.0)
 
 	var pol := _policy_for()
-	var s := DotBotSettings.new()
-	var brain := DotBotBrain.new(1, s)
+	var s := GSBotSettings.new()
+	var brain := GSBotBrain.new(1, s)
 	brain.policy = pol
 	sc = _scene(Vector3(0, 0, -6.0))
 	var off := _run_bot(brain, sc[0], sc[2], 1.0)
 	var same := true
 	for k in base.size():
-		var a: DotBotIntent = base[k]
-		var b: DotBotIntent = off[k]
+		var a: GSBotIntent = base[k]
+		var b: GSBotIntent = off[k]
 		same = same and a.yaw == b.yaw and a.move == b.move and a.fire == b.fire and b.state != &"policy"
 	_check(same and pol.thinks == 0, "with bot_policy 0 a net and an allowed map change nothing")
 
@@ -74,9 +74,9 @@ func _test_policy() -> void:
 
 
 ## The rest of [method _test_policy]: with the policy on, the net drives the bot, held to the turn rate, and only a share of the bots.
-func _test_policy_on(s: DotBotSettings, pol: DotBotPolicy) -> void:
+func _test_policy_on(s: GSBotSettings, pol: GSBotPolicy) -> void:
 	# On: the net's action is the intent, held to the turn rate, and fire needs a target.
-	var brain := DotBotBrain.new(1, s)
+	var brain := GSBotBrain.new(1, s)
 	brain.policy = pol
 	var sc := _scene(Vector3(0, 0, -6.0))
 	var on := _run_bot(brain, sc[0], sc[2], 1.0)
@@ -85,42 +85,42 @@ func _test_policy_on(s: DotBotSettings, pol: DotBotPolicy) -> void:
 	var fired := 0
 	var jumped := false
 	for k in on.size():
-		var it: DotBotIntent = on[k]
+		var it: GSBotIntent = on[k]
 		moved = moved and it.state == &"policy" and it.move.distance_to(Vector2(0.3, 0.4)) < 1e-5
 		jumped = jumped or it.jump
 		fired += 1 if it.fire else 0
 		if k > 0:
-			fastest = maxf(fastest, absf(wrapf(it.yaw - (on[k - 1] as DotBotIntent).yaw, -180.0, 180.0)) / TICK)
+			fastest = maxf(fastest, absf(wrapf(it.yaw - (on[k - 1] as GSBotIntent).yaw, -180.0, 180.0)) / TICK)
 	_check(moved and pol.thinks == on.size(), "the net's move is the bot's move on every think")
 	_check(not jumped, "a button below zero is not pressed")
 	_check(fastest > 0.0 and fastest <= s.profile.turn_rate * 1.01, "the net's look is held to bot_turn_rate", str(fastest))
 	_check(fired > 0, "fire is pressed once the brain has a target in sight", str(fired))
 
 	sc = _scene(Vector3(0, 0, -6.0), true)
-	brain = DotBotBrain.new(1, s)
+	brain = GSBotBrain.new(1, s)
 	brain.policy = pol
 	var blind := _run_bot(brain, sc[0], sc[2], 1.0)
 	var any_fire := false
-	for it: DotBotIntent in blind:
+	for it: GSBotIntent in blind:
 		any_fire = any_fire or it.fire
 	_check(not any_fire, "the net can not fire at what the bot does not see")
 
 	var pj := _policy_for(2.0)
 	pj.map_key = "m@1"
 	pj.allowed_maps = PackedStringArray(["m@1"])
-	brain = DotBotBrain.new(1, s)
+	brain = GSBotBrain.new(1, s)
 	brain.policy = pj
 	sc = _scene(Vector3(0, 0, -6.0))
 	var jumps := _run_bot(brain, sc[0], sc[2], 0.2)
-	_check((jumps[jumps.size() - 1] as DotBotIntent).jump, "a button logit above zero is pressed")
+	_check((jumps[jumps.size() - 1] as GSBotIntent).jump, "a button logit above zero is pressed")
 
-	brain = DotBotBrain.new(1, s)
+	brain = GSBotBrain.new(1, s)
 	brain.policy = pol
 	sc = _scene(Vector3(0, 0, -6.0))
 	var again := _run_bot(brain, sc[0], sc[2], 1.0)
 	var det := true
 	for k in on.size():
-		det = det and (on[k] as DotBotIntent).describe() == (again[k] as DotBotIntent).describe()
+		det = det and (on[k] as GSBotIntent).describe() == (again[k] as GSBotIntent).describe()
 	_check(det, "the same net and scene give the same intents")
 
 	# A share of the bots.

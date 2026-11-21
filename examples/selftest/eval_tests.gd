@@ -30,10 +30,10 @@ class EvalHost extends RefCounted:
 
 
 ## A net of sizes [1, 1] that ignores its input and always outputs [param level].
-func _const_net(level: float) -> DotBotMlp:
+func _const_net(level: float) -> GSBotMlp:
 	var layers := [{"w": PackedFloat32Array([0.0]), "b": PackedFloat32Array([level])}]
-	var enc := DotBotMlp.encode("sidE", "ride", PackedInt32Array([1, 1]), PackedStringArray(["linear"]), PackedFloat32Array([1.0]), layers)
-	return DotBotMlp.from_data(enc["header"], enc["weights"]).value
+	var enc := GSBotMlp.encode("sidE", "ride", PackedInt32Array([1, 1]), PackedStringArray(["linear"]), PackedFloat32Array([1.0]), layers)
+	return GSBotMlp.from_data(enc["header"], enc["weights"]).value
 
 
 func _eval_manifest(bb_b: float = 0.0) -> Dictionary:
@@ -45,7 +45,7 @@ func _eval_manifest(bb_b: float = 0.0) -> Dictionary:
 
 func _test_eval_gate() -> void:
 	_section("eval gate: paired seeded replays, per-map verdict, deterministic")
-	var gate := DotBotEvalGate.new()
+	var gate := GSBotEvalGate.new()
 	var host := EvalHost.new()
 	var man := _eval_manifest()
 
@@ -60,7 +60,7 @@ func _test_eval_gate() -> void:
 	_check(gate.report_text() == first, "the same inputs give the same report, byte for byte")
 	gate.base_seed = 2
 	gate.evaluate(_const_net(0.1), man, EvalHost.new())
-	_check(gate.report_text() != first and gate.seed_for(10, 0) != DotBotEvalGate.new().seed_for(10, 0), "another base seed perturbs differently")
+	_check(gate.report_text() != first and gate.seed_for(10, 0) != GSBotEvalGate.new().seed_for(10, 0), "another base seed perturbs differently")
 	gate.base_seed = 1
 
 	var same := gate.evaluate(_const_net(0.05), man, host)
@@ -86,9 +86,9 @@ func _test_eval_gate() -> void:
 
 	var wrong := _eval_manifest()
 	wrong["schema_id"] = "other"
-	_check(gate.evaluate(_const_net(0.1), wrong, host).code() == DotError.CODE_INVALID, "a net for another schema is refused")
-	_check(gate.evaluate(_const_net(0.1), {"kind": "ride", "schema_id": "sidE", "held_out": []}, host).code() == DotError.CODE_INVALID, "no held-out episodes is a failure, not a pass")
-	_check(gate.evaluate(_const_net(0.1), man, RefCounted.new()).code() == DotError.CODE_INVALID, "a host without the eval methods is refused")
+	_check(gate.evaluate(_const_net(0.1), wrong, host).code() == GSError.CODE_INVALID, "a net for another schema is refused")
+	_check(gate.evaluate(_const_net(0.1), {"kind": "ride", "schema_id": "sidE", "held_out": []}, host).code() == GSError.CODE_INVALID, "no held-out episodes is a failure, not a pass")
+	_check(gate.evaluate(_const_net(0.1), man, RefCounted.new()).code() == GSError.CODE_INVALID, "a host without the eval methods is refused")
 	gate.seeds = 1
-	_check(gate.evaluate(_const_net(0.1), man, host).code() == DotError.CODE_INVALID, "one seed has no spread and is refused")
+	_check(gate.evaluate(_const_net(0.1), man, host).code() == GSError.CODE_INVALID, "one seed has no spread and is refused")
 	_done()
