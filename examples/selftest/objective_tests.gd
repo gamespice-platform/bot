@@ -21,7 +21,7 @@ func _red(id: int, at: Vector3) -> GSBotContact:
 
 func _planned(o: GSBotObjective, me: GSBotContact, p: GSBotProfile, now: float = 0.0) -> GSBotGoal:
 	var g := GSBotGoal.new(me.id)
-	g.plan(me, o, null, p, GSRandomStream.new(me.id).stream(&"dot_bot"), now)
+	g.plan(me, o, null, p, GSRandomStream.new(me.id).stream(&"gs_bot"), now)
 	return g
 
 
@@ -121,7 +121,7 @@ func _test_objective_hill(p: GSBotProfile, even: GSBotProfile, focused: GSBotPro
 		var loose := p.copy()
 		loose.objective_focus = focus
 		var g := GSBotGoal.new(1)
-		var rng := GSRandomStream.new(5).stream(&"dot_bot")
+		var rng := GSRandomStream.new(5).stream(&"gs_bot")
 		var free := 0
 		var t := 0.0
 		while t < 120.0:

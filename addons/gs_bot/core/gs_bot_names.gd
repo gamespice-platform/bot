@@ -33,7 +33,7 @@ static func pick(taken: Array, salt: int, pool: Array = [], prefix: String = "")
 	var used := {}
 	for t in taken:
 		used[String(t)] = true
-	var start := int(GSRandomStream.new(salt).stream(&"dot_bot_names").unit_at(0) * float(names.size()))
+	var start := int(GSRandomStream.new(salt).stream(&"gs_bot_names").unit_at(0) * float(names.size()))
 	for round_ in range(1, 100):
 		for i in range(names.size()):
 			var base := String(names[(start + i) % names.size()])

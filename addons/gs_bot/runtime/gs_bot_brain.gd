@@ -70,7 +70,7 @@ func _init(p_id: int = 0, p_settings: GSBotSettings = null) -> void:
 	id = p_id
 	settings = p_settings if p_settings != null else GSBotSettings.new()
 	aim = GSBotAim.new(p_id, settings)
-	_rng = GSRandomStream.new(p_id).stream(&"dot_bot")  # a seed key, not a name: renaming it reshuffles every bot
+	_rng = GSRandomStream.new(p_id).stream(&"gs_bot")  # a seed key, not a name: renaming it reshuffles every bot
 	aim._set_brain_key(_rng._key)
 	if aim._n != null and _perceive_available():
 		_mind = aim._n

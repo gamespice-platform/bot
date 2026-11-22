@@ -231,7 +231,7 @@ var _vantage_next: float = -INF
 
 
 func _init(id: int = 0) -> void:
-	_rng = GSRandomStream.new(id).stream(&"dot_bot_style")  # a seed key, not a name: renaming it reshuffles every bot
+	_rng = GSRandomStream.new(id).stream(&"gs_bot_style")  # a seed key, not a name: renaming it reshuffles every bot
 
 
 func label() -> String:
