@@ -97,7 +97,7 @@ var _n: Object = null
 
 func _init(id: int = 0, p_settings: GSBotSettings = null) -> void:
 	settings = p_settings if p_settings != null else GSBotSettings.new()
-	_rng = GSRandomStream.new(id).stream(&"gs_bot_aim")
+	_rng = GSRandomStream.new(id).stream(&"dot_bot_aim")  # a seed key, not a name: renaming it reshuffles every bot
 	if native_enabled and native_available():
 		_n = ClassDB.instantiate(MIND_CLASS)
 		_n.set_keys(_rng._key, 0)
