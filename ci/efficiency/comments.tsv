@@ -1,10 +1,8 @@
 # comments
 # Baselines only shrink: scripts/<gate> --update lowers or drops entries and refuses to add.
-addons/gs_bot/core/gs_bot_contact.gd::long_block	1
 addons/gs_bot/core/gs_bot_intent.gd::long_block	2
 addons/gs_bot/core/gs_bot_names.gd::long_block	1
 addons/gs_bot/core/gs_bot_profile.gd::long_block	2
-addons/gs_bot/core/gs_bot_settings.gd::banner	3
 addons/gs_bot/core/gs_bot_settings.gd::long_block	2
 addons/gs_bot/gs_bot_api.gd::long_block	2
 addons/gs_bot/gs_bot_plugin.gd::long_block	1
@@ -14,7 +12,6 @@ addons/gs_bot/runtime/gs_bot_brain.gd::long_block	1
 addons/gs_bot/runtime/gs_bot_hiding.gd::long_block	2
 addons/gs_bot/runtime/gs_bot_roster.gd::long_block	2
 addons/gs_bot/runtime/gs_bot_search.gd::long_block	1
-addons/gs_bot/runtime/gs_bot_world.gd::long_block	3
 addons/gs_bot/runtime/surf/gs_bot_surf_course.gd::history	1
 addons/gs_bot/runtime/surf/gs_bot_surf_course.gd::long_block	3
 addons/gs_bot/runtime/surf/gs_bot_surf_pilot.gd::long_block	3

@@ -2,17 +2,8 @@ class_name GSBotNavTiles
 extends RefCounted
 
 ## A navigation bake cut into square tiles and joined into one mesh, for a map [GSBotNav] could not bake in one grid.
-##
-## Godot's baker refuses a bake whose cell grid is over 30 million cells ("suspiciously big") while
-## `navigation/baking/use_crash_prevention_checks` is on, and one Recast poly mesh holds under 65535
-## vertices; a wider cell is no answer (rp_southside at one baked nothing). So such a map is baked at
-## the same cell in tiles, each with a border of cells around it the way Recast's tiled meshes are, and
-## the tiles are joined: the vertices two tiles share on a line are welded, and a tile's edge along
-## the line is split at the other side's vertices, so every seam is a shared edge, the navigation
-## server connects it, and a path crosses it.
-##
-## Nothing is clamped: a size the engine would refuse, or a negative one, is a failed [GSResult] with the reason.
-## [GSBotNav] owns one of these; a game sets the bake's agent key `tile`, it names this class never.
+## Godot's baker refuses a grid over 30 million cells and one Recast poly mesh holds under 65535 vertices, so such a map is baked at the same cell in bordered tiles whose shared seam vertices are welded and whose edges are split at the other side's vertices; a path then crosses every seam.
+## Nothing is clamped: a size the engine would refuse, or a negative one, is a failed [GSResult] with the reason. [GSBotNav] owns one of these; a game sets the bake's agent key `tile`.
 
 const CHANNEL := "gs.bot.nav"
 
@@ -271,11 +262,9 @@ static func _root_of(rep: PackedInt32Array, i: int) -> int:
 	return i
 
 
-## Welds the [param members] of one line: those in one [param cell] along axis [param along] and within
-## [param rise] of each other's height become one. The cell is the navigation map's own edge-merge
-## cell (its cell size), so no two seam vertices are left for the map to read as one point: the
-## detail mesh puts its edge samples at different places on the two sides of a seam, and two of
-## them a few centimetres apart would otherwise be "more than 2 edges in one rasterization space".
+## Welds the [param members] of one line: those in one [param cell] along axis [param along] and within [param rise] of each other's height become one.
+## The cell is the navigation map's own edge-merge cell, so no two seam vertices are left for the map to read as one point (two a few centimetres apart
+## would be "more than 2 edges in one rasterization space", as the detail mesh samples the two sides of a seam differently).
 static func _weld(members: Array, vertices: PackedVector3Array, rep: PackedInt32Array, along: int, cell: float, rise: float) -> void:
 	members.sort_custom(func(p: int, q: int) -> bool:
 		var cp := floori(vertices[p][along] / cell)

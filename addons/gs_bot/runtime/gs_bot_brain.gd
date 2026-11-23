@@ -87,13 +87,9 @@ func leave_native() -> void:
 	_held_version = -1
 
 
-## Gets this brain ready to think on a worker thread this tick; call it on the main thread after the
-## world's contacts for the tick are in ([member GSBotWorld.contacts_version] bumped) and before
-## [method think]. The native mind stays (its state is this brain's alone, touched by one thread at a
-## time) and takes a handle on the world's packed sight scan, which a worker must not bind while
-## others do; it then perceives on the worker to the bit as it would on the main thread. A gs_sim
-## library without that handle (GSSimBotMind.hold_senses) moves the brain into script instead, as
-## [method leave_native].
+## Gets this brain ready to think on a worker thread this tick; call it on the main thread after the world's contacts are in
+## ([member GSBotWorld.contacts_version] bumped) and before [method think]. The native mind takes a handle on the world's packed sight scan
+## (a worker must not bind it while others do); a gs_sim library without that handle (GSSimBotMind.hold_senses) falls back to script, as [method leave_native].
 func par_ready(world: GSBotWorld) -> void:
 	_held_version = -1
 	if not _held_available():

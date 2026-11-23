@@ -155,7 +155,7 @@ func is_overridden(field: String) -> bool:
 	return overrides.has(field)
 
 
-# --- Styles ---------------------------------------------------------------------
+# Styles
 
 ## The weapon-class style table every bot reads ([GSBotStyle]); a derived bot reads its base's.
 func style_table() -> Dictionary:
@@ -202,7 +202,7 @@ func set_style_config(file: String, weights: String) -> GSResult:
 	return GSResult.success(_style_stamp)
 
 
-# --- Server cvars ---------------------------------------------------------------
+# Server cvars
 
 ## Registers `bot_difficulty` and every `bot_<field>` through [param add], which is called as
 ## [code]add(name, default, description, flags)[/code] and returns the cvar (GameSpice Server's
@@ -351,7 +351,7 @@ func _force(cv: Object, text: String) -> void:
 	_writing = false
 
 
-# --- Solo console ---------------------------------------------------------------
+# Solo console
 
 ## Adds `bot_difficulty`, every `bot_<field>` and the two commands to [param local], anything
 ## with GameSpice Console's [code]add_var(name, help, get, set)[/code] and
@@ -394,7 +394,7 @@ func bind_console(local: Object) -> bool:
 	return true
 
 
-# --- Reading it ----------------------------------------------------------------
+# Reading it
 
 func _bump() -> void:
 	revision += 1

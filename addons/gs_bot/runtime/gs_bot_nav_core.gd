@@ -78,11 +78,9 @@ var _areas: PackedFloat32Array = PackedFloat32Array()
 var _total_area: float = 0.0
 
 
-## Bakes the static colliders under [param root].
-## [param agent]: `radius`, `height` (the lowest a body can go, crouched, so crawl spaces are on the mesh), `climb` (a step), `slope` (degrees), `cell` and `cell_height` (default [constant CELL], [constant CELL_HEIGHT]),
-## `merge_scale` (the map's edge-merge cell over the mesh cell, [constant MERGE_SCALE_MIN] to [constant MERGE_SCALE_MAX]; default 0 leaves the engine's default for a new map, 0.1, which the project setting does not reach; outside the range fails);
-## `tile` (metres, default 0 = auto: one grid while the map fits the engine's 30 million cells, as always, else [constant GSBotNavTiles.AUTO_TILE] m tiles joined into one mesh; above 0 always tiles; a negative or engine-refused size fails with the reason, never clamped; see [GSBotNavTiles]);
-## [param mask] the collision layers that count as ground and walls (0 for all). With [param bodies] (nodes under [param root]), only those and their children are parsed.
+## Bakes the static colliders under [param root]. [param agent] keys: `radius`, `height` (lowest a body can go, crouched), `climb`, `slope` (degrees), `cell`, `cell_height`, `merge_scale` ([constant MERGE_SCALE_MIN] to [constant MERGE_SCALE_MAX]; 0 leaves the engine's 0.1; out of range fails) and `tile` (metres; 0 = auto, tiled only when the grid would pass 30 million cells, see [GSBotNavTiles]; negative or refused sizes fail, never clamped).
+## Defaults for `cell` and `cell_height` are [constant CELL] and [constant CELL_HEIGHT].
+## [param mask] is the collision layers that count as ground and walls (0 for all). With [param bodies] (nodes under [param root]), only those and their children are parsed.
 func bake(root: Node3D, agent: Dictionary = {}, mask: int = 0, bodies: Array = []) -> GSResult:
 	var parsed := _parse(root, agent, mask, bodies)
 	if not parsed.ok:

@@ -1,31 +1,9 @@
 class_name GSBotStyle
 extends RefCounted
 
-## How one bot plays the weapon in its hand: a sniper finds an angle, holds it, peeks, ducks back
-## into cover and moves after a kill; a shotgun rushes or flanks; a rifle strafes at mid range and
-## reloads behind something.
-##
-## [b]A table of weighted styles per weapon class.[/b] [constant DEFAULTS] lists, for each class the
-## game names in [member GSBotContact.weapon_class], a few styles with a weight. A bot rolls one
-## per class from its own stream and keeps it (it is that bot's way with a sniper), picking again on
-## a respawn with chance `bot_style_variety`. A server changes the table with `bot_style_file` (a
-## JSON file in the same shape) and `bot_style_weights` (`sniper.camper=6,smg.flanker=0`), see
-## [method GSBotSettings.style_table].
-##
-## [b]A style is numbers, then a few phases.[/b] The numbers scale or bias the profile the brain
-## already uses (preferred range, reach, strafing, bursts; the per-engagement stop, crouch,
-## aggression and peek chances), so the generic fight still runs underneath. The phases take the
-## legs for a while: [constant HIDE] (back into cover), [constant RETURN] (sneak back to the peek
-## spot), [constant MOVE] (to a new vantage) and [constant HOLD] (watch it). A rusher's fight turns
-## the legs toward the target with a flank to one side.
-##
-## [b]Life to life.[/b] Each spawn jitters the style's range, strafing, aggression, patience and
-## peek timing by up to `bot_style_variety`, so two snipers with the same style still differ.
-##
-## [b]Cheap.[/b] Per tick: a string compare and a few branches. Cover is looked for once per peek
-## (up to six rays), a vantage once per hold (up to eighteen rays), from this bot's own
-## [GSRandomStream] ([code]gs_bot_style[/code]), so the brain's own stream is untouched and a bot
-## with no weapon class, or `bot_styles 0`, plays exactly as before.
+## How one bot plays the weapon in its hand: a sniper finds an angle, holds it, peeks and ducks back into cover; a shotgun rushes or flanks; a rifle strafes at mid range and reloads behind something. [b]A table of weighted styles per weapon class.[/b] [constant DEFAULTS] lists, per [member GSBotContact.weapon_class], a few styles with a weight; a bot rolls one from its own stream and keeps it, picking again on a respawn with chance `bot_style_variety`. A server changes the table with `bot_style_file` and `bot_style_weights`, see [method GSBotSettings.style_table].
+## [b]A style is numbers, then phases.[/b] The numbers scale or bias the brain's profile, so the generic fight still runs underneath; the phases ([constant HIDE], [constant RETURN], [constant MOVE], [constant HOLD]) take the legs for a while. Each spawn jitters the numbers by up to `bot_style_variety`.
+## [b]Cheap.[/b] Per tick a string compare and a few branches; cover costs up to six rays per peek, a vantage up to eighteen per hold, from this bot's own [GSRandomStream] ([code]gs_bot_style[/code]), so a bot with no weapon class, or `bot_styles 0`, plays exactly as before.
 
 const CHANNEL := "gs.bot"
 
@@ -55,17 +33,8 @@ const NEUTRAL := {
 	"reposition": 0.0, "sneak": 0.0, "flank": 0.0, "cover_reload": 0.0,
 }
 
-## The styles per weapon class. Keys of a row: [code]fight[/code] (duel: the generic strafe and
-## shoot; peek: shoot for a moment, back into cover, come back; rush: close in, flanking),
-## [code]roam[/code] (walk: the brain's roaming; camp: walk to a vantage, hold it), scales of the
-## profile ([code]range[/code] bot_range, [code]reach[/code] bot_max_range, [code]strafe[/code],
-## [code]burst[/code] longer bursts and shorter pauses above 1), biases added to the per-engagement
-## chances ([code]stop[/code], [code]crouch[/code], [code]aggression[/code],
-## [code]peek_chance[/code] bot_peek), seconds as [lo, hi] ([code]peek[/code] exposed before hiding,
-## [code]hide[/code] in cover, [code]patience[/code] holding a vantage), and chances
-## ([code]reposition[/code] moving after a peek or kill rather than coming back, [code]sneak[/code]
-## walking quietly there, [code]flank[/code] rushing in from the side, [code]cover_reload[/code]
-## hiding to reload).
+## The styles per weapon class. Keys of a row: [code]fight[/code] (duel, peek, rush), [code]roam[/code] (walk, camp), scales of the profile ([code]range[/code], [code]reach[/code], [code]strafe[/code], [code]burst[/code]), biases added to the per-engagement chances ([code]stop[/code], [code]crouch[/code], [code]aggression[/code], [code]peek_chance[/code]),
+## seconds as [lo, hi] ([code]peek[/code] exposed before hiding, [code]hide[/code] in cover, [code]patience[/code] holding a vantage), and chances ([code]reposition[/code] moving after a peek or kill, [code]sneak[/code], [code]flank[/code] rushing in from the side, [code]cover_reload[/code]).
 const DEFAULTS := {
 	"sniper": [
 		{"name": "camper", "weight": 4.0, "fight": "peek", "roam": "camp", "range": 2.6, "reach": 2.2, "strafe": 0.3, "stop": 0.5, "crouch": 0.35, "aggression": -0.35, "peek_chance": 0.4, "peek": [1.2, 2.6], "hide": [1.2, 3.0], "patience": [8.0, 20.0], "reposition": 0.55, "sneak": 0.85, "cover_reload": 0.9},
@@ -113,12 +82,10 @@ const DEFAULTS := {
 	],
 }
 
-# --- The table ------------------------------------------------------------------
+# The table
 
-## [param base] with [param json_text] (a dictionary of class -> list of style rows, replacing
-## those classes; a row naming a style already there changes only the keys it gives) and then
-## [param weights] ([code]class.style=weight[/code], comma separated) applied. Returns
-## `{ok, table, error}`; on an error the table is [param base] untouched.
+## [param base] with [param json_text] (class -> list of style rows, replacing those classes; a row naming a style already there changes only the keys it gives) and then [param weights] ([code]class.style=weight[/code], comma separated) applied.
+## Returns `{ok, table, error}`; on an error the table is [param base] untouched.
 static func build_table(base: Dictionary, json_text: String, weights: String) -> Dictionary:
 	var table := base.duplicate(true)
 	if json_text.strip_edges() != "":
@@ -174,7 +141,7 @@ static func pick(rows: Array, u: float) -> int:
 	return rows.size() - 1
 
 
-# --- One bot ----------------------------------------------------------------------
+# One bot
 
 ## True while a style plays (a class with a style, bot_styles above 0).
 var active: bool = false
@@ -326,7 +293,7 @@ func on_kill() -> void:
 		_killed = true
 
 
-# --- Steering ---------------------------------------------------------------------
+# Steering
 
 # [param b] is the GSBotBrain, typed by its base: the brain names this class, and a script loop
 # stays in memory for good (Godot 4.7).
@@ -486,7 +453,7 @@ func _lead_hold(b: RefCounted, me: GSBotContact, world: GSBotWorld, now: float, 
 	return true
 
 
-# --- Phases -----------------------------------------------------------------------
+# Phases
 
 func _begin(next: int, now: float, until: float) -> void:
 	phase = next
@@ -550,7 +517,7 @@ func _between(pair: Variant) -> float:
 	return float(pair)
 
 
-# --- Places -----------------------------------------------------------------------
+# Places
 
 ## Directions tried for cover, degrees off straight away from the threat, and how far.
 const COVER_TURNS: PackedFloat32Array = [0.0, 55.0, 110.0]

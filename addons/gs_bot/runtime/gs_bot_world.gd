@@ -2,26 +2,8 @@ class_name GSBotWorld
 extends RefCounted
 
 ## Everything a bot brain may know about the world, and nothing else.
-##
-## [b]The brain cannot cheat because this is all it has.[/b] It gets the bodies
-## ([method contacts]), a line-of-sight answer, the sounds that were made, and places to
-## walk to. It does not get the map, the other bots' brains, or anybody's position except
-## through a body it can see or a sound it can hear: whether it may see a contact is the
-## brain's question, asked of [method line_of_sight], so "no shooting through walls" is
-## structural rather than a rule each game remembers.
-##
-## [b]Subclass or assign.[/b] A game either extends this and overrides the methods, or
-## sets the callables on a plain one ([member contacts_fn] and friends); both are the
-## family's usual extension point. The defaults see everything (no walls) and know no places,
-## which is what a suite with no map wants.
-##
-## [codeblock]
-## var world := GSBotWorld.new()
-## world.contacts_fn = func() -> Array: return my_bodies_as_contacts()
-## world.line_of_sight_fn = func(a: Vector3, b: Vector3) -> bool: return trace.line_of_sight(a, b)
-## world.waypoints_fn = func() -> PackedVector3Array: return spawn_points
-## world.emit_sound(shooter.position, 1.0, shooter.id, now)    # a gunshot
-## [/codeblock]
+## [b]The brain cannot cheat because this is all it has:[/b] the bodies ([method contacts]), a line-of-sight answer ([method line_of_sight]), the sounds that were made and places to walk to; so "no shooting through walls" is structural.
+## A game extends this and overrides the methods, or sets the callables on a plain one ([member contacts_fn] and friends). The defaults see everything and know no places, which is what a suite with no map wants.
 
 # No log channel: answers questions; the brain and the game log.
 
@@ -49,17 +31,12 @@ var wall_fn: Callable = Callable()
 ## 0 for hitscan. The brain leads a target by it.
 var projectile_speed_fn: Callable = Callable()
 
-## [code](from: Vector3, to: Vector3) -> PackedVector3Array[/code]: the corners of a walkable way
-## from one place to another, [param to] last; empty when the game has no graph or no way. The
-## brain walks a route corner by corner where it has one and straight where it has none, so a
-## map with walls between its waypoints is not walked into the walls.
+## [code](from: Vector3, to: Vector3) -> PackedVector3Array[/code]: the corners of a walkable way from one place to another, [param to] last; empty when the game has no graph or no way.
+## The brain walks a route corner by corner where it has one and straight where it has none.
 var route_fn: Callable = Callable()
 
-## [code](from: Vector3, to: Vector3) -> Dictionary[/code]: a route that may ride, as
-## [method GSBotNav.route] answers (`points`, and `rides`: per point the id of the ride edge that
-## starts there, -1 for a walked corner). Unset, [method route_detail] is [member route_fn]'s
-## corners, every one walked. The brain says when it reaches a ride's start
-## ([member GSBotIntent.ride]); the game rides it.
+## The native sight scan over [param all] packed once for this [member contacts_version], or null (no extension, the game does not bump the version, or a worker thread).
+## The scan keeps its last answer, so a brain on a worker reads the handle [method GSBotBrain.par_ready] took on the main thread, or scans in script; [method sensed] maps its indices back.
 var route_detail_fn: Callable = Callable()
 
 ## [code](at: Vector3) -> Vector3[/code]: the nearest point a body can stand on (the navigation mesh's closest), or unset. A bot that cannot get free of a corner is nudged toward it.
@@ -111,10 +88,8 @@ static func native_available() -> bool:
 	return native_enabled and _native_known == 1
 
 
-## The native sight scan over [param all] packed once for this [member contacts_version], or null
-## (no extension, the game does not bump the version, or a worker thread: the scan keeps its last
-## answer, so a brain on a worker reads the handle [method GSBotBrain.par_ready] took on the main
-## thread, or scans in script); [method sensed] maps its indices back.
+## [code](from: Vector3, to: Vector3) -> Dictionary[/code]: a route that may ride, as [method GSBotNav.route] answers (`points`, and `rides`: per point the id of the ride edge that starts there, -1 for a walked corner).
+## Unset, [method route_detail] is [member route_fn]'s corners, every one walked. The brain says when it reaches a ride's start ([member GSBotIntent.ride]); the game rides it.
 func senses(all: Array) -> Object:
 	if contacts_version < 0 or not native_available() or OS.get_thread_caller_id() != OS.get_main_thread_id():
 		return null
@@ -176,10 +151,8 @@ func line_of_sight(from: Vector3, to: Vector3) -> bool:
 	return bool(line_of_sight_fn.call(from, to)) if line_of_sight_fn.is_valid() else true
 
 
-## What a native mind asks sight through (`(from, to) -> bool`): [method line_of_sight] here. A game whose
-## line_of_sight is one engine ray may hand a native one instead (GameSpice Sim's `GSSimSightRay.clear`), which the mind
-## then asks with no call into script; it must answer to the bit as the game's line_of_sight does. Asked once per
-## native perceive, so the game may switch it from tick to tick.
+## What a native mind asks sight through (`(from, to) -> bool`): [method line_of_sight] here. A game whose line_of_sight is one engine ray may hand a native one (GameSpice Sim's `GSSimSightRay.clear`), which the mind asks with no call into script.
+## It must answer to the bit as the game's line_of_sight does. Asked once per native perceive, so the game may switch it from tick to tick.
 func sight_callable() -> Callable:
 	return Callable(self, &"line_of_sight")
 

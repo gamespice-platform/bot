@@ -2,11 +2,8 @@ class_name GSBotContact
 extends RefCounted
 
 ## One body a bot might fight, or the bot itself, as the brain sees it.
-##
-## [b]A snapshot the game fills, never a node.[/b] The brain is pure: it reads these and the
-## world's line-of-sight answer and returns an intent. A game with ninety players builds
-## ninety of these a tick once, in [method GSBotWorld.contacts], and every bot reads the same
-## list; a suite builds three by hand.
+## [b]A snapshot the game fills, never a node.[/b] The brain is pure: it reads these and the world's line-of-sight answer and returns an intent.
+## A game with ninety players builds ninety of these a tick once, in [method GSBotWorld.contacts], and every bot reads the same list.
 
 # No log channel: a record.
 
@@ -46,10 +43,8 @@ var air_jump_ready: bool = false
 ## An unlisted slot is empty. Read by [GSBotPickup]; a game that never fills it has bots that take nothing off the floor.
 var loadout: Dictionary = {}
 
-## The class of the weapon in hand, for [GSBotStyle]: [code]&"sniper"[/code], [code]&"rifle"[/code],
-## [code]&"smg"[/code], [code]&"shotgun"[/code], [code]&"pistol"[/code], [code]&"heavy"[/code],
-## [code]&"launcher"[/code], [code]&"melee"[/code], [code]&"throw"[/code], or a game's own (with a
-## table that names it). Empty when the game does not say: the bot then plays the one generic way.
+## The class of the weapon in hand, for [GSBotStyle]: [code]&"sniper"[/code], [code]&"rifle"[/code], [code]&"smg"[/code], [code]&"shotgun"[/code], [code]&"pistol"[/code], [code]&"heavy"[/code], [code]&"launcher"[/code], [code]&"melee"[/code], [code]&"throw"[/code], or a game's own (with a table that names it).
+## Empty when the game does not say: the bot then plays the one generic way.
 var weapon_class: StringName = &""
 
 ## Rounds left in the magazine in hand as a fraction of a full one, -1 when unknown. A style that
