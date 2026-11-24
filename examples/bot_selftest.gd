@@ -3,14 +3,14 @@ extends "res://examples/selftest/style_tests.gd"
 ## gs-bot's suite (`godot --headless --path . res://examples/bot_selftest.tscn`): presets, cvars, names, roster, and a bot's senses, aim and fights measured rather than read.
 ## The numbers a player feels are measured per preset (time to first shot, aim error, turn speed, K/D against one fixed opponent); the bands are what the presets promise.
 
-const CHECKS := 694
+const CHECKS := 697
 
 ## Of CHECKS, the ones that need GameSpice SQL and the SQLite extension linked into this project.
 const SQL_CHECKS := 0
 
 ## Sections entered against sections that ran to their last line. A runtime error inside a
 ## section aborts that function and nothing says so.
-const SECTIONS := 62
+const SECTIONS := 63
 
 
 func _ready() -> void:
@@ -56,6 +56,7 @@ func _run() -> void:
 	await _test_join_sliced()
 	await _test_unlock_export()
 	await _test_ladders()
+	await _test_climb_down()
 	await _test_door_then_ladder()
 	await _test_kill_avoidance()
 	_test_harvest_verify()

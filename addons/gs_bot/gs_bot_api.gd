@@ -52,5 +52,6 @@ extends RefCounted
 # 33: GSBotNav sets its map's edge-merge cell (agent key `merge_scale`, a share of the mesh cell from 0.01 to 0.1, 0 the engine's default 0.1 that the project setting does not reach; outside the range fails loudly); merge_scale_used; describe() reports merge_scale.
 # 34: GSBotBrain.par_ready (a brain about to think on a worker keeps its native mind, which perceives over a scan handle taken on the main thread; replaces leave_native for threaded callers).
 # 35: GSBotWorld.sight_callable (what a native mind asks sight through, line_of_sight unless a game hands one answering the same; GSBotBrain asks it every native perceive).
-const LEVEL := 35
+# 36: GSBotClimb rides a ladder down as well as up (a `to` more than a metre under the feet: push in to grab, back out down, done at the foot).
+const LEVEL := 36
 const OLDEST := 1

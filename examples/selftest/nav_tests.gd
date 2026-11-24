@@ -294,6 +294,21 @@ class FakeSlide extends FakeMover:
 		return Transform3D(Basis.IDENTITY, Vector3(0.0, 3.0, 0.0))
 
 
+## A ride down: pushed into the face until the controller has the climber on, then backed down, done at the foot; aimed at the
+## middle of the thin axis, so a climber still faces the face.
+func _test_climb_down() -> void:
+	_section("ladders: a ride down pushes into the face, then backs down, and is done at the foot")
+	var box := AABB(Vector3(-0.5, 0.0, -0.1), Vector3(1.0, 4.0, 0.2))
+	var ride := GSBotClimb.begin({"box": box, "to": Vector3(0.0, 0.0, 1.0)}, 10.0)
+	var grab := ride.step(Vector3(-0.4, 4.0, 0.5), 10.1)
+	_check(not grab["done"] and grab["move"] == Vector2(0.0, 1.0) and absf(float(grab["yaw"])) < 0.01,
+		"the descent first pushes into the face, on the thin axis (yaw %s)" % [grab.get("yaw")])
+	var down := ride.step(Vector3(0.0, 3.0, 0.5), 11.5)
+	_check(not down["done"] and down["move"] == Vector2(0.0, -1.0), "then backs down the ladder", str(down))
+	_check(ride.step(Vector3(0.0, 0.2, 0.5), 13.0)["done"], "and is done at the foot")
+	_done()
+
+
 ## A touch door shuts the corridor to the ladder: the bake sees it posed open, the bot walks into it, it opens, then the ladder is climbed.
 func _test_door_then_ladder() -> void:
 	_section("door then ladder: a bot opens a touch door in its way, then climbs")
