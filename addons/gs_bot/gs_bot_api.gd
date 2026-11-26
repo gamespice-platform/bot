@@ -59,5 +59,6 @@ extends RefCounted
 # 40: GSBotBrain.phase_us times brains on worker threads too: each brain has a GSBotClock, the caller of threaded thinks calls GSBotBrain.merge_phases(brains) on the main thread after the join; PHASES adds the world queries (bq_*) and GSBotBrain.phase_calls counts laps and queries. (39 is taken by nightly/fc-bots-native-2.)
 # 41: GSBotBrain.native_hear (_hear's loop runs in gs-sim's GSSimBotMind.hear when the brain has a mind and the library has it; the same sounds and draws to the bit) and GSBotWorld.sound_rows (the sounds packed, SOUND_STRIDE each).
 # 42: GSBotBrain.native_act (the roaming steer of _walk, _hold and _drift, look, glance, turn and legs, runs in gs-sim's GSSimBotMind.steer when the aim has a mind and the library has it; the same to the bit) and the act phase's parts in GSBotBrain.PHASES (ba_*, inside bb_act, timed with --brain-us).
-const LEVEL := 42
+# 43: GSBotTricks' native state stays in the brain's GSSimBotMind between thinks (tricks_step: the inputs as arguments, the buttons packed in one int; tricks_state/tricks_load move it to and from the script) and GSBotTricks.sync_out (copies it into the script's vars for a test).
+const LEVEL := 43
 const OLDEST := 1

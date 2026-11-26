@@ -1,7 +1,9 @@
 extends RefCounted
 
-## GSBotTricks native (GSSimBotMind.tricks) against script, to the bit: two tricks with the same
-## stream fed the same bodies, intents, scenarios and walls for many ticks, every phase reached.
+## GSBotTricks native (GSSimBotMind.tricks_step, its state kept in the mind) against script, to the
+## bit: two tricks with the same stream fed the same bodies, intents, scenarios and walls for many
+## ticks, every phase reached; the sides take turns going first, and now and then the native side
+## thinks a tick in script, so the state moves out of the mind and back.
 ## The brain parity's bodies never run fast enough to slide, so this drives the tricks alone.
 
 const TICKS := 6000
@@ -68,15 +70,17 @@ static func run(stats: Dictionary) -> String:
 		var jump := dice.randf() < 0.05
 		var crouch := dice.randf() < 0.05
 		var dt := TICK if dice.randf() < 0.95 else 0.0
-		var outs: Array[GSBotIntent] = []
-		for i in 2:
-			var out := GSBotIntent.new()
+		var outs: Array[GSBotIntent] = [GSBotIntent.new(), GSBotIntent.new()]
+		var in_script := dice.randf() < 0.01
+		for j in 2:
+			var i := j if tick % 2 == 0 else 1 - j
+			var out := outs[i]
 			out.move = move
 			out.yaw = yaw
 			out.jump = jump
 			out.crouch = crouch
-			sides[i].apply(me, world, p, rngs[i], scene, up, yaw, now, dt, out, mind if i == 0 else null)
-			outs.append(out)
+			sides[i].apply(me, world, p, rngs[i], scene, up, yaw, now, dt, out, mind if i == 0 and not in_script else null)
+		sides[0].sync_out()
 		var diff := _diff(sides[0], sides[1], rngs[0], rngs[1], outs[0], outs[1])
 		if diff != "":
 			return "tricks tick %d: %s" % [tick, diff]
