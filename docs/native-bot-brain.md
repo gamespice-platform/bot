@@ -48,6 +48,8 @@ The calls:
 
 A handed table must equal `rows_of` of the same bodies to the bit. Write the aim point and eye in the same expression form as `GSBotContact`. A table handed for an older version is ignored. Do not change the arrays after handing them: the scan keeps the last arrays it loaded.
 
+The world's own members for this are named `_handed_rows`, `_handed_version` and `_load_rows`. A game's `GSBotWorld` subclass cannot declare a member its parent has (Fatal Contact's world had a `_rows`, and the first try did not parse), so new private members of `GSBotWorld` take names a game is unlikely to use.
+
 ## The intent table (planned)
 
 The brain's answer is one row per bot, in the order of the bots handed in. It holds the `GSBotIntent` fields as packed columns:

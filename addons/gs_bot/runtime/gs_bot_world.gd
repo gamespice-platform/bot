@@ -76,8 +76,8 @@ var _senses: Object = null
 var _senses_version: int = -2
 var _sensed: Array = []
 ## The contact table a game handed for one [member contacts_version] ([method set_rows]); -2 none.
-var _rows_version: int = -2
-var _rows: Array = []
+var _handed_version: int = -2
+var _handed_rows: Array = []
 
 ## Whether [method senses] takes the table a game handed through [method set_rows] (cvar `bot_native_think`
 ## in a game, 1 by default); off, it packs the contacts itself as before. A suite turns it off to compare.
@@ -92,8 +92,8 @@ static var rows_enabled: bool = true
 ## rows check). [param sensed] must hold the contacts [method contacts] returns, in that order.
 func set_rows(version: int, sensed: Array, ids: PackedInt64Array, points: PackedVector3Array, teams: PackedInt32Array,
 		alive: PackedByteArray, eyes: PackedVector3Array, positions: PackedVector3Array) -> void:
-	_rows_version = version
-	_rows = [sensed, ids, points, teams, alive, eyes, positions]
+	_handed_version = version
+	_handed_rows = [sensed, ids, points, teams, alive, eyes, positions]
 
 
 ## The table [method senses] builds of [param all], as [method set_rows] takes it (for a game's or the suite's check).
@@ -138,8 +138,8 @@ func senses(all: Array) -> Object:
 		_senses = ClassDB.instantiate(SENSES_CLASS)
 	if _senses_version != contacts_version:
 		_senses_version = contacts_version
-		_load(_rows if rows_enabled and _rows_version == contacts_version else rows_of(all))
-		_rows = []
+		_load_rows(_handed_rows if rows_enabled and _handed_version == contacts_version else rows_of(all))
+		_handed_rows = []
 	return _senses
 
 
@@ -149,7 +149,7 @@ func sensed() -> Array:
 
 
 ## Loads a table in [method set_rows]'s shape into the native scan.
-func _load(rows: Array) -> void:
+func _load_rows(rows: Array) -> void:
 	_sensed = rows[0]
 	_senses.call(&"load_contacts", rows[1], rows[2], rows[3], rows[4])
 	if _senses.has_method(&"load_eyes"):
