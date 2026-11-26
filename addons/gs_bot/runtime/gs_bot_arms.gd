@@ -3,7 +3,8 @@ extends RefCounted
 
 ## The generic half of feeding [GSBotPickup]: rates weapons by damage per second and builds a contact's [member GSBotContact.loadout] and the world's [member GSBotWorld.drops_fn]
 ## from a GameSpice Weapon arsenal and drop set. Duck typed (no GameSpice Weapon class is named), so GameSpice Bot compiles without it.
-## Wire it with [code]GSBotArms.wire(world, drops_fn, arsenal_fn)[/code] and [code]contact.loadout = GSBotArms.loadout_of(player.arsenal)[/code].
+## Wire it with [code]GSBotArms.wire(world, drops_fn, arsenal_fn)[/code] and [code]contact.loadout = GSBotArms.loadout_of(player.arsenal)[/code]
+## (or a per-player [GSBotLoadout] that keeps it between ticks).
 
 ## Damage per second that rates 1.0.
 const FULL_DPS := 12.0 * 20.0

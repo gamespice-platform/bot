@@ -63,5 +63,6 @@ extends RefCounted
 # 44: GSBotContactTable (one tick's bodies as packed columns, GSBotContact kept as a view written on first read); GSBotWorld.set_table, table, table_enabled, contact_table, sensed_at; the brain reads rows where it walks every body; see docs/native-bot-brain.md.
 # 45: GSBotNav.parse_slice_usec (bake_in_background parses the colliders that long per frame, the engine's triangles to the bit; 0 parses them in one call as before); spread_points moved to gs_bot_nav.gd, unchanged.
 # 46: GSBotWorld.drop_table / DropTable (drops packed per contacts_version); GSBotPickup.step(..., mind) chooses natively (GSSimBotMind.pickup_choose); GSBotBrain.native_pickup.
-const LEVEL := 46
+# 48: GSBotLoadout (a player's loadout kept between ticks: rebuilt only when GameSpice Weapon's weapons_revision() moves, the ammo fractions patched in place on a shot or reload; static incremental false rebuilds on every revision as before, verify counts differences from a fresh GSBotArms.loadout_of in misses).
+const LEVEL := 48
 const OLDEST := 1

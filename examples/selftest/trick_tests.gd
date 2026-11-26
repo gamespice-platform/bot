@@ -1,4 +1,4 @@
-extends "res://examples/selftest/duel_tests.gd"
+extends "res://examples/selftest/loadout_tests.gd"
 
 ## The movement tricks (slide, wall run, duck, air-jump) per preset, on a toy motor that grants a wall run only after a slide and a jump.
 
