@@ -336,6 +336,16 @@ func _pick_waypoint(me: GSBotContact, world: GSBotWorld, p: GSBotProfile) -> Vec
 func _nearest_enemy(me: GSBotContact, world: GSBotWorld) -> Vector3:
 	var best := Vector3.INF
 	var best_d := INF
+	var t := world.table()
+	if t != null:
+		var at := t.positions
+		for i in t.size():
+			if t.live_enemy(i, me):
+				var d := at[i].distance_to(me.position)
+				if d < best_d:
+					best_d = d
+					best = at[i]
+		return best
 	for item in world.contacts():
 		var c := item as GSBotContact
 		if c == null or not c.alive or not me.is_enemy(c):

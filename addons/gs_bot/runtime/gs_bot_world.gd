@@ -90,6 +90,29 @@ var _handed_rows: Array = []
 ## in a game, 1 by default); off, it packs the contacts itself as before. A suite turns it off to compare.
 static var rows_enabled: bool = true
 
+## Whether [method table] answers with the table a game handed through [method set_table] (cvar `bot_contact_table` in a game,
+## 1 by default); off, the brain and the sight scan read [method contacts] as before. A suite turns it off to compare.
+static var table_enabled: bool = true
+
+## The bodies of one [member contacts_version] as packed columns ([method set_table]), or null.
+var contact_table: GSBotContactTable = null
+## The table the last [method senses] loaded, or null when it loaded a list.
+var _sensed_table: GSBotContactTable = null
+
+
+## Hands this tick's bodies as one [GSBotContactTable] (its [member GSBotContactTable.version] the [member contacts_version] it is for).
+## The brain then reads rows where it walks every body, and the bodies' objects only where it keeps one ([method GSBotContactTable.contact]);
+## the sight scan loads its columns. [method contacts] must still answer the same bodies, in the same order, for a caller that asks.
+func set_table(table: GSBotContactTable) -> void:
+	contact_table = table
+
+
+## The table handed for this [member contacts_version], or null (none, an older one, or [member table_enabled] off).
+func table() -> GSBotContactTable:
+	if table_enabled and contact_table != null and contact_table.version == contacts_version:
+		return contact_table
+	return null
+
 
 ## The contact table of [param version] (the [member contacts_version] it is for), filled by the game in the loop
 ## that builds its contacts, so [method senses] loads the native scan from it without walking the bodies again.
@@ -145,14 +168,35 @@ func senses(all: Array) -> Object:
 		_senses = ClassDB.instantiate(SENSES_CLASS)
 	if _senses_version != contacts_version:
 		_senses_version = contacts_version
-		_load_rows(_handed_rows if rows_enabled and _handed_version == contacts_version else rows_of(all))
+		var t := table()
+		if t != null:
+			_load_table(t)
+		else:
+			_sensed_table = null
+			_load_rows(_handed_rows if rows_enabled and _handed_version == contacts_version else rows_of(all))
 		_handed_rows = []
 	return _senses
 
 
 ## The bodies the last [method senses] packed, in its index order.
 func sensed() -> Array:
-	return _sensed
+	return _sensed_table.contacts() if _sensed_table != null else _sensed
+
+
+## The body at index [param i] of the last [method senses]: [code]sensed()[i][/code], writing only that one view when the scan loaded a table.
+func sensed_at(i: int) -> GSBotContact:
+	return _sensed_table.contact(i) if _sensed_table != null else _sensed[i]
+
+
+## Loads [param t]'s sight columns into the native scan.
+func _load_table(t: GSBotContactTable) -> void:
+	_sensed_table = t
+	_sensed = []
+	_senses.call(&"load_contacts", t.ids, t.points, t.teams, t.alive)
+	if _senses.has_method(&"load_eyes"):
+		_senses.call(&"load_eyes", t.eyes)
+	if _senses.has_method(&"load_positions"):
+		_senses.call(&"load_positions", t.positions)
 
 
 ## Loads a table in [method set_rows]'s shape into the native scan.
@@ -335,7 +379,8 @@ func sound_rows() -> PackedFloat64Array:
 ## The contact with [param id] among [param all], this think's [method contacts]. A world that
 ## keeps them by id overrides this; the brain asks it for every sound heard and every think of a fight.
 func contact_of(all: Array, id: int) -> GSBotContact:
-	return find(all, id)
+	var t := table() if all.is_empty() else null
+	return t.contact_by_id(id) if t != null else find(all, id)
 
 
 ## The contact with [param id] in [param list], or null.
