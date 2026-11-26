@@ -4,6 +4,7 @@ extends Node
 ## A third copy thinks natively on a worker thread (GSBotBrain.par_ready on the main thread first, then think through WorkerThreadPool), as a game's threaded bots do, and must match the same rows.
 ## Needs the gs_sim extension; without it there is nothing to compare and the scene says so and passes. The native side's world also bumps contacts_version every tick, so it perceives through GSSimBotMind.perceive over the native sight scan, with bystanders to choose among and the target killed late in some rounds.
 
+const TricksParity := preload("res://examples/native_parity_tricks.gd")
 const TICK := 1.0 / 30.0
 const ROUNDS := 12
 const SECONDS := 14.0
@@ -40,11 +41,14 @@ func _run() -> void:
 			break
 	if _failed == "" and (_fights < 100 or _fires < 20):
 		_failed = "too little fighting to compare: %d fight ticks, %d shots" % [_fights, _fires]
+	var trick_stats := {}
+	if _failed == "":
+		_failed = TricksParity.run(trick_stats)
 	if _failed != "":
 		print("native parity: FAIL ", _failed)
 		get_tree().quit(1)
 		return
-	print("native parity: ok, %d ticks over %d rounds (%d fighting, %d firing), native and script identical%s; think %.1f us native (perceive %s), %.1f us script" % [_ticks, ROUNDS, _fights, _fires, ", and native on a worker" if _held else " (no worker copy: library without perceive_held)", float(_usec[0]) / _ticks, "native" if GSBotBrain.native_perceive else "script", float(_usec[1]) / _ticks])
+	print("native parity: ok, %d ticks over %d rounds (%d fighting, %d firing), native and script identical%s; tricks %s; think %.1f us native (perceive %s), %.1f us script" % [_ticks, ROUNDS, _fights, _fires, ", and native on a worker" if _held else " (no worker copy: library without perceive_held)", "skipped (library without tricks)" if trick_stats.has("skipped") else "identical over %d ticks %s" % [TricksParity.TICKS, trick_stats], float(_usec[0]) / _ticks, "native" if GSBotBrain.native_perceive else "script", float(_usec[1]) / _ticks])
 	get_tree().quit(0)
 
 

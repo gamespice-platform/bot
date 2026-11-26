@@ -22,6 +22,14 @@ const WEIGHTS := {&"close": 1.0, &"chase": 1.0, &"flee": 1.4, &"roam": 0.2}
 
 enum Phase { IDLE, SLIDE_WAIT, SLIDING, AIR, RIDE }
 
+## Whether [method apply] runs in GameSpice Sim (GSSimBotMind.tricks) when the caller hands a mind
+## and the library has it; off, in script. The two choose the same to the bit (the wall probe stays here).
+static var native_enabled := true
+static var _native_known := -1
+const _SCENES := {&"close": 1.0, &"chase": 2.0, &"flee": 3.0, &"roam": 4.0, &"cover": 5.0}
+const _COUNT_KEYS: Array[StringName] = [&"slide", &"hop", &"wall", &"wall_jump", &"crouch", &"air_jump"]
+var _io := PackedFloat64Array()
+
 ## How many of each the bot started, for describe() and a suite.
 var counts: Dictionary = {&"slide": 0, &"hop": 0, &"wall": 0, &"wall_jump": 0, &"crouch": 0, &"air_jump": 0}
 
@@ -53,7 +61,15 @@ func reset() -> void:
 
 ## Adds this tick's tricks to [param out]. [param scenario] is one of close, chase, flee, cover,
 ## fight or roam; [param up] is how far above the bot its target stands (0 with none).
-func apply(me: GSBotContact, world: GSBotWorld, p: GSBotProfile, rng: GSRandomStream, scenario: StringName, up: float, yaw: float, now: float, dt: float, out: GSBotIntent) -> void:
+## [param mind] is the brain's GSSimBotMind (keyed with [param rng]'s key), or null for the script.
+func apply(me: GSBotContact, world: GSBotWorld, p: GSBotProfile, rng: GSRandomStream, scenario: StringName, up: float, yaw: float, now: float, dt: float, out: GSBotIntent, mind: Object = null) -> void:
+	if mind != null and _native_available():
+		_apply_native(mind, me, world, p, rng, scenario, up, yaw, now, dt, out)
+		return
+	_apply_script(me, world, p, rng, scenario, up, yaw, now, dt, out)
+
+
+func _apply_script(me: GSBotContact, world: GSBotWorld, p: GSBotProfile, rng: GSRandomStream, scenario: StringName, up: float, yaw: float, now: float, dt: float, out: GSBotIntent) -> void:
 	var flat := Vector2(me.velocity.x, me.velocity.z)
 	var speed := flat.length()
 	var heading := flat / speed if speed > 1.0 else _heading_of(out, yaw)
@@ -69,6 +85,92 @@ func apply(me: GSBotContact, world: GSBotWorld, p: GSBotProfile, rng: GSRandomSt
 
 	# A key is pressed again only after it was let go: a held crouch is no second slide.
 	_was_crouch = out.crouch
+
+
+static func _native_available() -> bool:
+	if _native_known < 0:
+		_native_known = 1 if ClassDB.class_exists(&"GSSimBotMind") and ClassDB.class_has_method(&"GSSimBotMind", &"tricks") else 0
+	return native_enabled and _native_known == 1
+
+
+## [method apply] in GSSimBotMind.tricks over one row (gs_sim_brain::tricks::io): the same state,
+## rolls and counts; a look that wants a wall stops for [method _find_wall] and resumes.
+func _apply_native(mind: Object, me: GSBotContact, world: GSBotWorld, p: GSBotProfile, rng: GSRandomStream, scenario: StringName, up: float, yaw: float, now: float, dt: float, out: GSBotIntent) -> void:
+	var io := _io
+	if io.size() != 52:
+		io.resize(52)
+	io[0] = float(_phase)
+	io[1] = _at
+	io[2] = _until
+	io[3] = _look_at
+	io[4] = _quiet_until
+	io[5] = _wall.x
+	io[6] = _wall.y
+	io[7] = _wall.z
+	io[8] = 1.0 if _chain else 0.0
+	io[9] = _duck_until
+	io[10] = _duck_next
+	io[11] = _air_next
+	io[12] = 1.0 if _was_crouch else 0.0
+	io[13] = rng._counter
+	io[14] = now
+	io[15] = dt
+	io[16] = _SCENES.get(scenario, 0.0)
+	io[17] = up
+	io[18] = yaw
+	io[19] = me.velocity.x
+	io[20] = me.velocity.z
+	io[21] = 1.0 if me.grounded else 0.0
+	io[22] = 1.0 if me.wall_running else 0.0
+	io[23] = 1.0 if me.air_jump_ready else 0.0
+	io[24] = me.health
+	io[25] = 1.0 if world != null else 0.0
+	io[26] = p.jump
+	io[27] = p.trick_chain
+	io[28] = p.cover_crouch
+	io[29] = p.trick_delay
+	io[30] = p.air_jump
+	io[31] = p.wall_run
+	io[32] = p.slide
+	io[33] = slide_speed
+	io[34] = out.move.x
+	io[35] = out.move.y
+	io[36] = 1.0 if out.jump else 0.0
+	io[37] = 1.0 if out.crouch else 0.0
+	io[38] = 1.0 if out.air_jump else 0.0
+	io[39] = out.yaw
+	io[40] = 0.0
+	var r: PackedFloat64Array = mind.tricks(io)
+	if r.size() < 52:
+		_apply_script(me, world, p, rng, scenario, up, yaw, now, dt, out)
+		return
+	if r[40] == 1.0:
+		var wall := _find_wall(me, world, Vector2(r[44], r[45]))
+		r[40] = 2.0
+		r[41] = wall.x
+		r[42] = wall.y
+		r[43] = wall.z
+		r = mind.tricks(r)
+	_io = r
+	_phase = int(r[0]) as Phase
+	_at = r[1]
+	_until = r[2]
+	_look_at = r[3]
+	_quiet_until = r[4]
+	_wall = Vector3(r[5], r[6], r[7])
+	_chain = r[8] != 0.0
+	_duck_until = r[9]
+	_duck_next = r[10]
+	_air_next = r[11]
+	_was_crouch = r[12] != 0.0
+	rng._counter = int(r[13])
+	out.move = Vector2(r[34], r[35])
+	out.jump = r[36] != 0.0
+	out.crouch = r[37] != 0.0
+	out.air_jump = r[38] != 0.0
+	for i in 6:
+		if r[46 + i] != 0.0:
+			counts[_COUNT_KEYS[i]] += int(r[46 + i])
 
 
 ## Hops while closing a distance, and the duck of a bot waiting in cover.
