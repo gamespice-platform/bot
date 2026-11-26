@@ -54,5 +54,6 @@ extends RefCounted
 # 35: GSBotWorld.sight_callable (what a native mind asks sight through, line_of_sight unless a game hands one answering the same; GSBotBrain asks it every native perceive).
 # 36: GSBotClimb rides a ladder down as well as up (a `to` more than a metre under the feet: push in to grab, back out down, done at the foot).
 # 37: GSBotWorld.set_rows hands the native sight scan the contact table a game filled in its own contact loop (rows_of builds it, rows_enabled switches it off); see docs/native-bot-brain.md.
-const LEVEL := 37
+# 38: GSBotLinks.slice_usec (a join_step with no deadline searches that long, 0 unlimited); GSBotNav.native_join (the join's edge passes through gs-sim's GSSimNavJoin when loaded, false keeps the script); the join's islands and polygon grid are built a slice at a time.
+const LEVEL := 38
 const OLDEST := 1

@@ -453,8 +453,6 @@ func clear() -> void:
 	_synced = false
 	_baking = false
 	held = false
-	_uses.clear()
-	_uses_at = 0
 	_generation += 1
 	mesh = null
 	_areas = PackedFloat32Array()
@@ -493,9 +491,6 @@ var held := false:
 		if was and not on:
 			_link_pending()
 
-# Polygons per open-border edge key, counted once per bake for every edge search, from polygon _uses_at on.
-var _uses := {}
-var _uses_at := 0
 
 ## Adds a one-way edge from [param from] to [param to] that is ridden, not walked (a surf ramp, a drop), under [param id]; [method route] crosses it when cheaper and says where. [param cost] scales its length. Kept across a re-bake; [method clear_rides] drops them.
 ## It is a navigation link because the bake leaves out faces steeper than the slope limit, so surf maps are islands.

@@ -1,4 +1,4 @@
-extends "res://examples/selftest/nav_tests.gd"
+extends "res://examples/selftest/nav_join_tests.gd"
 ## The tiled-bake section of the bot suite.
 
 

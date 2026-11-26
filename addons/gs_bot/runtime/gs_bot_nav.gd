@@ -99,31 +99,31 @@ static func _past(until_usec: int) -> bool:
 	return until_usec > 0 and Time.get_ticks_usec() >= until_usec
 
 
-## Counts the polygons on each mesh edge into _uses, from where the last call stopped; true when all are.
-func _count_uses(until_usec: int) -> bool:
-	var vertices := mesh.get_vertices()
-	var count := mesh.get_polygon_count()
-	while _uses_at < count:
-		var polygon := mesh.get_polygon(_uses_at)
-		for k in polygon.size():
-			var key := GSBotNavGeometry.edge_key(GSBotNavGeometry.vertex_key(vertices[polygon[k]]), GSBotNavGeometry.vertex_key(vertices[polygon[(k + 1) % polygon.size()]]))
-			_uses[key] = _uses.get(key, 0) + 1
-		_uses_at += 1
-		if _uses_at % 128 == 0 and _past(until_usec):
-			return _uses_at >= count
-	return true
+## Whether the edge searches' mesh passes (islands, edge uses) may run in GameSpice Sim ([code]GSSimNavJoin[/code])
+## when its library is loaded; false keeps the script, which answers the same.
+var native_join: bool = true
+const GSBotNavPrep := preload("gs_bot_nav_prep.gd")
+var _prep: GSBotNavPrep = null
+
+
+## This bake's edge uses, islands and polygon grid, worked out from where the last call stopped; true when all are.
+func _prep_step(until_usec: int) -> bool:
+	if mesh == null:
+		return true
+	if _prep == null or not _prep.is_of(mesh, _generation):
+		_prep = GSBotNavPrep.new(mesh, _generation, native_join)
+	return _prep.is_done() or _prep.step(self, until_usec)
+
+
+## The polygon sides on polygon [param polygon]'s edge from corner [param k]; 1 is an open border.
+func _edge_uses(polygon: int, k: int) -> int:
+	return _prep.uses[_prep.offsets[polygon] + k]
 
 
 func _step_edges(job: Dictionary, until_usec: int) -> bool:
-	if int(job["stage"]) == 0:
-		# the island and polygon lookups build on first use; built here they are a slice of their own
-		var _all := islands()
-		_poly_grid_ready(mesh.get_vertices())
-		job["stage"] = 1
-		if _past(until_usec):
-			return false
-	if int(job["stage"]) == 1:
-		if not _count_uses(until_usec):
+	if int(job["stage"]) < 2:
+		# the islands, the polygon grid and the edge uses, a slice at a time
+		if not _prep_step(until_usec):
 			return false
 		job["stage"] = 2
 		job["seen"] = {}
@@ -151,10 +151,7 @@ func _step_edges(job: Dictionary, until_usec: int) -> bool:
 		for k in polygon.size():
 			var pa := vertices[polygon[k]]
 			var pb := vertices[polygon[(k + 1) % polygon.size()]]
-			var a := GSBotNavGeometry.vertex_key(pa)
-			var b := GSBotNavGeometry.vertex_key(pb)
-			var key := GSBotNavGeometry.edge_key(a, b)
-			if _uses.get(key, 0) != 1:
+			if _edge_uses(i, k) != 1:
 				continue
 			var along := pb - pa
 			var out := Vector3(along.z, 0.0, -along.x).normalized()
@@ -191,16 +188,12 @@ func _step_stitches(job: Dictionary, until_usec: int) -> bool:
 	var max_gap: float = job["max_gap"]
 	var max_rise: float = job["max_rise"]
 	var vertices := mesh.get_vertices()
-	if int(job["stage"]) == 0:
+	if int(job["stage"]) < 2:
+		if not _prep_step(until_usec):
+			return false
 		# fewer than two islands has nothing to join, whatever the rim holds
 		if islands().size() < 2:
 			return true
-		job["stage"] = 1
-		if _past(until_usec):
-			return false
-	if int(job["stage"]) == 1:
-		if not _count_uses(until_usec):
-			return false
 		job["stage"] = 2
 		job["grid"] = {}
 		job["rim"] = []
@@ -277,7 +270,7 @@ func _stitch_rim(job: Dictionary, until_usec: int, vertices: PackedVector3Array,
 		for k in polygon.size():
 			var pa := vertices[polygon[k]]
 			var pb := vertices[polygon[(k + 1) % polygon.size()]]
-			if _uses.get(GSBotNavGeometry.edge_key(GSBotNavGeometry.vertex_key(pa), GSBotNavGeometry.vertex_key(pb)), 0) != 1:
+			if _edge_uses(i, k) != 1:
 				continue
 			# two points per rim edge, so a long wall of mesh still has candidates along it
 			for p: Vector3 in [pa, pa.lerp(pb, 0.5)]:

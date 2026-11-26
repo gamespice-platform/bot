@@ -75,6 +75,9 @@ var _dropped_once := false
 # join_step's searches still to run, and the stats it fills
 var _jobs: Array[Dictionary] = []
 var _stepping: Dictionary = {}
+## Microseconds a [method join_step] called with no deadline may search before it returns (0 = unlimited, the
+## whole join in one call). A game's per-tick budget for the join, so a converted map's first slice stays in a tick.
+var slice_usec: int = 0
 ## Metres a button may be used from, and how far from the mesh a teleport box may lie and still be entered by a step.
 const USE_REACH := 1.6
 const ENTRY_SLACK := 1.0
@@ -171,14 +174,18 @@ func carve(nav: GSBotNav) -> void:
 ## Joins each teleport not yet joined to [param nav] (which must be ready) as an edge from the mesh point inside its
 ## box to its destination, ids [constant TELEPORT_ID] up in the order read. Returns [member joined].
 func join(nav: GSBotNav) -> Dictionary:
-	var _done := join_step(nav)
+	while not join_step(nav):
+		pass
 	return joined
 
 
 ## [method join] a slice at a time, for a map whose drop, hop and stitch search outlasts a frame: true when
 ## done, [member joined] then set. The first call joins teleports, ladders and platforms; each call searches
-## until [param until_usec] ([method Time.get_ticks_usec], 0 to the end), with [member GSBotNav.held] set meanwhile.
+## until [param until_usec] ([method Time.get_ticks_usec]; 0 for [member slice_usec] from now, or to the end),
+## with [member GSBotNav.held] set meanwhile. [member GSBotNav.native_join] picks the native edge passes.
 func join_step(nav: GSBotNav, until_usec: int = 0) -> bool:
+	if until_usec == 0 and slice_usec > 0:
+		until_usec = Time.get_ticks_usec() + slice_usec
 	if _jobs.is_empty():
 		_stepping = _join_now(nav)
 		if drops and not _dropped_once:
