@@ -5,6 +5,7 @@ extends Node
 ## Needs the gs_sim extension; without it there is nothing to compare and the scene says so and passes. The native side's world also bumps contacts_version every tick, so it perceives through GSSimBotMind.perceive over the native sight scan, with bystanders to choose among and the target killed late in some rounds.
 
 const TricksParity := preload("res://examples/native_parity_tricks.gd")
+const HearParity := preload("res://examples/native_parity_hear.gd")
 const TICK := 1.0 / 30.0
 const ROUNDS := 12
 const SECONDS := 14.0
@@ -44,11 +45,14 @@ func _run() -> void:
 	var trick_stats := {}
 	if _failed == "":
 		_failed = TricksParity.run(trick_stats)
+	var hear_stats := {}
+	if _failed == "":
+		_failed = HearParity.run(hear_stats)
 	if _failed != "":
 		print("native parity: FAIL ", _failed)
 		get_tree().quit(1)
 		return
-	print("native parity: ok, %d ticks over %d rounds (%d fighting, %d firing), native and script identical%s; tricks %s; think %.1f us native (perceive %s), %.1f us script" % [_ticks, ROUNDS, _fights, _fires, ", and native on a worker" if _held else " (no worker copy: library without perceive_held)", "skipped (library without tricks)" if trick_stats.has("skipped") else "identical over %d ticks %s" % [TricksParity.TICKS, trick_stats], float(_usec[0]) / _ticks, "native" if GSBotBrain.native_perceive else "script", float(_usec[1]) / _ticks])
+	print("native parity: ok, %d ticks over %d rounds (%d fighting, %d firing), native and script identical%s; tricks %s; hear %s; think %.1f us native (perceive %s), %.1f us script" % [_ticks, ROUNDS, _fights, _fires, ", and native on a worker" if _held else " (no worker copy: library without perceive_held)", "skipped (library without tricks)" if trick_stats.has("skipped") else "identical over %d ticks %s" % [TricksParity.TICKS, trick_stats], "skipped (library without hear)" if hear_stats.has("skipped") else "identical %s" % hear_stats, float(_usec[0]) / _ticks, "native" if GSBotBrain.native_perceive else "script", float(_usec[1]) / _ticks])
 	get_tree().quit(0)
 
 

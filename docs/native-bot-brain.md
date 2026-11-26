@@ -24,6 +24,8 @@ About two thirds of `srv_bots` is serial main-thread GDScript around the brain, 
 | `bb_setup` | 0.25 |
 | `bb_unstick`, `bb_goal` | 0.08 each |
 
+At 31 bots on 4 workers with `--brain-us` (API 40 times brains on workers too), in thread-ms per tick summed over the workers: `bb_act` 0.5 to 0.9, spread over the steering script around the native fight step with no single hot call; `bb_perceive` about 0.45; `bb_hear` about 0.3, of which the world's `bq_sounds` is 0.07 and the rest the loop over the sound dictionaries. `bb_hear` is native from API 41.
+
 Noise on `srv_bots` between two runs on the same box is about 0.27 ms. A slice smaller than that is judged by its own section and by not being slower, never by `srv_bots` alone.
 
 ## The contact table (API 37)
@@ -74,7 +76,7 @@ Cheapest win first. Each step lands alone with its parity gate and a PH bench.
 | 2 | Finish glue: cache `GSWeaponRecoilRules.seed_for` per definition (it loops over the id's bytes every shot), reuse the coast command instead of two `duplicate_command` calls and a new array | 0.2 to 0.3 ms main (`bt_coast` 0.4, part of `ba_tail`) | `bt_coast`, `ba_tail` |
 | 3 | One native finish over the intent table (recoil, coast, write) | a further 0.2 to 0.4 ms main | `bot_after`, `srv_bots` |
 | 4 | Contacts from state columns once fc-server-packed-1 gives `GSFpsMotorBatch` columns: refresh copies columns, with no per-player GDScript | 0.4 to 0.6 ms main (`br_contacts` without loadout/weapon) | `bot_refresh` |
-| 5 | Brain pieces into GSSimBotMind: tricks (API 39, done: `GSSimBotMind.tricks`), hear, goal/style, unstick | 1.0 ms at threads 0, about 0.25 wall on 4 workers | `bb_*` with `bot_threads 0`, then `bot_brain` |
+| 5 | Brain pieces into GSSimBotMind: tricks (API 39, done: `GSSimBotMind.tricks`), hear (API 41, done: `GSSimBotMind.hear` over `GSBotWorld.sound_rows`, switch `GSBotBrain.native_hear`), goal/style, unstick | 1.0 ms at threads 0, about 0.25 wall on 4 workers | `bb_*` with `bot_threads 0`, then `bot_brain` |
 | 6 | Whole native think: one call per tick (begin, think and finish for every bot) over contact and intent tables, on gs-sim's own threads | the rest of `srv_bots` glue, target under 2 ms | `srv_bots` |
 
 Measurement: PH, `--headless`, the command above. Run before and after on the same box, at least two runs each, and read `srv_bots` and the slice's own sections. Pieces in step 5 are timed with `--bot_threads 0`, where the workers do not hide their cost.

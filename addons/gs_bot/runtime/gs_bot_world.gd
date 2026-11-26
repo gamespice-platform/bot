@@ -58,6 +58,11 @@ var sounds: Array[Dictionary] = []
 ## sound made at the same timestamp as a brain's last think was missed by a time comparison,
 ## and a bot with its back to a shooter at that moment died without turning round.
 var _seq: int = 0
+## [member sounds] packed for the native hearing (GSSimBotMind.hear), row for row: seq, source, x, y, z,
+## loudness, at ([constant SOUND_STRIDE] each). [method emit_sound] and the pruning keep it; [method sound_rows]
+## hands it out only while it still matches [member sounds] (a list written by hand is heard in script).
+var _sound_rows := PackedFloat64Array()
+const SOUND_STRIDE := 7
 
 
 ## Bumped by the game whenever [method contacts] holds a new tick's bodies (the tick number serves);
@@ -268,6 +273,7 @@ func projectile_speed(shooter: GSBotContact) -> float:
 func emit_sound(position: Vector3, loudness: float, source: int, now: float) -> void:
 	_seq += 1
 	sounds.append({"position": position, "loudness": loudness, "source": source, "at": now, "seq": _seq})
+	_sound_rows.append_array([float(_seq), float(source), position.x, position.y, position.z, loudness, now])
 	_prune(now)
 
 
@@ -302,8 +308,24 @@ func last_sound() -> int:
 
 
 func _prune(now: float) -> void:
+	var gone := 0
 	while not sounds.is_empty() and now - float(sounds[0]["at"]) > SOUND_LIFETIME:
 		sounds.pop_front()
+		gone += 1
+	if gone > 0:
+		_sound_rows = _sound_rows.slice(gone * SOUND_STRIDE)
+
+
+## [member sounds] as packed rows for GSSimBotMind.hear ([member _sound_rows]); empty when they no longer match
+## [member sounds] row for row (somebody wrote the list by hand), and then the brain hears in script.
+## Reads only, so a brain on a worker thread may call it.
+func sound_rows() -> PackedFloat64Array:
+	var n := sounds.size()
+	if _sound_rows.size() != n * SOUND_STRIDE or n == 0:
+		return PackedFloat64Array()
+	if int(_sound_rows[0]) != int(sounds[0]["seq"]) or int(_sound_rows[(n - 1) * SOUND_STRIDE]) != int(sounds[n - 1]["seq"]):
+		return PackedFloat64Array()
+	return _sound_rows
 
 
 ## The contact with [param id] among [param all], this think's [method contacts]. A world that

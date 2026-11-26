@@ -71,6 +71,10 @@ var _lod_reuse := 0.0
 ## The [member GSBotWorld.contacts_version] whose packed scan [member _mind] holds ([method par_ready]); -1 none.
 var _held_version := -1
 static var _held_known := -1
+## Whether brains hear natively (GSSimBotMind.hear over [method GSBotWorld.sound_rows]) when they
+## can; off, they hear in script. The two hear the same sounds and draw the same numbers, to the bit.
+static var native_hear := true
+static var _hear_known := -1
 
 
 func _init(p_id: int = 0, p_settings: GSBotSettings = null) -> void:
@@ -356,6 +360,40 @@ func _perceive(me: GSBotContact, all: Array, world: GSBotWorld, p: GSBotProfile,
 	return chosen
 
 
+## [method _hear]'s loop in the native mind: the same sounds heard, the same guesses and the same draws
+## on [member _rng] as the script. False when it cannot (no hear in the library, [member native_hear]
+## off, no packed bodies for the sources' teams, or sound rows out of step); the script then hears.
+func _hear_native(me: GSBotContact, all: Array, world: GSBotWorld, p: GSBotProfile, now: float, newest: int) -> bool:
+	if not _hear_available():
+		return false
+	var senses := world.senses(all)
+	if senses == null and not (_held_version >= 0 and _held_version == world.contacts_version):
+		return false
+	var rows := world.sound_rows()
+	if rows.is_empty():
+		return false
+	var here := me.position
+	var r: PackedFloat64Array = _mind.hear(senses, rows, PackedFloat64Array([_heard_seq, now, here.x, here.y, here.z,
+			p.hearing, me.id, me.team, p.aggression + style.aggression_b, _rng._counter]))
+	if r.size() != 6:
+		return false
+	_heard_seq = newest
+	_rng._counter = int(r[5])
+	if r[0] != 0.0:
+		_heard_pos = Vector3(r[1], r[2], r[3])
+		_heard_at = now
+		_chase_sound = r[4] != 0.0
+		_known_enemy = _heard_pos
+	return true
+
+
+## Whether the gs_sim extension's GSSimBotMind hears (and [member native_hear] lets it).
+static func _hear_available() -> bool:
+	if _hear_known < 0:
+		_hear_known = 1 if ClassDB.class_exists(GSBotAim.MIND_CLASS) and ClassDB.class_has_method(GSBotAim.MIND_CLASS, &"hear") else 0
+	return native_hear and _hear_known == 1
+
+
 ## Whether the gs_sim extension's GSSimBotMind perceives (and [member native_perceive] lets it).
 static func _perceive_available() -> bool:
 	if _perceive_known < 0:
@@ -553,6 +591,8 @@ func _forget_target() -> void:
 func _hear(me: GSBotContact, all: Array, world: GSBotWorld, p: GSBotProfile, now: float) -> void:
 	var newest := world.last_sound()
 	if newest == _heard_seq:
+		return
+	if _mind != null and _hear_native(me, all, world, p, now, newest):
 		return
 	var t_sounds := Time.get_ticks_usec() if GSBotClock.on else 0
 	world.sounds_into(_heard_seq, now, _heard)
