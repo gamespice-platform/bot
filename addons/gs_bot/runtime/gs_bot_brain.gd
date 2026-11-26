@@ -146,7 +146,7 @@ func think(me: GSBotContact, world: GSBotWorld, now: float) -> GSBotIntent:
 	out.pitch = aim.pitch
 	if phase_timers:
 		_lap(4)
-	tricks.apply(me, world, p, _rng, _scene, _scene_up, aim.yaw, now, dt, out)
+	tricks.apply(me, world, p, _rng, _scene, _scene_up, aim.yaw, now, dt, out, _mind if _mind != null else aim._n)
 	out.target_id = target_id if _visible else -1
 	if policy != null and _climb == null and _ride_reached < 0 and policy.active(p, id):
 		policy.apply(me, world, p, dt, out)
