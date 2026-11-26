@@ -56,5 +56,7 @@ extends RefCounted
 # 37: GSBotWorld.set_rows hands the native sight scan the contact table a game filled in its own contact loop (rows_of builds it, rows_enabled switches it off); see docs/native-bot-brain.md.
 # 38: GSBotLinks.slice_usec (a join_step with no deadline searches that long, 0 unlimited); GSBotNav.native_join (the join's edge passes through gs-sim's GSSimNavJoin when loaded, false keeps the script); the join's islands and polygon grid are built a slice at a time.
 # 39: GSBotTricks.native_enabled (apply runs in gs-sim's GSSimBotMind.tricks when the brain has a mind and the library has it; the same choices to the bit) and apply's optional mind argument.
-const LEVEL := 39
+# 40: reserved (nightly/zz-nav-land, the nav bake).
+# 41: GSBotContactTable (one tick's bodies as packed columns, GSBotContact kept as a view written on first read); GSBotWorld.set_table, table, table_enabled, contact_table, sensed_at; the brain reads rows where it walks every body; see docs/native-bot-brain.md.
+const LEVEL := 41
 const OLDEST := 1

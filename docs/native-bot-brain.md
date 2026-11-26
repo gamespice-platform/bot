@@ -50,6 +50,25 @@ A handed table must equal `rows_of` of the same bodies to the bit. Write the aim
 
 The world's own members for this are named `_handed_rows`, `_handed_version` and `_load_rows`. A game's `GSBotWorld` subclass cannot declare a member its parent has (Fatal Contact's world had a `_rows`, and the first try did not parse), so new private members of `GSBotWorld` take names a game is unlikely to use.
 
+## Packed contacts (API 41)
+
+At 31 bots a game's contact build wrote about 13 fields into every `GSBotContact` every tick, from native code at about 0.25 µs a property write. `GSBotContactTable` keeps the bodies of one tick as packed columns instead, so a native fill writes arrays and no objects.
+
+| Column | Type | Holds |
+|---|---|---|
+| `ids` | PackedInt64Array | contact id |
+| `positions`, `velocities` | PackedVector3Array | feet position, velocity |
+| `floats` | PackedFloat64Array, `FLOATS` (5) a row | eye height, aim height, view yaw, view pitch, health |
+| `teams` | PackedInt32Array | team, 0 for none |
+| `flags` | PackedInt32Array | `ALIVE`, `GROUNDED`, `SLIDING`, `WALL_RUNNING`, `AIR_JUMP` |
+| `points`, `eyes`, `alive` | as `set_rows` | the sight scan's rows |
+
+- `GSBotWorld.set_table(table)` hands it for `table.version`; `table()` returns it only for the current `contacts_version` and with `GSBotWorld.table_enabled` on (static, default on).
+- `GSBotContact` stays the API the brain and a game read: `table.contact(i)` and `contact_by_id(id)` write a row into its view object on first read in that tick (under a mutex, so worker threads may read). `contacts()` writes every view.
+- With a table, the brain's own walks (`_nearest_enemy`, the sense scan's load, held-target and sound lookups) read the columns or one view; the native scan loads from the columns.
+- `GSBotContactTable.from_contacts(version, contacts)` packs objects (a game's script loop, or a check), and `digest()` hashes every column: a native fill must digest as `from_contacts` of the same bodies.
+- gs-sim fills it with `GSSimBotContacts.fill_table(records, eye, aim, launch)` and the column getters. Fatal Contact's cvar `bot_contact_table` turns it off.
+
 ## The intent table (planned)
 
 The brain's answer is one row per bot, in the order of the bots handed in. It holds the `GSBotIntent` fields as packed columns:

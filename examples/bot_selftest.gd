@@ -15,7 +15,7 @@ var _native_ran := false
 
 ## Sections entered against sections that ran to their last line. A runtime error inside a
 ## section aborts that function and nothing says so.
-const SECTIONS := 65
+const SECTIONS := 66
 
 
 func _ready() -> void:
@@ -41,6 +41,7 @@ func _run() -> void:
 	_test_fire_mode()
 	_test_senses()
 	_test_contact_rows()
+	_test_contact_table()
 	_test_target_first()
 	_test_turning()
 	_test_reaction_and_aim()
@@ -277,6 +278,60 @@ func _test_senses() -> void:
 	_done()
 
 
+## [GSBotContactTable]: columns equal to the bodies, views written lazily, handed only for its version, and the crowd thinks the same with it.
+func _test_contact_table() -> void:
+	_section("contact table: packed columns stand in for the contact objects")
+	var bodies: Array = []
+	for i in range(4):
+		var c := GSBotContact.make(i + 1, Vector3(i, 0.0, -i), 1 + i % 2)
+		c.velocity = Vector3(0.5 * i, 0.0, 1.0)
+		c.health = 100.0 - 10.0 * i
+		c.view_yaw = 30.0 * i
+		c.alive = i != 2
+		c.grounded = i != 1
+		bodies.append(c)
+	var t := GSBotContactTable.from_contacts(7, bodies)
+	var same := t.size() == 4
+	for i in range(4):
+		var c: GSBotContact = bodies[i]
+		same = same and t.ids[i] == c.id and t.positions[i] == c.position and t.velocities[i] == c.velocity \
+			and t.teams[i] == c.team and bool(t.alive[i]) == c.alive and t.flags[i] == GSBotContactTable.flags_of(c) \
+			and t.row_of(c.id) == i and t.contact_by_id(c.id) == c
+	_check(same, "from_contacts packs ids, positions, velocities, teams, alive and flags row for row")
+	var views: Array = []
+	for i in range(4):
+		views.append(GSBotContact.new())
+	var u := GSBotContactTable.new()
+	u.take(7, views, t.ids, t.positions, t.velocities, t.floats, t.teams, t.flags, t.points, t.eyes, t.alive)
+	_check(u.digest() == t.digest(), "a taken table digests the same as the one packed from objects")
+	var v: GSBotContact = u.contact(1)
+	_check(v.id == 2 and v.position == Vector3(1, 0, -1) and not v.grounded and is_equal_approx(v.health, 90.0)
+		and is_equal_approx(v.view_yaw, 30.0) and (views[3] as GSBotContact).id != 4,
+		"contact(i) writes that row into its view and leaves the others unwritten")
+	_check(u.contacts().size() == 4 and (views[3] as GSBotContact).id == 4 and not (views[2] as GSBotContact).alive,
+		"contacts() writes every view")
+	var w := GSBotWorld.new()
+	w.contacts_version = 7
+	w.set_table(u)
+	_check(w.table() == u and w.contact_of([], 3) == views[2], "the world hands the table for its version and finds contacts by id in it")
+	w.contacts_version = 8
+	_check(w.table() == null, "and not for a newer tick")
+	w.contacts_version = 7
+	GSBotWorld.table_enabled = false
+	_check(w.table() == null, "nor with table_enabled off")
+	GSBotWorld.table_enabled = true
+	var objects := _crowd_intents(true, false)
+	var packed := _crowd_intents(true, true)
+	var differs := -1
+	for i in range(mini(objects.size(), packed.size())):
+		if objects[i] != packed[i]:
+			differs = i
+			break
+	_check(objects.size() == packed.size() and differs < 0, "six bots among eight bodies press the same through the table as through the objects",
+		"first difference at think %d of %d" % [differs, objects.size()])
+	_done()
+
+
 ## The same crowd thought through with and without [member GSBotBrain.target_first].
 func _test_target_first() -> void:
 	_section("target first: testing the held target alone changes no intent")
@@ -302,7 +357,7 @@ func _test_target_first() -> void:
 
 
 ## Every intent of six bots over 20 s among eight bodies that circle a wall, die, come back and fire; smoke for a while.
-func _crowd_intents(target_first: bool) -> Array:
+func _crowd_intents(target_first: bool, table := false) -> Array:
 	GSBotBrain.target_first = target_first
 	const PRESETS: Array[String] = ["easy", "medium", "hard", "nightmare", "hard", "medium"]
 	var bodies: Array = []
@@ -332,6 +387,9 @@ func _crowd_intents(target_first: bool) -> Array:
 			c.position = Vector3(cos(phase) * r, 0.0, sin(phase) * r)
 			c.velocity = Vector3(-sin(phase) * r * w, 0.0, cos(phase) * r * w)
 			c.alive = fmod(t + i * 1.7, 9.0) > 1.2
+		if table:
+			world.contacts_version = tick
+			world.set_table(GSBotContactTable.from_contacts(tick, bodies))
 		if not smoked and t >= 6.0:
 			smoked = true
 			var _id := world.add_sight_blocker(Vector3(4.0, 1.0, 0.0), 3.0, 10.0)

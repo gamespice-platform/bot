@@ -127,7 +127,8 @@ func think(me: GSBotContact, world: GSBotWorld, now: float) -> GSBotIntent:
 
 	if world != null:
 		world.prune_sight_blockers(now)
-	var all := world.contacts() if world != null else []
+	# With a contact table the rows are read instead, and a body's object only where one is kept.
+	var all := world.contacts() if world != null and world.table() == null else []
 	if phase_timers:
 		_lap(0)
 	var seen := _perceive(me, all, world, p, now)
@@ -307,7 +308,7 @@ func _perceive(me: GSBotContact, all: Array, world: GSBotWorld, p: GSBotProfile,
 			if r[1] != 0:
 				_target_down()
 			if r[0] >= 0:
-				chosen = world.sensed()[r[0]]
+				chosen = world.sensed_at(r[0])
 	if not picked:
 		chosen = _choose(me, all, world, p, eye, half, through, now)
 
@@ -374,7 +375,7 @@ func _choose(me: GSBotContact, all: Array, world: GSBotWorld, p: GSBotProfile, e
 	# A bot that still sees its target keeps it whoever else is in view, so the target alone is
 	# tested first and the scan over every body runs only when that fails (most thinks of a fight).
 	if target_first and _visible:
-		var held := world.contact_of(all, target_id) if world != null else GSBotWorld.find(all, target_id)
+		var held := _contact(world, all, target_id)
 		if held != null and held.alive:
 			_one[0] = held
 			if not _candidates(me, _one, p, eye, forward, half, scores).is_empty() and (through or _sees(world, eye, held, now)):
@@ -384,7 +385,7 @@ func _choose(me: GSBotContact, all: Array, world: GSBotWorld, p: GSBotProfile, e
 	var cand: Array[GSBotContact] = []
 	if current == null:
 		var senses := world.senses(all) if world != null else null  # packed once per contacts_version
-		cand = _candidates_native(senses, world, me, p, eye, forward, half, scores) if senses != null else _candidates(me, all, p, eye, forward, half, scores)
+		cand = _candidates_native(senses, world, me, p, eye, forward, half, scores) if senses != null else _candidates(me, _every(world, all), p, eye, forward, half, scores)
 		if _visible:
 			for i in cand.size():
 				if cand[i].id == target_id:
@@ -439,6 +440,20 @@ func _candidates(me: GSBotContact, all: Array, p: GSBotProfile, eye: Vector3, fo
 	return cand
 
 
+## The body with [param id]: the world's table row when it has one, else [method GSBotWorld.contact_of] over [param all].
+static func _contact(world: GSBotWorld, all: Array, id: int) -> GSBotContact:
+	if world == null:
+		return GSBotWorld.find(all, id)
+	var t := world.table()
+	return t.contact_by_id(id) if t != null else world.contact_of(all, id)
+
+
+## Every body as objects for the script scan: [param all], or the table's views when the world handed one.
+static func _every(world: GSBotWorld, all: Array) -> Array:
+	var t := world.table() if world != null else null
+	return t.contacts() if t != null else all
+
+
 ## [method _candidates] by GameSpice Sim's native scan over the tick's packed bodies: the same list, scores and forgetting.
 func _candidates_native(senses: Object, world: GSBotWorld, me: GSBotContact, p: GSBotProfile, eye: Vector3, forward: Vector3, half: float, scores: PackedFloat32Array) -> Array[GSBotContact]:
 	var cand: Array[GSBotContact] = []
@@ -447,9 +462,8 @@ func _candidates_native(senses: Object, world: GSBotWorld, me: GSBotContact, p: 
 		_target_down()
 	if idx.is_empty():
 		return cand
-	var list := world.sensed()
 	for i in idx:
-		cand.append(list[i])
+		cand.append(world.sensed_at(i))
 	scores.append_array(senses.call(&"scores"))
 	return cand
 
@@ -540,7 +554,7 @@ func _hear(me: GSBotContact, all: Array, world: GSBotWorld, p: GSBotProfile, now
 		if d > reach * float(s.get("loudness", 1.0)):
 			continue
 		# Asked last: most sounds are out of earshot, and whose they are is the dear question.
-		var who := world.contact_of(all, source)
+		var who := _contact(world, all, source)
 		if who != null and not me.is_enemy(who):
 			continue
 		# A sound says roughly where, never exactly: the further, the vaguer.
