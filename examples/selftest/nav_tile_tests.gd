@@ -99,3 +99,120 @@ func _test_nav_tiles() -> void:
 	small.queue_free()
 	big.queue_free()
 	_done()
+
+
+const NavParse := preload("res://addons/gs_bot/runtime/gs_bot_nav_parse.gd")
+
+
+## A map of every shape the engine parses, under a turned and moved root: one body of more shape owners than a
+## parse chunk, a disabled shape, a body nested under a plain node and one on a layer outside the mask.
+func _parse_map() -> Node3D:
+	var root := Node3D.new()
+	root.position = Vector3(3.3, -1.7, 12.25)
+	root.rotation = Vector3(0.1, 0.7, -0.05)
+	add_child(root)
+	var stream := GSRandomStream.new(7)
+	var holder := Node3D.new()
+	holder.position = Vector3(0.0, 0.5, -3.0)
+	root.add_child(holder)
+	for b in 4:
+		var body := StaticBody3D.new()
+		body.position = Vector3(b * 5.1, 0.3 * b, -2.0 * b)
+		body.rotation = Vector3(0.0, 0.3 * b, 0.0)
+		body.collision_layer = 4 if b == 3 else 1
+		(holder if b == 2 else root).add_child(body)
+		var floor_box := BoxShape3D.new()
+		floor_box.size = Vector3(4.0, 0.2, 4.0 + b)
+		var convex := ConvexPolygonShape3D.new()
+		var points := PackedVector3Array()
+		for i in 14:
+			points.append(Vector3(stream.next_unit() * 2.0 - 1.0, stream.next_unit() * 2.0, stream.next_unit() * 2.0 - 1.0))
+		convex.points = points
+		var concave := ConcavePolygonShape3D.new()
+		concave.set_faces(PackedVector3Array([Vector3(0, 0, 0), Vector3(1, 0, 0), Vector3(0, 0, 1), Vector3(1, 0, 0), Vector3(1, 0, 1), Vector3(0, 0, 1)]))
+		for shape: Shape3D in [floor_box, convex, concave, SphereShape3D.new(), CapsuleShape3D.new(), CylinderShape3D.new()]:
+			var node := CollisionShape3D.new()
+			node.shape = shape
+			node.position = Vector3(stream.next_unit() * 3.0, stream.next_unit(), stream.next_unit() * 3.0)
+			node.rotation = Vector3(0.0, stream.next_unit() * 3.0, 0.0)
+			node.disabled = b == 1 and shape is SphereShape3D
+			body.add_child(node)
+	var many := StaticBody3D.new()
+	root.add_child(many)
+	for i in NavParse.CHUNK * 2 + 9:
+		var node := CollisionShape3D.new()
+		var box := BoxShape3D.new()
+		box.size = Vector3(0.5, 0.3 + 0.01 * i, 0.5)
+		node.shape = box
+		node.position = Vector3(i % 13, 0.0, -8.0 - i / 13)
+		many.add_child(node)
+	return root
+
+
+## The engine's one call and the sliced parse (one microsecond a step) of [param nav]'s set-up bake; [one, sliced, steps].
+func _parse_both(nav: GSBotNav, root: Node3D, agent: Dictionary, mask: int, bodies: Array) -> Array:
+	var _set_up := nav._set_up(root, agent, mask, bodies)
+	var one := NavigationMeshSourceGeometryData3D.new()
+	NavigationServer3D.parse_source_geometry_data(nav.mesh, one, root)
+	var parser := NavParse.new(root, nav.mesh)
+	nav._ungroup(bodies)
+	var steps := 1
+	while not parser.step(nav.mesh, Time.get_ticks_usec() + 1) and steps < 100000:
+		steps += 1
+	return [one, parser.source(), steps]
+
+
+func _same_source(a: NavigationMeshSourceGeometryData3D, b: NavigationMeshSourceGeometryData3D) -> bool:
+	return a.get_vertices() == b.get_vertices() and a.get_indices() == b.get_indices() and a.get_vertices().size() > 0
+
+
+## The collider parse a slice per frame (API level 40): the engine's own triangles to the bit, a bake from it the same mesh.
+func _test_nav_parse_slices() -> void:
+	_section("nav parse slices: the sliced collider parse writes the engine's one-call triangles, and a background bake from it the same mesh")
+	var agent := {"radius": 0.35, "height": 1.0, "climb": 0.4}
+	var root := _parse_map()
+	await get_tree().physics_frame
+	var nav := GSBotNav.new()
+	var whole := _parse_both(nav, root, agent, 0, [])
+	_check(_same_source(whole[0], whole[1]) and whole[2] > 2, "the whole root, a microsecond a step: the same vertices and indices",
+		"%d/%d vertices in %d steps" % [whole[0].get_vertices().size(), whole[1].get_vertices().size(), whole[2]])
+	var masked := _parse_both(nav, root, agent, 1, [])
+	_check(_same_source(masked[0], masked[1]) and masked[0].get_vertices().size() < whole[0].get_vertices().size(),
+		"a collision mask leaves out the same body", "%d vertices" % masked[1].get_vertices().size())
+	var some: Array = [root.get_child(1), root.get_child(0)]
+	var grouped := _parse_both(nav, root, agent, 0, some)
+	_check(_same_source(grouped[0], grouped[1]) and not (some[0] as Node).is_in_group(nav._group()),
+		"only the bodies passed in, in the engine's order, and the group is left empty", "%d vertices" % grouped[1].get_vertices().size())
+	var csg: Node3D = ClassDB.instantiate("CSGBox3D") if ClassDB.class_exists("CSGBox3D") else null
+	if csg != null:
+		csg.set("use_collision", true)
+		root.add_child(csg)
+		await get_tree().physics_frame
+	var odd := _parse_both(nav, root, agent, 0, [])
+	_check(csg == null or _same_source(odd[0], odd[1]), "a node parsed another way (CSG) falls back to the one call, the same again")
+	if csg != null:
+		csg.free()
+
+	var sync := GSBotNav.new()
+	var _sync_res := sync.bake(root, agent)
+	var landed: Array = []
+	var sliced := GSBotNav.new()
+	sliced.parse_slice_usec = 1
+	var started := sliced.bake_in_background(root, agent, 0, [], func(res: GSResult) -> void: landed.append(res.ok))
+	_check(started.ok and sliced.is_baking() and landed.is_empty() or not GSPlatform.has_threads(), "a sliced background bake is still parsing when the call returns")
+	var frames := 0
+	while landed.is_empty() and frames < 2000:
+		await get_tree().process_frame
+		frames += 1
+	_check(landed == [true] and sliced.mesh.get_vertices() == sync.mesh.get_vertices() and sliced.mesh.get_polygon_count() == sync.mesh.get_polygon_count(),
+		"it lands once with the one-call bake's mesh, vertex for vertex", "%s after %d frames, %d polygons" % [str(landed), frames, sliced.mesh.get_polygon_count()])
+	var dropped: Array = []
+	var again := GSBotNav.new()
+	again.parse_slice_usec = 1
+	var _again := again.bake_in_background(root, agent, 0, [], func(res: GSResult) -> void: dropped.append(res.ok))
+	again.clear()
+	for i in 30:
+		await get_tree().process_frame
+	_check(dropped.is_empty() and not again.is_baking() and not again.is_baked(), "a sliced parse cleared halfway is dropped", str(dropped))
+	root.queue_free()
+	_done()

@@ -56,5 +56,6 @@ extends RefCounted
 # 37: GSBotWorld.set_rows hands the native sight scan the contact table a game filled in its own contact loop (rows_of builds it, rows_enabled switches it off); see docs/native-bot-brain.md.
 # 38: GSBotLinks.slice_usec (a join_step with no deadline searches that long, 0 unlimited); GSBotNav.native_join (the join's edge passes through gs-sim's GSSimNavJoin when loaded, false keeps the script); the join's islands and polygon grid are built a slice at a time.
 # 39: GSBotTricks.native_enabled (apply runs in gs-sim's GSSimBotMind.tricks when the brain has a mind and the library has it; the same choices to the bit) and apply's optional mind argument.
-const LEVEL := 39
+# 40: GSBotNav.parse_slice_usec (bake_in_background parses the colliders that long per frame, the engine's triangles to the bit; 0 parses them in one call as before); spread_points moved to gs_bot_nav.gd, unchanged.
+const LEVEL := 40
 const OLDEST := 1
