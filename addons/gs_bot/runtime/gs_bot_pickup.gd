@@ -31,42 +31,67 @@ var _skip: Dictionary = {}
 var _look_next: float = -INF
 ## The owning brain's profile clock ([GSBotClock]); null in one made without a brain.
 var clock: GSBotClock = null
+## 1 when this is GSBotPickup itself (a subclass may override [method gain], which the native choice cannot see); -1 unknown.
+var _plain := -1
 
 
 ## The plan this tick: [code]{position, use}[/code], or empty when the bot has nothing to fetch.
 ## [param quiet] false (a fight, a sound, a hit) cancels it.
-func step(me: GSBotContact, world: GSBotWorld, p: GSBotProfile, now: float, quiet: bool) -> Dictionary:
+## [param mind] a GSSimBotMind with [code]pickup_choose[/code]: the choice is made natively over [method GSBotWorld.drop_table]
+## (the same drop to the bit, sight asked for the same drops); null, or no table this tick, in script.
+func step(me: GSBotContact, world: GSBotWorld, p: GSBotProfile, now: float, quiet: bool, mind: Object = null) -> Dictionary:
 	if now - _last > STALE:
 		cancel()
 	_last = now
 	if not quiet or p.pickup_weapons < 0.5 or world == null:
 		cancel()
 		return NONE
+	if _plain < 0:
+		_plain = 1 if (get_script() as Script).get_base_script() == null else 0
 	var t_drops := Time.get_ticks_usec() if GSBotClock.on else 0
-	var drops := world.drops()
+	var table: GSBotWorld.DropTable = world.drop_table() if mind != null and _plain == 1 else null
+	var drops := world.drops() if table == null else []
 	if t_drops:
 		GSBotClock.add(clock, GSBotClock.Q_DROPS, t_drops)
-	var drop := _find(drops, _goal)
-	if _goal != -1 and drop.is_empty():
+	var at: Variant = null
+	if table != null:
+		var i := table.ids.find(_goal)
+		if i >= 0:
+			at = table.at[i]
+	else:
+		var d := _find(drops, _goal)
+		if not d.is_empty():
+			at = d["position"]
+	if _goal != -1 and at == null:
 		cancel()
 		return NONE
-	if drop.is_empty():
+	if at == null:
 		if p.replan_every > 0.0:
 			if now < _look_next:
 				return NONE
 			_look_next = now + p.replan_every
-		drop = _choose(me, world, p, drops, now)
-		if drop.is_empty():
+		var i := _choose_native(me, world, p, table, now, mind) if table != null else -2
+		if i == -2:
+			if table != null:
+				drops = world.drops()
+			var d := _choose(me, world, p, drops, now)
+			if d.is_empty():
+				return NONE
+			_goal = int(d["id"])
+			at = d["position"]
+		elif i < 0:
 			return NONE
-		_goal = int(drop["id"])
+		else:
+			_goal = table.ids[i]
+			at = table.at[i]
 		_noticed_at = now
 	if now - _noticed_at > GIVE_UP:
 		return _drop(now)
 	if now - _noticed_at < p.reaction:
 		return NONE
-	var at: Vector3 = drop["position"]
-	var plan := {"position": at, "use": false}
-	if absf(at.y - me.position.y) < 2.0 and Vector2(at.x - me.position.x, at.z - me.position.z).length() < REACH:
+	var to: Vector3 = at
+	var plan := {"position": to, "use": false}
+	if absf(to.y - me.position.y) < 2.0 and Vector2(to.x - me.position.x, to.z - me.position.z).length() < REACH:
 		if _pressed_at < 0.0:
 			_pressed_at = now
 		elif now - _pressed_at > hold_time:
@@ -128,6 +153,26 @@ func _choose(me: GSBotContact, world: GSBotWorld, p: GSBotProfile, drops: Array,
 			best_score = score
 			best = d
 	return best
+
+
+## [method _choose] in one native call (GSSimBotMind.pickup_choose) over [param table]: the row chosen, -1 none, -2 the mind
+## refused (the script then chooses). The loadout's dictionary slots and the skipped drops go packed; sight is
+## [method GSBotWorld.sight_callable], asked for the drops and in the order the script asks.
+func _choose_native(me: GSBotContact, world: GSBotWorld, p: GSBotProfile, table: GSBotWorld.DropTable, now: float, mind: Object) -> int:
+	var mine := PackedFloat64Array()
+	for slot: Variant in me.loadout:
+		var held: Variant = me.loadout[slot]
+		if slot is int and held is Dictionary:
+			mine.push_back(float(slot))
+			mine.push_back(float(held.get("value", 0.0)))
+			mine.push_back(float(held.get("ammo", 1.0)))
+	var skip_ids := PackedInt64Array()
+	var skip_until := PackedFloat64Array()
+	for id: int in _skip:
+		skip_ids.push_back(id)
+		skip_until.push_back(float(_skip[id]))
+	return int(mind.pickup_choose(table.ids, table.at, table.rows, mine, skip_ids, skip_until, me.position, me.eye(),
+			p.pickup_range, not (p.through_walls < 0.5), now, world.sight_callable()))
 
 
 static func _find(drops: Array, id: int) -> Dictionary:

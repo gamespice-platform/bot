@@ -273,6 +273,41 @@ func drops() -> Array:
 	return drops_fn.call() if drops_fn.is_valid() else []
 
 
+## [method drops] as packed columns, for a native pickup choice (GSSimBotMind.pickup_choose).
+class DropTable:
+	## The [member GSBotWorld.contacts_version] these drops are of.
+	var version := -1
+	var ids := PackedInt64Array()
+	var at := PackedVector3Array()
+	## Per drop: slot, value, ammo, read as [method GSBotPickup.gain] reads them.
+	var rows := PackedFloat64Array()
+
+
+var _drop_table: DropTable = null
+var _drop_lock := Mutex.new()
+
+
+## [method drops] packed once per [member contacts_version] (the first brain to ask packs them, on any thread), or null
+## when the game does not bump the version: then each ask could see other drops, and the pickup asks [method drops] itself.
+func drop_table() -> DropTable:
+	if contacts_version < 0:
+		return null
+	_drop_lock.lock()
+	var t := _drop_table
+	if t == null or t.version != contacts_version:
+		t = DropTable.new()
+		t.version = contacts_version
+		for d: Dictionary in drops():
+			t.ids.push_back(int(d["id"]))
+			t.at.push_back(d["position"])
+			t.rows.push_back(float(int(d.get("slot", 0))))
+			t.rows.push_back(float(d.get("value", 0.0)))
+			t.rows.push_back(float(d.get("ammo", 0.0)))
+		_drop_table = t
+	_drop_lock.unlock()
+	return t
+
+
 func wall_ahead(from: Vector3, dir: Vector3, reach: float) -> Dictionary:
 	return wall_fn.call(from, dir, reach) if wall_fn.is_valid() else {}
 

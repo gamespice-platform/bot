@@ -62,5 +62,6 @@ extends RefCounted
 # 43: GSBotTricks' native state stays in the brain's GSSimBotMind between thinks (tricks_step: the inputs as arguments, the buttons packed in one int; tricks_state/tricks_load move it to and from the script) and GSBotTricks.sync_out (copies it into the script's vars for a test).
 # 44: GSBotContactTable (one tick's bodies as packed columns, GSBotContact kept as a view written on first read); GSBotWorld.set_table, table, table_enabled, contact_table, sensed_at; the brain reads rows where it walks every body; see docs/native-bot-brain.md.
 # 45: GSBotNav.parse_slice_usec (bake_in_background parses the colliders that long per frame, the engine's triangles to the bit; 0 parses them in one call as before); spread_points moved to gs_bot_nav.gd, unchanged.
-const LEVEL := 45
+# 46: GSBotWorld.drop_table / DropTable (drops packed per contacts_version); GSBotPickup.step(..., mind) chooses natively (GSSimBotMind.pickup_choose); GSBotBrain.native_pickup.
+const LEVEL := 46
 const OLDEST := 1

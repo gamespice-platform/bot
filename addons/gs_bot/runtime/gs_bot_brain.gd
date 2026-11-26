@@ -80,6 +80,10 @@ static var _hear_known := -1
 ## legs of [method _walk], [method _hold] and [method _drift]) when they can; off, in script. The same, to the bit.
 static var native_act := true
 static var _act_known := -1
+## Whether a quiet bot chooses a weapon off the floor natively (GSSimBotMind.pickup_choose over
+## [method GSBotWorld.drop_table]) when it can; off, in script. The same drop, to the bit.
+static var native_pickup := true
+static var _pickup_known := -1
 
 
 static func _zeros() -> PackedInt64Array:
@@ -443,6 +447,20 @@ static func _act_available() -> bool:
 	if _act_known < 0:
 		_act_known = 1 if ClassDB.class_exists(GSBotAim.MIND_CLASS) and ClassDB.class_has_method(GSBotAim.MIND_CLASS, &"steer") else 0
 	return native_act and _act_known == 1
+
+
+## Whether the gs_sim extension's GSSimBotMind chooses pickups (and [member native_pickup] lets it).
+static func _pickup_available() -> bool:
+	if _pickup_known < 0:
+		_pickup_known = 1 if ClassDB.class_exists(GSBotAim.MIND_CLASS) and ClassDB.class_has_method(GSBotAim.MIND_CLASS, &"pickup_choose") else 0
+	return native_pickup and _pickup_known == 1
+
+
+## [method _fetch]'s mind: this brain's when [method _pickup_available].
+func _pickup_mind() -> Object:
+	if not _pickup_available():
+		return null
+	return _mind if _mind != null else aim._n
 
 
 ## [method _steer_native]'s switch: [method _act_available].

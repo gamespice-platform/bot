@@ -271,10 +271,15 @@ func _hold(me: GSBotContact, p: GSBotProfile, now: float, dt: float, out: GSBotI
 	_set_move(out, Vector2.ZERO)
 
 
+## The native mind that chooses a weapon off the floor, or null (script); GSBotBrain answers it ([member GSBotBrain.native_pickup]).
+func _pickup_mind() -> Object:
+	return null
+
+
 ## True when a weapon on the floor has this tick: walk to it, look at it, press use near it.
 func _fetch(me: GSBotContact, world: GSBotWorld, p: GSBotProfile, now: float, dt: float, out: GSBotIntent) -> bool:
 	var t := Time.get_ticks_usec() if GSBotClock.on else 0
-	var plan := pickup.step(me, world, p, now, true)
+	var plan := pickup.step(me, world, p, now, true, _pickup_mind())
 	if t:
 		GSBotClock.add(_clock, GSBotClock.A_PICKUP, t)
 	if plan.is_empty():
