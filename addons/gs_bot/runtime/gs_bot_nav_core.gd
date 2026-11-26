@@ -49,6 +49,10 @@ const CACHE_META := &"gs_bot_nav_cache"
 var _cache_digest: String = ""
 var _started: int = 0
 var _tiler: GSBotNavTiles = GSBotNavTiles.new()
+## How long [method bake_in_background] parses the colliders per frame before it yields (microseconds); 0 parses
+## them in one call on the spot, which stalls a big map's frame for seconds. Same triangles either way.
+var parse_slice_usec: int = 4000
+const GSBotNavParse := preload("gs_bot_nav_parse.gd")
 ## The root last baked, for [method find_drops]'s clearance rays.
 var _root: Node3D = null
 var _baking: bool = false
@@ -111,13 +115,44 @@ func _joined(parts: Array[NavigationMesh]) -> GSResult:
 
 ## [method bake] with the mesh built on a worker thread, for a map too big to bake inside a tick: [param done] gets [method bake]'s result when it arrives; until then [method path] is empty and [method is_baking] true.
 ## When the mesh arrives depends on the machine, so a game replaying a seeded round must use [method bake]. Without threads this is [method bake].
+## With [member parse_slice_usec] set, the colliders are parsed that long per frame first, the frames' own work around them.
 func bake_in_background(root: Node3D, agent: Dictionary = {}, mask: int = 0, bodies: Array = [], done: Callable = Callable()) -> GSResult:
-	var parsed := _parse(root, agent, mask, bodies)
-	if not parsed.ok:
-		return parsed
-	var cached := _cache_load(parsed.value)
+	if parse_slice_usec <= 0 or not GSPlatform.has_threads():
+		var parsed := _parse(root, agent, mask, bodies)
+		return _bake_parsed(parsed.value, done) if parsed.ok else parsed
+	var set_up := _set_up(root, agent, mask, bodies)
+	if not set_up.ok:
+		return set_up
+	_baking = true
+	var parser := GSBotNavParse.new(root, mesh)
+	_ungroup(bodies)
+	_parse_slice(parser, root, root.get_tree(), _generation, agent, done)
+	return GSResult.success(0)
+
+
+## One frame's slice of a sliced parse; the next is called from the tree's next frame until it is done or dropped.
+func _parse_slice(parser: GSBotNavParse, root: Node3D, tree: SceneTree, generation: int, agent: Dictionary, done: Callable) -> void:
+	if generation != _generation:
+		return
+	var gone := not is_instance_valid(root) or not root.is_inside_tree()
+	if not gone and not parser.step(mesh, Time.get_ticks_usec() + parse_slice_usec):
+		tree.process_frame.connect(_parse_slice.bind(parser, root, tree, generation, agent, done), CONNECT_ONE_SHOT)
+		return
+	var planned := GSResult.fail(GSError.CODE_INVALID, "nothing to bake: the map left the tree while it was parsed") if gone else _planned(parser.source(), agent)
+	if planned.ok:
+		var _started_bake := _bake_parsed(planned.value, done)
+		return
+	_baking = false
+	if done.is_valid():
+		done.call(planned)
+
+
+## The rest of [method bake_in_background] once [param source] is parsed: the cache, else the async bake.
+func _bake_parsed(source: NavigationMeshSourceGeometryData3D, done: Callable) -> GSResult:
+	var cached := _cache_load(source)
 	if cached or not GSPlatform.has_threads():
-		var res := _take_in() if cached else _bake_now(parsed.value)
+		_baking = false
+		var res := _take_in() if cached else _bake_now(source)
 		if done.is_valid():
 			done.call(res)
 		return res
@@ -125,7 +160,7 @@ func bake_in_background(root: Node3D, agent: Dictionary = {}, mask: int = 0, bod
 	# The generation and the mesh are bound so a bake that lands after clear() or a newer bake
 	# is dropped instead of taken in over the map that replaced it.
 	if _tiler.count() == 0:
-		NavigationServer3D.bake_from_source_geometry_data_async(mesh, parsed.value, _on_baked.bind(_generation, mesh, done))
+		NavigationServer3D.bake_from_source_geometry_data_async(mesh, source, _on_baked.bind(_generation, mesh, done))
 		return GSResult.success(0)
 	# Tiles side by side on the server's workers; the last to land joins them.
 	var parts: Array[NavigationMesh] = []
@@ -133,7 +168,7 @@ func bake_in_background(root: Node3D, agent: Dictionary = {}, mask: int = 0, bod
 	for box in _tiler.boxes:
 		parts.append(_tiler.tile_mesh(box))
 	for part in parts:
-		NavigationServer3D.bake_from_source_geometry_data_async(part, parsed.value, _on_tile.bind(_generation, mesh, parts, landed, done))
+		NavigationServer3D.bake_from_source_geometry_data_async(part, source, _on_tile.bind(_generation, mesh, parts, landed, done))
 	return GSResult.success(0)
 
 
@@ -165,6 +200,17 @@ func _on_tile(generation: int, base: NavigationMesh, parts: Array[NavigationMesh
 
 ## Clears, then sets [member mesh] up and parses the colliders into source geometry.
 func _parse(root: Node3D, agent: Dictionary, mask: int, bodies: Array) -> GSResult:
+	var set_up := _set_up(root, agent, mask, bodies)
+	if not set_up.ok:
+		return set_up
+	var source := NavigationMeshSourceGeometryData3D.new()
+	NavigationServer3D.parse_source_geometry_data(mesh, source, root)
+	_ungroup(bodies)
+	return _planned(source, agent)
+
+
+## Clears, then sets [member mesh] up to parse [param root] (with [param bodies] put in this nav's group).
+func _set_up(root: Node3D, agent: Dictionary, mask: int, bodies: Array) -> GSResult:
 	clear()
 
 	if root == null or not root.is_inside_tree():
@@ -197,19 +243,28 @@ func _parse(root: Node3D, agent: Dictionary, mask: int, bodies: Array) -> GSResu
 	mesh.region_min_size = 2.0
 	mesh.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
 	mesh.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_ROOT_NODE_CHILDREN
-	var group := StringName("gs_bot_nav_%d" % get_instance_id())
 	if not bodies.is_empty():
 		mesh.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_GROUPS_WITH_CHILDREN
-		mesh.geometry_source_group_name = group
+		mesh.geometry_source_group_name = _group()
 		for body: Node in bodies:
-			body.add_to_group(group)
+			body.add_to_group(_group())
 	if mask != 0:
 		mesh.geometry_collision_mask = mask
+	return GSResult.success(0)
 
-	var source := NavigationMeshSourceGeometryData3D.new()
-	NavigationServer3D.parse_source_geometry_data(mesh, source, root)
-	for body: Node in bodies:
-		body.remove_from_group(group)
+
+func _group() -> StringName:
+	return StringName("gs_bot_nav_%d" % get_instance_id())
+
+
+func _ungroup(bodies: Array) -> void:
+	for body: Variant in bodies:
+		if is_instance_valid(body):
+			(body as Node).remove_from_group(_group())
+
+
+## Adds the avoid boxes to the parsed [param source] and plans the tiles; the source back when it fits.
+func _planned(source: NavigationMeshSourceGeometryData3D, agent: Dictionary) -> GSResult:
 	for box in avoid:
 		var lo := box.position
 		var hi := box.end
@@ -391,38 +446,6 @@ func random_point(stream: GSRandomStream) -> Vector3:
 		u = 1.0 - u
 		v = 1.0 - v
 	return a + (b - a) * u + (c - a) * v
-
-
-## [param count] places spread over the mesh's largest island: farthest-point picks from random
-## candidates, so rooms and corridors a spawn list never names get a waypoint. Empty when unbaked.
-func spread_points(count: int, stream: GSRandomStream, min_gap: float = 6.0) -> PackedVector3Array:
-	var out := PackedVector3Array()
-	if not is_baked() or count <= 0:
-		return out
-	var main := islands()
-	var candidates: Array[Vector3] = []
-	for _i in range(count * 8):
-		var at := random_point(stream)
-		if main.is_empty() or island_at(at, 0.6) == 0:
-			candidates.append(at)
-	if candidates.is_empty():
-		return out
-	var gaps: Array[float] = []
-	gaps.resize(candidates.size())
-	gaps.fill(INF)
-	var next := 0
-	while out.size() < count:
-		var chosen := candidates[next]
-		out.append(chosen)
-		var far := -1.0
-		for i in range(candidates.size()):
-			gaps[i] = minf(gaps[i], candidates[i].distance_to(chosen))
-			if gaps[i] > far:
-				far = gaps[i]
-				next = i
-		if far < min_gap:
-			break
-	return out
 
 
 ## Frees the navigation map. Call when the map it was baked from goes away.
