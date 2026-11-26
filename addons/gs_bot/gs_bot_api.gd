@@ -61,5 +61,6 @@ extends RefCounted
 # 42: GSBotBrain.native_act (the roaming steer of _walk, _hold and _drift, look, glance, turn and legs, runs in gs-sim's GSSimBotMind.steer when the aim has a mind and the library has it; the same to the bit) and the act phase's parts in GSBotBrain.PHASES (ba_*, inside bb_act, timed with --brain-us).
 # 43: GSBotTricks' native state stays in the brain's GSSimBotMind between thinks (tricks_step: the inputs as arguments, the buttons packed in one int; tricks_state/tricks_load move it to and from the script) and GSBotTricks.sync_out (copies it into the script's vars for a test).
 # 44: GSBotContactTable (one tick's bodies as packed columns, GSBotContact kept as a view written on first read); GSBotWorld.set_table, table, table_enabled, contact_table, sensed_at; the brain reads rows where it walks every body; see docs/native-bot-brain.md.
-const LEVEL := 44
+# 45: GSBotNav.parse_slice_usec (bake_in_background parses the colliders that long per frame, the engine's triangles to the bit; 0 parses them in one call as before); spread_points moved to gs_bot_nav.gd, unchanged.
+const LEVEL := 45
 const OLDEST := 1
