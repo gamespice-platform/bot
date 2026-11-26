@@ -31,6 +31,8 @@ var _next: float = -INF
 var _free_until: float = -INF
 var _hold_until: float = -INF
 var _offset: float = 0.0
+## The owning brain's profile clock ([GSBotClock]); null in one made without a brain.
+var clock: GSBotClock = null
 
 
 func _init(p_id: int = 0) -> void:
@@ -196,7 +198,10 @@ func _teammate_carrier(objective: GSBotObjective, team: int, enemy: int, me_id: 
 ## around it, put on the walkable surface when the world knows one.
 func _spot_near(world: GSBotWorld, centre: Vector3, radius: float, rng: GSRandomStream) -> Vector3:
 	if world != null:
+		var t_way := Time.get_ticks_usec() if GSBotClock.on else 0
 		var points := world.waypoints()
+		if t_way:
+			GSBotClock.add(clock, GSBotClock.Q_WAYPOINTS, t_way)
 		if not points.is_empty():
 			for i in 5:
 				var point := points[rng.next_range_i(0, points.size() - 1)]
@@ -205,7 +210,10 @@ func _spot_near(world: GSBotWorld, centre: Vector3, radius: float, rng: GSRandom
 	var angle := rng.next_unit() * TAU
 	var at := centre + Vector3(cos(angle), 0.0, sin(angle)) * radius * (0.3 + 0.5 * rng.next_unit())
 	if world != null:
+		var t_walk := Time.get_ticks_usec() if GSBotClock.on else 0
 		var walk := world.walkable_near(at)
+		if t_walk:
+			GSBotClock.add(clock, GSBotClock.Q_WALKABLE, t_walk)
 		if walk != Vector3.INF:
 			return walk
 	return at

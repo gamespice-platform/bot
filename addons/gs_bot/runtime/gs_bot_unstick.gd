@@ -29,6 +29,8 @@ var _pushed: float = 0.0
 var _seen: float = 0.0
 var _side: float = 1.0
 var _rng: GSRandomStream = null
+## The owning brain's profile clock ([GSBotClock]); null in one made without a brain.
+var clock: GSBotClock = null
 
 
 func _init(p_rng: GSRandomStream = null) -> void:
@@ -74,7 +76,10 @@ func step(position: Vector3, pushing: bool, now: float, world: GSBotWorld, after
 		crouch = int(now * 4.0) % 2 == 0
 		strafe = _side
 	if level >= NUDGE_LEVEL and world != null:
+		var t_walk := Time.get_ticks_usec() if GSBotClock.on else 0
 		var near := world.walkable_near(position)
+		if t_walk:
+			GSBotClock.add(clock, GSBotClock.Q_WALKABLE, t_walk)
 		if near != Vector3.INF and Vector2(near.x - position.x, near.z - position.z).length() > 0.35:
 			nudge_to = near
 		elif _rng != null:
