@@ -36,6 +36,11 @@ const MAX_STEP := 0.25
 ## Metres from a route's corner at which it counts as passed.
 const CORNER := 1.0
 
+## [method _steer_native]'s modes (gs_sim_brain::act::mode).
+const STEER_WALK := 0
+const STEER_HOLD := 1
+const STEER_DRIFT := 2
+
 var id: int = 0
 var settings: GSBotSettings = null
 
@@ -122,6 +127,7 @@ var _now: float = NAN
 var _was_alive: bool = true
 var _rng: GSRandomStream = null
 var _fight_io := PackedFloat64Array()
+var _steer_io := PackedFloat64Array()
 
 
 ## How long a lost target or a sound holds the bot's attention: its whole memory when it is
@@ -203,9 +209,19 @@ func _roam(me: GSBotContact, world: GSBotWorld, p: GSBotProfile, now: float, dt:
 	_walk(me, world, p, _waypoint, now, dt, out)
 
 
+## A roaming steer in Rust; GSBotBrain overrides this ([member GSBotBrain.native_act]). False: steer in script.
+func _steer_native(_mode: int, _me: GSBotContact, _p: GSBotProfile, _aim_at: Vector3, _rate: float, _now: float, _dt: float, _out: GSBotIntent) -> bool:
+	return false
+
+
 ## Walks toward [param dest], looking where it goes.
 func _walk(me: GSBotContact, world: GSBotWorld, p: GSBotProfile, dest: Vector3, now: float, dt: float, out: GSBotIntent) -> void:
+	var t := Time.get_ticks_usec() if GSBotClock.on else 0
 	var dir := _toward(me, world, dest)
+	if _steer_native(STEER_WALK, me, p, Vector3(dir.x, dir.y, 0.0), 0.0, now, dt, out):
+		if t:
+			GSBotClock.add(_clock, GSBotClock.A_WALK, t)
+		return
 	# Looking where it walks, with the glance to either side a person checking corners has.
 	var look := GSBotAim.angles_to(me.eye(), me.eye() + Vector3(dir.x, 0.0, dir.y))
 	look.x += 25.0 * sin(now * 0.8 + float(id % 97))
@@ -220,12 +236,16 @@ func _walk(me: GSBotContact, world: GSBotWorld, p: GSBotProfile, dest: Vector3, 
 			look.x += _glance_off
 	aim.turn_to(look, dt)
 	_set_move(out, dir)
+	if t:
+		GSBotClock.add(_clock, GSBotClock.A_WALK, t)
 
 
 ## Turns the view [param rate] deg/s on for [param dt] seconds. A thinned bot thinks every few ticks, and the
 ## smoothing in [method GSBotAim.turn_to] is quadratic in dt, so a long dt runs as steps of at most 1/60 s:
 ## the turn per elapsed second is the same however often the bot thinks (one step, as before, up to 1/60 s).
 func _drift(rate: float, dt: float) -> void:
+	if _steer_native(STEER_DRIFT, null, null, Vector3.ZERO, rate, 0.0, dt, null):
+		return
 	var n := maxi(1, ceili(dt * 60.0 - 0.01))
 	var sub := dt / float(n)
 	for _i in n:
@@ -234,6 +254,8 @@ func _drift(rate: float, dt: float) -> void:
 
 ## At its post: stands, watching the way an enemy would come, glancing to either side.
 func _hold(me: GSBotContact, p: GSBotProfile, now: float, dt: float, out: GSBotIntent) -> void:
+	if _steer_native(STEER_HOLD, me, p, goal.face, 0.0, now, dt, out):
+		return
 	var look := Vector2(aim.yaw, 0.0)
 	if goal.face == Vector3.INF:
 		_drift(30.0, dt)
@@ -249,7 +271,10 @@ func _hold(me: GSBotContact, p: GSBotProfile, now: float, dt: float, out: GSBotI
 
 ## True when a weapon on the floor has this tick: walk to it, look at it, press use near it.
 func _fetch(me: GSBotContact, world: GSBotWorld, p: GSBotProfile, now: float, dt: float, out: GSBotIntent) -> bool:
+	var t := Time.get_ticks_usec() if GSBotClock.on else 0
 	var plan := pickup.step(me, world, p, now, true)
+	if t:
+		GSBotClock.add(_clock, GSBotClock.A_PICKUP, t)
 	if plan.is_empty():
 		return false
 	var at: Vector3 = plan["position"]
@@ -324,6 +349,14 @@ func _nearest_enemy(me: GSBotContact, world: GSBotWorld) -> Vector3:
 ## has one ([method GSBotWorld.route]), straight at it when not. The route is asked for once per
 ## goal and walked corner by corner; a corner within [constant CORNER] metres is passed.
 func _toward(me: GSBotContact, world: GSBotWorld, goal: Vector3) -> Vector2:
+	var t := Time.get_ticks_usec() if GSBotClock.on else 0
+	var dir := _toward_route(me, world, goal)
+	if t:
+		GSBotClock.add(_clock, GSBotClock.A_TOWARD, t)
+	return dir
+
+
+func _toward_route(me: GSBotContact, world: GSBotWorld, goal: Vector3) -> Vector2:
 	if goal != _route_goal:
 		_route_goal = goal
 		var t_route := Time.get_ticks_usec() if GSBotClock.on else 0

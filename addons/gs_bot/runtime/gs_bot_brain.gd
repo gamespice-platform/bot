@@ -1,5 +1,5 @@
 class_name GSBotBrain
-extends "gs_bot_brain_state.gd"
+extends "gs_bot_brain_native.gd"
 
 ## One bot's decisions: whom it sees, where it looks, when it pulls the trigger and how it
 ## moves, as a [GSBotIntent] each tick.
@@ -57,9 +57,10 @@ static var phase_timers := false:
 		phase_timers = v
 		GSBotClock.on = v
 const PHASES: Array[StringName] = [&"bb_setup", &"bb_perceive", &"bb_hear", &"bb_goal", &"bb_act", &"bb_tricks", &"bb_unstick",
-		&"bq_sight", &"bq_route", &"bq_ladder", &"bq_walkable", &"bq_waypoints", &"bq_wall", &"bq_sounds", &"bq_drops", &"bq_projectile"]
-static var phase_us := PackedInt64Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-static var phase_calls := PackedInt64Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+		&"bq_sight", &"bq_route", &"bq_ladder", &"bq_walkable", &"bq_waypoints", &"bq_wall", &"bq_sounds", &"bq_drops", &"bq_projectile",
+		&"ba_fight", &"ba_fight_io", &"ba_style", &"ba_search", &"ba_listen", &"ba_roam", &"ba_pickup", &"ba_walk", &"ba_toward", &"ba_turn"]
+static var phase_us := _zeros()
+static var phase_calls := _zeros()
 
 ## This brain's GSSimBotMind (the aim's, kept when the aim falls back to script): it holds the
 ## sight cache, and perceives when the world packed a native scan this tick. Null: all in script.
@@ -75,6 +76,16 @@ static var _held_known := -1
 ## can; off, they hear in script. The two hear the same sounds and draw the same numbers, to the bit.
 static var native_hear := true
 static var _hear_known := -1
+## Whether brains steer natively (GSSimBotMind.steer: the walking or standing look, the glance, the turn and the
+## legs of [method _walk], [method _hold] and [method _drift]) when they can; off, in script. The same, to the bit.
+static var native_act := true
+static var _act_known := -1
+
+
+static func _zeros() -> PackedInt64Array:
+	var a := PackedInt64Array()
+	a.resize(GSBotClock.SLOTS)
+	return a
 
 
 func _init(p_id: int = 0, p_settings: GSBotSettings = null) -> void:
@@ -93,6 +104,7 @@ func _init(p_id: int = 0, p_settings: GSBotSettings = null) -> void:
 	goal.clock = _clock
 	pickup.clock = _clock
 	tricks.clock = _clock
+	aim.clock = _clock
 
 
 ## Moves this brain wholly into script (the aim's state, and no native perceive or sight cache from
@@ -205,18 +217,42 @@ func _act(me: GSBotContact, seen: GSBotContact, world: GSBotWorld, p: GSBotProfi
 	_scene_up = 0.0
 	if seen != null or not _quiet(now, p):
 		pickup.cancel()
+	var t := Time.get_ticks_usec() if GSBotClock.on else 0
 	if seen != null:
 		_fight(me, seen, world, p, now, dt, out)
+		if t:
+			GSBotClock.add(_clock, GSBotClock.A_FIGHT, t)
 		if style.active:
+			var t_style := Time.get_ticks_usec() if t else 0
 			style.after_fight(self, me, seen, world, now, dt, out)
-	elif style.active and style.lead(self, me, world, now, dt, out, not tethered and goal.dest == Vector3.INF):
+			if t_style:
+				GSBotClock.add(_clock, GSBotClock.A_STYLE, t_style)
+	elif style.active and _lead(me, world, now, dt, out, not tethered and goal.dest == Vector3.INF):
 		pass
 	elif not tethered and _last_seen_pos != Vector3.INF and now - _last_seen_at <= _hold_time(p, _peeking or _chase_lost):
+		t = Time.get_ticks_usec() if t else 0
 		_search(me, p, now, dt, out)
+		if t:
+			GSBotClock.add(_clock, GSBotClock.A_SEARCH, t)
 	elif not tethered and maxf(_heard_at, _hurt_at) > -INF and now - maxf(_heard_at, _hurt_at) <= _hold_time(p, _chase_sound or _hurt_at >= _heard_at):
+		t = Time.get_ticks_usec() if t else 0
 		_listen(me, world, p, now, dt, out)
+		if t:
+			GSBotClock.add(_clock, GSBotClock.A_LISTEN, t)
 	else:
+		t = Time.get_ticks_usec() if t else 0
 		_roam(me, world, p, now, dt, out)
+		if t:
+			GSBotClock.add(_clock, GSBotClock.A_ROAM, t)
+
+
+## [method GSBotStyle.lead], timed as ba_style.
+func _lead(me: GSBotContact, world: GSBotWorld, now: float, dt: float, out: GSBotIntent, free: bool) -> bool:
+	var t := Time.get_ticks_usec() if GSBotClock.on else 0
+	var led := style.lead(self, me, world, now, dt, out, free)
+	if t:
+		GSBotClock.add(_clock, GSBotClock.A_STYLE, t)
+	return led
 
 
 func _dead(out: GSBotIntent) -> GSBotIntent:
@@ -385,6 +421,18 @@ func _hear_native(me: GSBotContact, all: Array, world: GSBotWorld, p: GSBotProfi
 		_chase_sound = r[4] != 0.0
 		_known_enemy = _heard_pos
 	return true
+
+
+## Whether the gs_sim extension's GSSimBotMind steers (and [member native_act] lets it).
+static func _act_available() -> bool:
+	if _act_known < 0:
+		_act_known = 1 if ClassDB.class_exists(GSBotAim.MIND_CLASS) and ClassDB.class_has_method(GSBotAim.MIND_CLASS, &"steer") else 0
+	return native_act and _act_known == 1
+
+
+## [method _steer_native]'s switch: [method _act_available].
+func _act_on() -> bool:
+	return _act_available()
 
 
 ## Whether the gs_sim extension's GSSimBotMind hears (and [member native_hear] lets it).
@@ -704,65 +752,3 @@ func _fight(me: GSBotContact, c: GSBotContact, world: GSBotWorld, p: GSBotProfil
 		_set_move(out, _toward(me, world, goal.dest) + Vector2(-dir.y, dir.x) * side * 0.35)
 		return
 	_set_move(out, dir * forward + Vector2(-dir.y, dir.x) * side)
-
-
-## [method _fight] in one call to the aim's native mind: the same arithmetic, rolls and random
-## draws, so the intent, the aim and the stream come back as the script would have left them.
-## False (the script then runs) if the mind refused the call.
-func _fight_native(me: GSBotContact, c: GSBotContact, eye: Vector3, speed: float, p: GSBotProfile, now: float, dt: float, push: bool, out: GSBotIntent) -> bool:
-	var io := _fight_io
-	_fight_io = PackedFloat64Array()  # one owner, so the writes below do not copy
-	if io.size() != 36:
-		io.resize(36)
-	io[0] = aim.yaw
-	io[1] = aim.pitch
-	io[2] = aim.react_at
-	io[3] = aim.engaged_at
-	io[4] = aim.first_shot_at
-	io[5] = aim.first_shot_error
-	io[6] = _rng._counter
-	io[7] = now
-	io[8] = dt
-	io[9] = speed
-	io[10] = me.health
-	io[11] = 1.0 if _roll_stop else 0.0
-	io[12] = 1.0 if _roll_crouch else 0.0
-	io[13] = 1.0 if _roll_cover else 0.0
-	io[14] = _hesitate_until
-	io[15] = _strafe
-	io[16] = _strafe_until
-	io[17] = _strafe_eased
-	io = aim._pack_profile(io, 18)
-	io[30] = p.range * style.range_k
-	io[31] = p.strafe * style.strafe_k
-	io[32] = p.strafe_jitter
-	io[33] = p.strafe_time
-	io[34] = p.jump
-	io[35] = 1.0 if push else 0.0
-	_fight_io = io
-	var r: PackedFloat64Array = aim._n.fight(eye, c.aim_point(), c.velocity, me.position, c.position, io)
-	if r.size() < 15:
-		aim._demote()
-		return false
-	aim.yaw = r[0]
-	aim.pitch = r[1]
-	aim.first_shot_at = r[2]
-	aim.first_shot_error = r[3]
-	_rng._counter = int(r[4])
-	out.fire = r[5] != 0.0
-	out.crouch = r[6] != 0.0
-	out.jump = r[7] != 0.0
-	out.move = Vector2(r[8], r[9])
-	var retreat := r[11] != 0.0
-	out.state = &"retreat" if retreat else &"fight"
-	_scene = &"flee" if r[10] == 2.0 else (&"close" if r[10] == 1.0 else &"fight")
-	_scene_up = c.position.y - me.position.y
-	_strafe = r[12]
-	_strafe_until = r[13]
-	_strafe_eased = r[14]
-	return true
-
-
-# --- Moving --------------------------------------------------------------------
-
-

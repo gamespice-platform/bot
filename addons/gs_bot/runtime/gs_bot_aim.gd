@@ -81,6 +81,8 @@ var burst_k: float = 1.0
 var _burst_until: float = -INF
 var _pause_until: float = -INF
 var _rng: GSRandomStream = null
+## The owning brain's profile clock ([GSBotClock]): [method turn_to] and [method look_at_point] time into its ba_turn. Null: untimed.
+var clock: GSBotClock = null
 
 ## The gs_sim extension's class that runs this aim natively (and the brain's fight step).
 const MIND_CLASS := &"GSSimBotMind"
@@ -318,15 +320,18 @@ func _overshoot(want: Vector2, dt: float) -> Vector2:
 
 ## Turns the view toward [param point] with no aim error (looking, not shooting).
 func look_at_point(eye: Vector3, point: Vector3, dt: float) -> Vector2:
+	var t := Time.get_ticks_usec() if GSBotClock.on else 0
 	if _n != null:
 		var p := settings.profile
 		var v: PackedFloat64Array = _n.look(yaw, pitch, eye, point, dt, p.prediction, p.turn_smooth, p.turn_rate)
 		yaw = v[0]
 		pitch = v[1]
-		return Vector2(yaw, pitch)
-	_decay(dt)
-	_want = Vector2(NAN, NAN)
-	turn_to(angles_to(eye, point), dt)
+	else:
+		_decay(dt)
+		_want = Vector2(NAN, NAN)
+		_turn(angles_to(eye, point), dt)
+	if t:
+		GSBotClock.add(clock, GSBotClock.A_TURN, t)
 	return Vector2(yaw, pitch)
 
 
@@ -391,6 +396,13 @@ func error_deg(now: float) -> float:
 ## Turns the view toward [param want] (yaw, pitch): the target's own motion carried as far as
 ## prediction lets it, the rest closed smoothly, and the whole step no faster than turn_rate.
 func turn_to(want: Vector2, dt: float) -> void:
+	var t := Time.get_ticks_usec() if GSBotClock.on else 0
+	_turn(want, dt)
+	if t:
+		GSBotClock.add(clock, GSBotClock.A_TURN, t)
+
+
+func _turn(want: Vector2, dt: float) -> void:
 	var p := settings.profile
 	if _n != null:
 		var v: PackedFloat64Array = _n.turn(yaw, pitch, want, dt, p.prediction, p.turn_smooth, p.turn_rate)

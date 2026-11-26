@@ -25,7 +25,19 @@ const Q_WALL := 12
 const Q_SOUNDS := 13
 const Q_DROPS := 14
 const Q_PROJECTILE := 15
-const SLOTS := 16
+## The act phase's parts (ba_*), after the queries. Like the queries, each is time inside bb_act (and may hold a query or
+## another part: ba_walk holds ba_toward, which holds bq_route); what bb_act has beyond the branches is its dispatch.
+const A_FIGHT := 16
+const A_FIGHT_IO := 17
+const A_STYLE := 18
+const A_SEARCH := 19
+const A_LISTEN := 20
+const A_ROAM := 21
+const A_PICKUP := 22
+const A_WALK := 23
+const A_TOWARD := 24
+const A_TURN := 25
+const SLOTS := 26
 
 ## Microseconds and calls per slot not yet folded into the brain's statics; empty until first timed.
 var us := PackedInt64Array()
