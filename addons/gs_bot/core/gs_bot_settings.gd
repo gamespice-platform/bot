@@ -164,14 +164,14 @@ func style_table() -> Dictionary:
 	return _style_script().DEFAULTS if _style_table.is_empty() else _style_table
 
 
-# GSBotStyle by uid, not by name: it names this class back, and a script loop stays in memory
+# GSBotStyle by path, not by name: it names this class back, and a script loop stays in memory
 # for good (Godot 4.7).
 static var _style: Script = null
 
 
 static func _style_script() -> Script:
 	if _style == null:
-		_style = load("uid://chpm2f8woxf3x")
+		_style = load("res://addons/gs_bot/runtime/gs_bot_style.gd")
 	return _style
 
 

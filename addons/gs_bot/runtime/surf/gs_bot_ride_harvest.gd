@@ -151,10 +151,10 @@ func replay_open(ep: Variant, state: Variant) -> int:
 
 
 ## A job that replays [param episodes] a slice at a time; its result is the Array of verdicts.
-## A [GSBotRideHarvestJob], typed by its base and loaded by uid: the job names this class back,
+## A [GSBotRideHarvestJob], typed by its base and loaded by path: the job names this class back,
 ## and a script loop stays in memory for good (Godot 4.7).
 func make_job(episodes: Array) -> GSJob:
-	return load("uid://dv3phitj43ioq").new(self, episodes)
+	return load("res://addons/gs_bot/runtime/surf/gs_bot_ride_harvest_job.gd").new(self, episodes)
 
 
 ## Replays [param episodes] to the end now, for tools and tests; the verdicts, see [GSBotRideHarvestJob].
