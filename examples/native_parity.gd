@@ -18,8 +18,12 @@ var _fights := 0
 var _fires := 0
 var _failed := ""
 var _usec := [0, 0, 0]
+## The native world's scan packing (GSBotWorld.senses), once per tick, outside the timed think.
+var _scan_usec := 0
 ## Whether the gs_sim library can perceive on a worker (GSSimBotMind.perceive_held); older ones skip the worker copy.
 var _held := false
+## `-- --phases`: each side's think phases (GSBotBrain.PHASES), native then script, printed at the end.
+var _phases: Array[PackedInt64Array] = []
 
 
 func _ready() -> void:
@@ -36,6 +40,12 @@ func _run() -> void:
 	if "--script-perceive" in OS.get_cmdline_user_args():
 		GSBotBrain.native_perceive = false
 	_held = GSBotBrain._held_available()
+	if "--phases" in OS.get_cmdline_user_args():
+		GSBotBrain.phase_timers = true
+		for k in 3:
+			var zero := PackedInt64Array()
+			zero.resize(GSBotClock.SLOTS)
+			_phases.append(zero)
 	var presets := ["easy", "medium", "hard", "nightmare"]
 	for round_ in ROUNDS:
 		_round(round_, presets[round_ % presets.size()])
@@ -56,8 +66,23 @@ func _run() -> void:
 		print("native parity: FAIL ", _failed)
 		get_tree().quit(1)
 		return
-	print("native parity: ok, %d ticks over %d rounds (%d fighting, %d firing), native and script identical%s; tricks %s; hear %s; steer %s; think %.1f us native (perceive %s), %.1f us script" % [_ticks, ROUNDS, _fights, _fires, ", and native on a worker" if _held else " (no worker copy: library without perceive_held)", "skipped (library without tricks)" if trick_stats.has("skipped") else "identical over %d ticks %s" % [TricksParity.TICKS, trick_stats], "skipped (library without hear)" if hear_stats.has("skipped") else "identical %s" % hear_stats, "skipped (library without steer)" if act_stats.has("skipped") else "identical %s" % act_stats, float(_usec[0]) / _ticks, "native" if GSBotBrain.native_perceive else "script", float(_usec[1]) / _ticks])
+	print("native parity: ok, %d ticks over %d rounds (%d fighting, %d firing), native and script identical%s; tricks %s; hear %s; steer %s; think %.1f us native (perceive %s, + %.1f us scan per world per tick), %.1f us script" % [_ticks, ROUNDS, _fights, _fires, ", and native on a worker" if _held else " (no worker copy: library without perceive_held)", "skipped (library without tricks)" if trick_stats.has("skipped") else "identical over %d ticks %s" % [TricksParity.TICKS, trick_stats], "skipped (library without hear)" if hear_stats.has("skipped") else "identical %s" % hear_stats, "skipped (library without steer)" if act_stats.has("skipped") else "identical %s" % act_stats, float(_usec[0]) / _ticks, "native" if GSBotBrain.native_perceive else "script", float(_scan_usec) / _ticks, float(_usec[1]) / _ticks])
+	if not _phases.is_empty():
+		for i in GSBotClock.SLOTS:
+			if _phases[0][i] + _phases[1][i] > 0:
+				print("native parity phase %-12s %7.2f us native %7.2f us script" % [GSBotBrain.PHASES[i], float(_phases[0][i]) / _ticks, float(_phases[1][i]) / _ticks])
 	get_tree().quit(0)
+
+
+## Adds what [param brain]'s think timed to side [param k]'s phases, keeping it out of the shared statics.
+func _fold_side(k: int, brain: GSBotBrain) -> void:
+	var calls := PackedInt64Array()
+	calls.resize(GSBotClock.SLOTS)
+	brain._clock.fold(_phases[k], calls)
+	for i in GSBotClock.SLOTS:
+		_phases[k][i] += GSBotBrain.phase_us[i]
+	GSBotBrain.phase_us = GSBotBrain._zeros()
+	GSBotBrain.phase_calls = GSBotBrain._zeros()
 
 
 func _settings(preset: String, round_: int) -> GSBotSettings:
@@ -98,7 +123,10 @@ func _round(round_: int, preset: String) -> void:
 		if fmod(t, 0.9) < TICK:
 			dir = -dir
 		var rows: Array = []
-		for k in sides.size():
+		rows.resize(sides.size())
+		# Native and script take turns thinking first, so neither pays the other's cold caches every tick.
+		for at in sides.size():
+			var k := (1 - at if at < 2 else at) if tick % 2 == 1 else at
 			var side: Dictionary = sides[k]
 			var me: GSBotContact = side.me
 			var them: GSBotContact = side.them
@@ -108,9 +136,7 @@ func _round(round_: int, preset: String) -> void:
 			if round_ % 3 == 1 and t > 11.0:
 				them.alive = false
 			if side.native:
-				side.world.contacts_version = tick
-				if side.rows:
-					_hand_rows(side.world, side.all, tick)
+				_prepare_native(side, tick)
 			if absf(t - 3.0) < TICK * 0.5 or absf(t - 9.0) < TICK * 0.5:
 				brain.hurt(them.eye(), t)
 				me.health = 0.3 if t > 8.0 else 0.6
@@ -128,17 +154,10 @@ func _round(round_: int, preset: String) -> void:
 			else:
 				intent = brain.think(me, side.world, t)
 			_usec[k] += Time.get_ticks_usec() - t0
-			me.view_yaw = intent.yaw
-			me.view_pitch = intent.pitch
-			var yr := deg_to_rad(intent.yaw)
-			var fwd := Vector3(-sin(yr), 0.0, -cos(yr))
-			var right := Vector3(cos(yr), 0.0, -sin(yr))
-			me.velocity = (right * intent.move.x + fwd * intent.move.y) * 5.0
-			me.position += me.velocity * TICK
-			var across := (me.position - them.position).cross(Vector3.UP).normalized()
-			them.velocity = across * 4.0 * dir
-			them.position += them.velocity * TICK
-			rows.append(_row(brain, intent))
+			if _phases.size() > k:
+				_fold_side(k, brain)
+			_move(me, them, intent, dir)
+			rows[k] = _row(brain, intent)
 			if side.native and GSBotBrain.native_perceive and (side.world as GSBotWorld)._senses == null:
 				_failed = "round %d: the native side never packed a native scan" % round_
 				return
@@ -156,6 +175,33 @@ func _round(round_: int, preset: String) -> void:
 		if (sides[0].brain as GSBotBrain).last.fire:
 			_fires += 1
 		t += TICK
+
+
+## Readies a native side's world for [param tick]: its contact rows, and the native scan packed before the think.
+func _prepare_native(side: Dictionary, tick: int) -> void:
+	var world: GSBotWorld = side.world
+	world.contacts_version = tick
+	if side.rows:
+		_hand_rows(world, side.all, tick)
+	# The world's native scan is packed once per tick for all its bots (one bot here): timed apart from the think.
+	if not side.worker:
+		var t_scan := Time.get_ticks_usec()
+		var _scan: Object = world.senses(world.contacts())
+		_scan_usec += Time.get_ticks_usec() - t_scan
+
+
+## Moves [param me] by [param intent] for one tick, and [param them] across its line of sight in [param dir].
+func _move(me: GSBotContact, them: GSBotContact, intent: GSBotIntent, dir: float) -> void:
+	me.view_yaw = intent.yaw
+	me.view_pitch = intent.pitch
+	var yr := deg_to_rad(intent.yaw)
+	var fwd := Vector3(-sin(yr), 0.0, -cos(yr))
+	var right := Vector3(cos(yr), 0.0, -sin(yr))
+	me.velocity = (right * intent.move.x + fwd * intent.move.y) * 5.0
+	me.position += me.velocity * TICK
+	var across := (me.position - them.position).cross(Vector3.UP).normalized()
+	them.velocity = across * 4.0 * dir
+	them.position += them.velocity * TICK
 
 
 ## The contact table of [param all] for [param tick] as a game fills it in its own contact loop (field by field, not

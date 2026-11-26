@@ -128,6 +128,8 @@ var _was_alive: bool = true
 var _rng: GSRandomStream = null
 var _fight_io := PackedFloat64Array()
 var _steer_io := PackedFloat64Array()
+## The native hear's input row, reused across thinks.
+var _hear_io := PackedFloat64Array()
 
 
 ## How long a lost target or a sound holds the bot's attention: its whole memory when it is

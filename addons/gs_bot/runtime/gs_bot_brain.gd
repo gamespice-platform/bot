@@ -409,8 +409,22 @@ func _hear_native(me: GSBotContact, all: Array, world: GSBotWorld, p: GSBotProfi
 	if rows.is_empty():
 		return false
 	var here := me.position
-	var r: PackedFloat64Array = _mind.hear(senses, rows, PackedFloat64Array([_heard_seq, now, here.x, here.y, here.z,
-			p.hearing, me.id, me.team, p.aggression + style.aggression_b, _rng._counter]))
+	var io := _hear_io
+	_hear_io = PackedFloat64Array()  # one owner, so the writes below do not copy
+	if io.size() != 10:
+		io.resize(10)
+	io[0] = _heard_seq
+	io[1] = now
+	io[2] = here.x
+	io[3] = here.y
+	io[4] = here.z
+	io[5] = p.hearing
+	io[6] = me.id
+	io[7] = me.team
+	io[8] = p.aggression + style.aggression_b
+	io[9] = _rng._counter
+	_hear_io = io
+	var r: PackedFloat64Array = _mind.hear(senses, rows, io)
 	if r.size() != 6:
 		return false
 	_heard_seq = newest

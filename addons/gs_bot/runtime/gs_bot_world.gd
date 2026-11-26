@@ -77,6 +77,8 @@ const SENSES_CLASS := &"GSSimBotSenses"
 static var native_enabled: bool = true
 
 static var _native_known: int = -1
+## Bits of the native scan's optional loads this library has (1 load_eyes, 2 load_positions); -1 not asked yet.
+static var _loads_known: int = -1
 var _senses: Object = null
 var _senses_version: int = -2
 var _sensed: Array = []
@@ -157,9 +159,11 @@ func sensed() -> Array:
 func _load_rows(rows: Array) -> void:
 	_sensed = rows[0]
 	_senses.call(&"load_contacts", rows[1], rows[2], rows[3], rows[4])
-	if _senses.has_method(&"load_eyes"):
+	if _loads_known < 0:
+		_loads_known = (1 if _senses.has_method(&"load_eyes") else 0) | (2 if _senses.has_method(&"load_positions") else 0)
+	if _loads_known & 1:
 		_senses.call(&"load_eyes", rows[5])
-	if _senses.has_method(&"load_positions"):
+	if _loads_known & 2:
 		_senses.call(&"load_positions", rows[6])
 
 

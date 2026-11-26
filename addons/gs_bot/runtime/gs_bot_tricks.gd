@@ -97,6 +97,7 @@ static func _native_available() -> bool:
 ## rolls and counts; a look that wants a wall stops for [method _find_wall] and resumes.
 func _apply_native(mind: Object, me: GSBotContact, world: GSBotWorld, p: GSBotProfile, rng: GSRandomStream, scenario: StringName, up: float, yaw: float, now: float, dt: float, out: GSBotIntent) -> void:
 	var io := _io
+	_io = PackedFloat64Array()  # one owner, so the writes below do not copy
 	if io.size() != 52:
 		io.resize(52)
 	io[0] = float(_phase)
