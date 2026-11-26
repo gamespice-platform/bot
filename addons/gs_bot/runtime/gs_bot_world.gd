@@ -75,6 +75,47 @@ static var _native_known: int = -1
 var _senses: Object = null
 var _senses_version: int = -2
 var _sensed: Array = []
+## The contact table a game handed for one [member contacts_version] ([method set_rows]); -2 none.
+var _rows_version: int = -2
+var _rows: Array = []
+
+## Whether [method senses] takes the table a game handed through [method set_rows] (cvar `bot_native_think`
+## in a game, 1 by default); off, it packs the contacts itself as before. A suite turns it off to compare.
+static var rows_enabled: bool = true
+
+
+## The contact table of [param version] (the [member contacts_version] it is for), filled by the game in the loop
+## that builds its contacts, so [method senses] loads the native scan from it without walking the bodies again.
+## Columns, one row per body in [param sensed]'s order: [param ids], [param points] (each body's
+## [method GSBotContact.aim_point]), [param teams], [param alive] (1 or 0), [param eyes] ([method GSBotContact.eye])
+## and [param positions]. They must be what [method rows_of] makes of the same bodies, to the bit (the suite's
+## rows check). [param sensed] must hold the contacts [method contacts] returns, in that order.
+func set_rows(version: int, sensed: Array, ids: PackedInt64Array, points: PackedVector3Array, teams: PackedInt32Array,
+		alive: PackedByteArray, eyes: PackedVector3Array, positions: PackedVector3Array) -> void:
+	_rows_version = version
+	_rows = [sensed, ids, points, teams, alive, eyes, positions]
+
+
+## The table [method senses] builds of [param all], as [method set_rows] takes it (for a game's or the suite's check).
+static func rows_of(all: Array) -> Array:
+	var sensed := []
+	var ids := PackedInt64Array()
+	var points := PackedVector3Array()
+	var teams := PackedInt32Array()
+	var alive := PackedByteArray()
+	var eyes := PackedVector3Array()
+	var positions := PackedVector3Array()
+	for item in all:
+		if item is GSBotContact:
+			var c := item as GSBotContact
+			sensed.append(c)
+			ids.append(c.id)
+			points.append(c.aim_point())
+			teams.append(c.team)
+			alive.append(1 if c.alive else 0)
+			eyes.append(c.eye())
+			positions.append(c.position)
+	return [sensed, ids, points, teams, alive, eyes, positions]
 
 
 func contacts() -> Array:
@@ -97,7 +138,8 @@ func senses(all: Array) -> Object:
 		_senses = ClassDB.instantiate(SENSES_CLASS)
 	if _senses_version != contacts_version:
 		_senses_version = contacts_version
-		_pack(all)
+		_load(_rows if rows_enabled and _rows_version == contacts_version else rows_of(all))
+		_rows = []
 	return _senses
 
 
@@ -106,29 +148,14 @@ func sensed() -> Array:
 	return _sensed
 
 
-func _pack(all: Array) -> void:
-	_sensed = []
-	var ids := PackedInt64Array()
-	var points := PackedVector3Array()
-	var teams := PackedInt32Array()
-	var alive := PackedByteArray()
-	var eyes := PackedVector3Array()
-	var positions := PackedVector3Array()
-	for item in all:
-		if item is GSBotContact:
-			var c := item as GSBotContact
-			_sensed.append(c)
-			ids.append(c.id)
-			points.append(c.aim_point())
-			teams.append(c.team)
-			alive.append(1 if c.alive else 0)
-			eyes.append(c.eye())
-			positions.append(c.position)
-	_senses.call(&"load_contacts", ids, points, teams, alive)
+## Loads a table in [method set_rows]'s shape into the native scan.
+func _load(rows: Array) -> void:
+	_sensed = rows[0]
+	_senses.call(&"load_contacts", rows[1], rows[2], rows[3], rows[4])
 	if _senses.has_method(&"load_eyes"):
-		_senses.call(&"load_eyes", eyes)
+		_senses.call(&"load_eyes", rows[5])
 	if _senses.has_method(&"load_positions"):
-		_senses.call(&"load_positions", positions)
+		_senses.call(&"load_positions", rows[6])
 
 
 ## Sight LOD: a body farther than this (m) that was not seen keeps that answer for

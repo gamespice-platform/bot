@@ -3,14 +3,19 @@ extends "res://examples/selftest/style_tests.gd"
 ## gs-bot's suite (`godot --headless --path . res://examples/bot_selftest.tscn`): presets, cvars, names, roster, and a bot's senses, aim and fights measured rather than read.
 ## The numbers a player feels are measured per preset (time to first shot, aim error, turn speed, K/D against one fixed opponent); the bands are what the presets promise.
 
-const CHECKS := 697
+const CHECKS := 702
 
 ## Of CHECKS, the ones that need GameSpice SQL and the SQLite extension linked into this project.
 const SQL_CHECKS := 0
 
+## Of CHECKS, the ones that need gs_sim's native sight scan (contact rows); a project without the library runs the rest.
+const NATIVE_CHECKS := 3
+
+var _native_ran := false
+
 ## Sections entered against sections that ran to their last line. A runtime error inside a
 ## section aborts that function and nothing says so.
-const SECTIONS := 63
+const SECTIONS := 64
 
 
 func _ready() -> void:
@@ -35,6 +40,7 @@ func _run() -> void:
 	_test_aim()
 	_test_fire_mode()
 	_test_senses()
+	_test_contact_rows()
 	_test_target_first()
 	_test_turning()
 	_test_reaction_and_aim()
@@ -100,7 +106,7 @@ func _report() -> void:
 		print("ERROR: %d sections entered and %d completed, %d expected." % [_entered, _completed, SECTIONS])
 		get_tree().quit(1)
 		return
-	var expected := CHECKS - (0 if _sql_ran else SQL_CHECKS)
+	var expected := CHECKS - (0 if _sql_ran else SQL_CHECKS) - (0 if _native_ran else NATIVE_CHECKS)
 	if _passed + _failed != expected:
 		print("ERROR: %d checks ran, %d expected. A section aborted part-way." % [_passed + _failed, expected])
 		get_tree().quit(1)
@@ -161,6 +167,44 @@ func _test_aim() -> void:
 
 
 ## A bot at the origin facing -Z, and one enemy.
+func _test_contact_rows() -> void:
+	_section("contact rows: the table a game hands the native sight scan")
+
+	var a := GSBotContact.make(4, Vector3(1, 0, 2))
+	var b := GSBotContact.make(7, Vector3(-3, 1, 0))
+	b.team = 2
+	b.alive = false
+	var all: Array = [a, "not a body", b]
+	var rows := GSBotWorld.rows_of(all)
+	_check(rows.size() == 7 and rows[0] == [a, b] and rows[1] == PackedInt64Array([4, 7]) and rows[3][1] == 2 and rows[4] == PackedByteArray([1, 0]),
+		"rows_of keeps only bodies, in order, with id, team and alive columns", str(rows))
+	_check(rows[2][1] == b.aim_point() and rows[5][0] == a.eye() and rows[6][1] == b.position, "and aim point, eye and position columns")
+
+	if not GSBotWorld.native_available():
+		print("  (no native sight scan loaded: set_rows not exercised)")
+		_done()
+		return
+	_native_ran = true
+	var world := GSBotWorld.new()
+	world.contacts_fn = func() -> Array: return all
+	var handed: Array = rows.duplicate()
+	handed[0] = [a, b]
+	world.set_rows(5, handed[0], handed[1], handed[2], handed[3], handed[4], handed[5], handed[6])
+	world.contacts_version = 5
+	world.senses(all)
+	_check(is_same(world.sensed(), handed[0]), "a table handed for this contacts_version is the one the scan loads")
+	world.contacts_version = 6
+	world.senses(all)
+	_check(not is_same(world.sensed(), handed[0]) and world.sensed() == [a, b], "a table from an older version is not: the scan builds its own")
+	GSBotWorld.rows_enabled = false
+	world.set_rows(7, handed[0], handed[1], handed[2], handed[3], handed[4], handed[5], handed[6])
+	world.contacts_version = 7
+	world.senses(all)
+	GSBotWorld.rows_enabled = true
+	_check(not is_same(world.sensed(), handed[0]), "with rows_enabled off (cvar bot_native_think 0) the handed table is ignored")
+	_done()
+
+
 func _test_senses() -> void:
 	_section("senses: no walls, a view cone, hearing")
 

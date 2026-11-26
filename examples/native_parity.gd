@@ -97,6 +97,8 @@ func _round(round_: int, preset: String) -> void:
 				them.alive = false
 			if side.native:
 				side.world.contacts_version = tick
+				if side.rows:
+					_hand_rows(side.world, side.all, tick)
 			if absf(t - 3.0) < TICK * 0.5 or absf(t - 9.0) < TICK * 0.5:
 				brain.hurt(them.eye(), t)
 				me.health = 0.3 if t > 8.0 else 0.6
@@ -144,6 +146,28 @@ func _round(round_: int, preset: String) -> void:
 		t += TICK
 
 
+## The contact table of [param all] for [param tick] as a game fills it in its own contact loop (field by field, not
+## through GSBotWorld.rows_of), handed to [param world]; the brain on it must still match the script brain to the bit.
+func _hand_rows(world: GSBotWorld, all: Array, tick: int) -> void:
+	var ids := PackedInt64Array()
+	var points := PackedVector3Array()
+	var teams := PackedInt32Array()
+	var alive := PackedByteArray()
+	var eyes := PackedVector3Array()
+	var positions := PackedVector3Array()
+	for c: GSBotContact in all:
+		var at := c.position
+		ids.append(c.id)
+		points.append(at + Vector3.UP * c.aim_height)
+		teams.append(c.team)
+		alive.append(1 if c.alive else 0)
+		eyes.append(at + Vector3.UP * c.eye_height)
+		positions.append(at)
+	world.set_rows(tick, all, ids, points, teams, alive, eyes, positions)
+	if GSBotWorld.rows_of(all) != [all, ids, points, teams, alive, eyes, positions]:
+		_failed = "tick %d: a game-filled contact table differs from GSBotWorld.rows_of" % tick
+
+
 ## One bot world and brain per mode: native on the main thread, script, and (held) native on a worker.
 func _make_sides(round_: int, preset: String, start: Vector3, spots: Array[Vector3]) -> Array:
 	var sides: Array = []
@@ -164,7 +188,9 @@ func _make_sides(round_: int, preset: String, start: Vector3, spots: Array[Vecto
 		if not native:
 			brain.aim._demote()
 			brain._mind = null
-		sides.append({"me": me, "them": them, "world": world, "wall": wall, "brain": brain, "native": native, "worker": mode == 2})
+		# Odd rounds the last native side is handed its contact table (GSBotWorld.set_rows) as a game fills it.
+		var rows: bool = native and round_ % 2 == 1 and mode == (2 if _held else 0)
+		sides.append({"me": me, "them": them, "all": all, "world": world, "wall": wall, "brain": brain, "native": native, "worker": mode == 2, "rows": rows})
 	return sides
 
 

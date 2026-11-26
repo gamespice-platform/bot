@@ -53,5 +53,6 @@ extends RefCounted
 # 34: GSBotBrain.par_ready (a brain about to think on a worker keeps its native mind, which perceives over a scan handle taken on the main thread; replaces leave_native for threaded callers).
 # 35: GSBotWorld.sight_callable (what a native mind asks sight through, line_of_sight unless a game hands one answering the same; GSBotBrain asks it every native perceive).
 # 36: GSBotClimb rides a ladder down as well as up (a `to` more than a metre under the feet: push in to grab, back out down, done at the foot).
-const LEVEL := 36
+# 37: GSBotWorld.set_rows hands the native sight scan the contact table a game filled in its own contact loop (rows_of builds it, rows_enabled switches it off); see docs/native-bot-brain.md.
+const LEVEL := 37
 const OLDEST := 1
