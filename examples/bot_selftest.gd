@@ -15,7 +15,7 @@ var _native_ran := false
 
 ## Sections entered against sections that ran to their last line. A runtime error inside a
 ## section aborts that function and nothing says so.
-const SECTIONS := 64
+const SECTIONS := 65
 
 
 func _ready() -> void:
