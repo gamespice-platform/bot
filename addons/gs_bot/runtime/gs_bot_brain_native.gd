@@ -70,57 +70,73 @@ func _fight_native(me: GSBotContact, c: GSBotContact, eye: Vector3, speed: float
 	return true
 
 
-## One roaming steer on the aim's native mind (layout gs_sim_brain::act::io): [param mode] STEER_WALK along the flat
-## direction in [param aim_at] (x, y), STEER_HOLD facing the point [param aim_at] (INF: none), or STEER_DRIFT at
-## [param rate] deg/s (no legs, [param out] unused). False, nothing changed, when it cannot; the script then steers.
+## The native mind that holds the glance (_glance_next, _glance_until, _glance_off) between steers, or null: the
+## script vars hold it.
+var _glance_held: Object = null
+
+
+## One roaming steer on the aim's native mind (GSSimBotMind.steer_step, or steer_drift): [param mode] STEER_WALK
+## along the flat direction in [param aim_at] (x, y), STEER_HOLD facing the point [param aim_at] (INF: none), or
+## STEER_DRIFT at [param rate] deg/s (no legs, [param out] unused). The glance stays in the mind between steers.
+## False, nothing changed, when it cannot; the script then steers.
 func _steer_native(mode: int, me: GSBotContact, p: GSBotProfile, aim_at: Vector3, rate: float, now: float, dt: float, out: GSBotIntent) -> bool:
-	if aim._n == null or not _act_on():
+	var n: Object = aim._n
+	if n == null or not _act_on():
+		if _glance_held != null:
+			_glance_back()
 		return false
-	var io := _steer_io
-	_steer_io = PackedFloat64Array()  # one owner, so the writes below do not copy
-	if io.size() != 22:
-		io.resize(22)
-	io[0] = mode
-	io[1] = aim.yaw
-	io[2] = aim.pitch
-	if me != null:
-		var eye := me.eye()
-		io[3] = eye.x
-		io[4] = eye.y
-		io[5] = eye.z
-	if mode == STEER_HOLD:
-		io[6] = NAN if aim_at == Vector3.INF else aim_at.x
-		io[7] = aim_at.z
-	else:
-		io[6] = aim_at.x
-		io[7] = aim_at.y
-	io[8] = now
-	io[9] = dt
-	io[10] = id
-	io[11] = p.glance if p != null else 0.0
-	io[12] = _glance_next
-	io[13] = _glance_until
-	io[14] = _glance_off
-	io[15] = _rng._counter
 	var turn := aim.settings.profile
-	io[16] = turn.prediction
-	io[17] = turn.turn_smooth
-	io[18] = turn.turn_rate
-	io[19] = rate
-	_steer_io = io
 	var t := Time.get_ticks_usec() if GSBotClock.on else 0
-	var r: PackedFloat64Array = aim._n.steer(io)
+	var r: PackedFloat64Array
+	if mode == STEER_DRIFT:
+		r = n.steer_drift(aim.yaw, aim.pitch, rate, dt, turn.prediction, turn.turn_smooth, turn.turn_rate)
+		if t:
+			GSBotClock.add(_clock, GSBotClock.A_TURN, t)
+		if r.size() < 2:
+			aim._demote()
+			_glance_back()
+			return false
+		aim.yaw = r[0]
+		aim.pitch = r[1]
+		return true
+	if n != _glance_held:
+		_glance_hand_to(n)
+	var at := Vector2(aim_at.x, aim_at.y)
+	if mode == STEER_HOLD:
+		at = Vector2(NAN if aim_at == Vector3.INF else aim_at.x, aim_at.z)
+	r = n.steer_step(mode, aim.yaw, aim.pitch, me.eye(), at, now, dt, id, p.glance, _rng._counter,
+		turn.prediction, turn.turn_smooth, turn.turn_rate)
 	if t:
 		GSBotClock.add(_clock, GSBotClock.A_TURN, t)
-	if r.size() < 22:
+	if r.size() < 5:
 		aim._demote()
+		_glance_back()
 		return false
-	aim.yaw = r[1]
-	aim.pitch = r[2]
-	_glance_next = r[12]
-	_glance_until = r[13]
-	_glance_off = r[14]
-	_rng._counter = int(r[15])
-	if out != null:
-		out.move = Vector2(r[20], r[21])
+	aim.yaw = r[0]
+	aim.pitch = r[1]
+	_rng._counter = int(r[2])
+	out.move = Vector2(r[3], r[4])
 	return true
+
+
+## Moves the glance into [param mind] (from the script vars, or from the mind that held it).
+func _glance_hand_to(mind: Object) -> void:
+	_glance_sync()
+	mind.glance_load(PackedFloat64Array([_glance_next, _glance_until, _glance_off]))
+	_glance_held = mind
+
+
+## Copies the glance a native mind holds into the script vars (a test reads them); the mind keeps it.
+func _glance_sync() -> void:
+	if _glance_held == null:
+		return
+	var g: PackedFloat64Array = _glance_held.glance_state()
+	_glance_next = g[0]
+	_glance_until = g[1]
+	_glance_off = g[2]
+
+
+## Takes the glance back into the script vars: the script steers from now on.
+func _glance_back() -> void:
+	_glance_sync()
+	_glance_held = null

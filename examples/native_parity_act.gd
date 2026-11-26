@@ -3,7 +3,8 @@ extends RefCounted
 ## GSBotBrain's roaming steer native (GSSimBotMind.steer) against script, to the bit: two brains of one id walk
 ## (along routes with no world: straight at the place), hold a post (facing a point, or none and drifting) and
 ## drift with nowhere to go, over many thinks of mixed lengths (thinned thinks, a zero dt), some glancing, some
-## not, some native steps on a worker thread; the view, the legs, the glance and the stream's counter must agree.
+## not, some native steps on a worker thread, and spans with GSBotBrain.native_act off (the glance the mind keeps
+## comes back to the script and goes in again); the view, the legs, the glance and the stream's counter must agree.
 
 const THINKS := 4000
 const TICK := 1.0 / 30.0
@@ -11,6 +12,23 @@ const TICK := 1.0 / 30.0
 
 ## An empty string when every think matched, else what differed; [param stats] gets the counts.
 static func run(stats: Dictionary) -> String:
+	var was_on := GSBotBrain.native_act
+	var err := _compare(stats, was_on)
+	GSBotBrain.native_act = was_on
+	return err
+
+
+static func _step(b: GSBotBrain, out: GSBotIntent, mode: int, me: GSBotContact, p: GSBotProfile, dest: Vector3, now: float, dt: float, rate: float) -> void:
+	match mode:
+		0:
+			b._walk(me, null, p, dest, now, dt, out)
+		1:
+			b._hold(me, p, now, dt, out)
+		_:
+			b._drift(rate, dt)
+
+
+static func _compare(stats: Dictionary, was_on: bool) -> String:
 	if not GSBotBrain._act_available():
 		stats["skipped"] = true
 		return ""
@@ -32,7 +50,12 @@ static func run(stats: Dictionary) -> String:
 	var counts := [0, 0, 0]
 	var glances := 0
 	var worker := 0
+	var handed := 0
 	for t in THINKS:
+		# 40 thinks of every 500 in script: the glance moves out of the mind and back.
+		GSBotBrain.native_act = was_on and t % 500 < 460
+		if t % 500 == 460:
+			handed += 1
 		var dt: float = TICK * float([1.0, 1.0, 1.0, 3.0, 7.5, 0.0][dice.randi_range(0, 5)])
 		now += dt
 		if t % 400 == 0:
@@ -54,14 +77,7 @@ static func run(stats: Dictionary) -> String:
 		script.goal.face = face
 		var no := GSBotIntent.new()
 		var so := GSBotIntent.new()
-		var step := func(b: GSBotBrain, out: GSBotIntent) -> void:
-			match mode:
-				0:
-					b._walk(me, null, p, dest, now, dt, out)
-				1:
-					b._hold(me, p, now, dt, out)
-				_:
-					b._drift(rate, dt)
+		var step := func(b: GSBotBrain, out: GSBotIntent) -> void: _step(b, out, mode, me, p, dest, now, dt, rate)
 		var before := native._rng._counter
 		if t % 3 == 2:
 			var task := WorkerThreadPool.add_task(step.bind(native, no))
@@ -73,6 +89,7 @@ static func run(stats: Dictionary) -> String:
 		if native.aim._n == null:
 			return "steer think %d: the native mind fell back to script (mode %d)" % [t, mode]
 		counts[mode] += 1
+		native._glance_sync()
 		if native._rng._counter != before:
 			glances += 1
 		var n := [native.aim.yaw, native.aim.pitch, no.move, native._glance_next, native._glance_until, native._glance_off, native._rng._counter]
@@ -89,4 +106,5 @@ static func run(stats: Dictionary) -> String:
 	stats["drift"] = counts[2]
 	stats["glances"] = glances
 	stats["worker"] = worker
+	stats["handed"] = handed
 	return ""

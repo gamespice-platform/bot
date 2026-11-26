@@ -111,10 +111,10 @@ func _init(p_id: int = 0, p_settings: GSBotSettings = null) -> void:
 	aim.clock = _clock
 
 
-## Moves this brain wholly into script (the aim's state, and no native perceive or sight cache from
-## here on). [method par_ready] does this itself when the gs_sim library cannot think on workers.
+## Moves this brain wholly into script (aim, glance; no native perceive or sight cache from here on). [method par_ready] does this when gs_sim cannot think on workers.
 func leave_native() -> void:
 	aim._demote()
+	_glance_back()
 	_mind = null
 	_held_version = -1
 
@@ -445,7 +445,7 @@ func _hear_native(me: GSBotContact, all: Array, world: GSBotWorld, p: GSBotProfi
 ## Whether the gs_sim extension's GSSimBotMind steers (and [member native_act] lets it).
 static func _act_available() -> bool:
 	if _act_known < 0:
-		_act_known = 1 if ClassDB.class_exists(GSBotAim.MIND_CLASS) and ClassDB.class_has_method(GSBotAim.MIND_CLASS, &"steer") else 0
+		_act_known = 1 if ClassDB.class_exists(GSBotAim.MIND_CLASS) and ClassDB.class_has_method(GSBotAim.MIND_CLASS, &"steer_step") else 0
 	return native_act and _act_known == 1
 
 
