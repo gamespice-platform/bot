@@ -3,7 +3,7 @@ extends "res://examples/selftest/style_tests.gd"
 ## gs-bot's suite (`godot --headless --path . res://examples/bot_selftest.tscn`): presets, cvars, names, roster, and a bot's senses, aim and fights measured rather than read.
 ## The numbers a player feels are measured per preset (time to first shot, aim error, turn speed, K/D against one fixed opponent); the bands are what the presets promise.
 
-const CHECKS := 717
+const CHECKS := 722
 
 ## Of CHECKS, the ones that need GameSpice SQL and the SQLite extension linked into this project.
 const SQL_CHECKS := 0
@@ -15,7 +15,7 @@ var _native_ran := false
 
 ## Sections entered against sections that ran to their last line. A runtime error inside a
 ## section aborts that function and nothing says so.
-const SECTIONS := 66
+const SECTIONS := 67
 
 
 func _ready() -> void:
@@ -83,6 +83,7 @@ func _run() -> void:
 	_test_objective()
 	_test_utility_grenades()
 	_test_sight_lod()
+	_test_phase_timers_threaded()
 	_test_pickup()
 	_test_arms()
 	await _test_heatmap()
@@ -463,4 +464,51 @@ func _test_reaction_and_aim() -> void:
 		_check(fe <= p.aim_error * 1.25 + p.fire_cone, "%s opens no worse than its aim error allows" % preset, "%.2f" % fe)
 		_check(se <= p.aim_floor * 1.1 + 0.3, "%s settles to its aim floor" % preset, "%.2f" % se)
 		previous_reaction = r
+	_done()
+
+
+## The --brain-us profile with brains on worker threads: each brain times into its own clock (no shared write),
+## and the main thread's merge_phases after the join is what lands the time in phase_us.
+func _test_phase_timers_threaded() -> void:
+	_section("brain phase timers on worker threads")
+	const BRAINS := 4
+	const TICKS := 30
+	var s := GSBotSettings.new()
+	s.set_difficulty("nightmare")
+	var scenes: Array = []
+	var brains: Array = []
+	for i in BRAINS:
+		scenes.append(_scene(Vector3(0, 0, -15)))
+		brains.append(GSBotBrain.new(1, s))
+	GSBotBrain.phase_us.fill(0)
+	GSBotBrain.phase_calls.fill(0)
+	GSBotBrain.phase_timers = true
+	var think_all := func(i: int) -> void:
+		var sc: Array = scenes[i]
+		_run_bot(brains[i], sc[0], sc[2], TICKS * TICK)
+	var task := WorkerThreadPool.add_group_task(think_all, BRAINS, BRAINS, true)
+	WorkerThreadPool.wait_for_group_task_completion(task)
+	var before := 0
+	for v in GSBotBrain.phase_calls:
+		before += v
+	_check(before == 0, "thinks on worker threads write no shared profile before the merge", "%d calls" % before)
+	GSBotBrain.merge_phases(brains)
+	var bb_us := 0
+	for i in GSBotClock.PHASE_COUNT:
+		bb_us += GSBotBrain.phase_us[i]
+	_check(bb_us > 0, "after merge_phases the threaded thinks' phases are non-zero", "%d us" % bb_us)
+	_check(GSBotBrain.phase_calls[0] >= BRAINS * TICKS and GSBotBrain.phase_calls[6] == GSBotBrain.phase_calls[0],
+		"every threaded think lapped every phase once", str(GSBotBrain.phase_calls))
+	var merged := GSBotBrain.phase_us.duplicate()
+	GSBotBrain.merge_phases(brains)
+	_check(GSBotBrain.phase_us == merged, "a second merge adds nothing: each clock folds once")
+	GSBotBrain.phase_timers = false
+	GSBotBrain.phase_calls.fill(0)
+	var sc0: Array = scenes[0]
+	_run_bot(brains[0], sc0[0], sc0[2], 0.25)
+	var after := 0
+	for v in GSBotBrain.phase_calls:
+		after += v
+	_check(after == 0 and not GSBotClock.on, "with phase_timers off nothing is timed", "%d calls" % after)
+	GSBotBrain.phase_us.fill(0)
 	_done()

@@ -173,6 +173,8 @@ var face: Vector3 = Vector3.INF
 var entered: Dictionary = {}
 
 var _rng: GSRandomStream = null
+## The owning brain's profile clock ([GSBotClock]); null in one made without a brain.
+var clock: GSBotClock = null
 ## class -> picked row index, kept across lives.
 var _picked: Dictionary = {}
 var _settings_rev: int = -1
@@ -472,7 +474,7 @@ func _end() -> void:
 
 ## Back out of [param c]'s sight to cover near by, remembering where it peeked from.
 func _hide(b: RefCounted, me: GSBotContact, c: GSBotContact, world: GSBotWorld, now: float, dt: float, out: GSBotIntent, why: StringName) -> void:
-	var at := cover_near(me.position, c.position, c.eye(), world, _rng)
+	var at := cover_near(me.position, c.position, c.eye(), world, _rng, clock)
 	peek_spot = me.position
 	threat = c.position
 	spot = at
@@ -487,7 +489,7 @@ func _hide(b: RefCounted, me: GSBotContact, c: GSBotContact, world: GSBotWorld, 
 
 ## Off to a vantage away from [param away_from]; no phase when none was found.
 func _to_vantage(me: GSBotContact, world: GSBotWorld, now: float, away_from: Vector3) -> void:
-	var picked := vantage(me.position, away_from, world, _rng)
+	var picked := vantage(me.position, away_from, world, _rng, clock)
 	if picked.is_empty():
 		_end()
 		return
@@ -526,7 +528,8 @@ const COVER_RAYS := 6
 
 ## A standable spot near [param here] that [param threat_eye] cannot see (a crouched head), tried
 ## away from the threat and to either side; failing that, a few metres straight back.
-static func cover_near(here: Vector3, threat_pos: Vector3, threat_eye: Vector3, world: GSBotWorld, rng: GSRandomStream) -> Vector3:
+static func cover_near(here: Vector3, threat_pos: Vector3, threat_eye: Vector3, world: GSBotWorld, rng: GSRandomStream,
+		clock: GSBotClock = null) -> Vector3:
 	var away := Vector2(here.x - threat_pos.x, here.z - threat_pos.z)
 	away = away.normalized() if away.length() > 0.01 else Vector2(0.0, 1.0)
 	var flip := 1.0 if rng.next_unit() < 0.5 else -1.0
@@ -540,29 +543,43 @@ static func cover_near(here: Vector3, threat_pos: Vector3, threat_eye: Vector3, 
 				var d := away.rotated(deg_to_rad(turn) * flip * (1.0 if sgn == 0 else -1.0))
 				var at := here + Vector3(d.x, 0.0, d.y) * reach
 				if snaps:
+					var t_walk := Time.get_ticks_usec() if GSBotClock.on else 0
 					at = world.walkable_near(at)
+					if t_walk:
+						GSBotClock.add(clock, GSBotClock.Q_WALKABLE, t_walk)
 					if at == Vector3.INF:
 						continue
 				rays += 1
-				if not world.line_of_sight(threat_eye, at + Vector3.UP * 0.9):
+				var t_sight := Time.get_ticks_usec() if GSBotClock.on else 0
+				var open := world.line_of_sight(threat_eye, at + Vector3.UP * 0.9)
+				if t_sight:
+					GSBotClock.add(clock, GSBotClock.Q_SIGHT, t_sight)
+				if not open:
 					return at
 				if rays >= COVER_RAYS:
-					return _back_off(here, away, world, snaps)
-	return _back_off(here, away, world, snaps)
+					return _back_off(here, away, world, snaps, clock)
+	return _back_off(here, away, world, snaps, clock)
 
 
-static func _back_off(here: Vector3, away: Vector2, world: GSBotWorld, snaps: bool) -> Vector3:
+static func _back_off(here: Vector3, away: Vector2, world: GSBotWorld, snaps: bool, clock: GSBotClock = null) -> Vector3:
 	var at := here + Vector3(away.x, 0.0, away.y) * 5.0
 	if snaps:
+		var t_walk := Time.get_ticks_usec() if GSBotClock.on else 0
 		var snapped := world.walkable_near(at)
+		if t_walk:
+			GSBotClock.add(clock, GSBotClock.Q_WALKABLE, t_walk)
 		return snapped if snapped != Vector3.INF else here
 	return at
 
 
 ## A vantage: a waypoint that sees other waypoints far off, higher the better, not too near
 ## [param away_from]. `{at, face}` or empty.
-static func vantage(here: Vector3, away_from: Vector3, world: GSBotWorld, rng: GSRandomStream) -> Dictionary:
+static func vantage(here: Vector3, away_from: Vector3, world: GSBotWorld, rng: GSRandomStream,
+		clock: GSBotClock = null) -> Dictionary:
+	var t_way := Time.get_ticks_usec() if GSBotClock.on else 0
 	var points := world.waypoints()
+	if t_way:
+		GSBotClock.add(clock, GSBotClock.Q_WAYPOINTS, t_way)
 	var n := points.size()
 	if n == 0:
 		return {}
@@ -581,7 +598,11 @@ static func vantage(here: Vector3, away_from: Vector3, world: GSBotWorld, rng: G
 			var gap := q.distance_to(at)
 			if gap < 8.0 or gap > 70.0:
 				continue
-			if world.line_of_sight(eye, q + Vector3.UP * 1.2):
+			var t_sight := Time.get_ticks_usec() if GSBotClock.on else 0
+			var sees := world.line_of_sight(eye, q + Vector3.UP * 1.2)
+			if t_sight:
+				GSBotClock.add(clock, GSBotClock.Q_SIGHT, t_sight)
+			if sees:
 				seen += 1
 				if face == Vector3.INF:
 					face = q

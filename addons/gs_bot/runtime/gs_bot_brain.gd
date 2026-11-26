@@ -47,12 +47,19 @@ static var target_first: bool = true
 static var native_perceive := true
 static var _perceive_known := -1
 
-## Per-phase microseconds of [method think] while [member phase_timers] is on (main thread only): [constant PHASES].
-## Off by default: each lap is two clock reads. A profile tool turns it on and reads, then clears, [member phase_us].
-static var phase_timers := false
-const PHASES: Array[StringName] = [&"bb_setup", &"bb_perceive", &"bb_hear", &"bb_goal", &"bb_act", &"bb_tricks", &"bb_unstick"]
-static var phase_us := PackedInt64Array([0, 0, 0, 0, 0, 0, 0])
-static var _lap_at := 0
+## Per-phase microseconds of [method think] while [member phase_timers] is on: [constant PHASES], the think's phases (bb_*)
+## then the world queries it asked (bq_*, inside the phase that asked). [member phase_calls]: laps and queries counted.
+## Each brain times into its own [GSBotClock], so brains on worker threads time too: a think on the main thread adds its
+## clock here at once, and the caller of threaded thinks calls [method merge_phases] on the main thread after the join.
+## Off by default: each lap and query is two clock reads. A profile tool turns it on and reads, then clears, [member phase_us].
+static var phase_timers := false:
+	set(v):
+		phase_timers = v
+		GSBotClock.on = v
+const PHASES: Array[StringName] = [&"bb_setup", &"bb_perceive", &"bb_hear", &"bb_goal", &"bb_act", &"bb_tricks", &"bb_unstick",
+		&"bq_sight", &"bq_route", &"bq_ladder", &"bq_walkable", &"bq_waypoints", &"bq_wall", &"bq_sounds", &"bq_drops", &"bq_projectile"]
+static var phase_us := PackedInt64Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+static var phase_calls := PackedInt64Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 
 ## This brain's GSSimBotMind (the aim's, kept when the aim falls back to script): it holds the
 ## sight cache, and perceives when the world packed a native scan this tick. Null: all in script.
@@ -77,6 +84,11 @@ func _init(p_id: int = 0, p_settings: GSBotSettings = null) -> void:
 	_unstick = GSBotUnstick.new(_rng)
 	style = GSBotStyle.new(p_id)
 	goal = GSBotGoal.new(p_id)
+	_unstick.clock = _clock
+	style.clock = _clock
+	goal.clock = _clock
+	pickup.clock = _clock
+	tricks.clock = _clock
 
 
 ## Moves this brain wholly into script (the aim's state, and no native perceive or sight cache from
@@ -92,6 +104,8 @@ func leave_native() -> void:
 ## (a worker must not bind it while others do); a gs_sim library without that handle (GSSimBotMind.hold_senses) falls back to script, as [method leave_native].
 func par_ready(world: GSBotWorld) -> void:
 	_held_version = -1
+	if phase_timers:
+		_clock.fold(phase_us, phase_calls)
 	if not _held_available():
 		leave_native()
 		return
@@ -107,7 +121,7 @@ func par_ready(world: GSBotWorld) -> void:
 ## What this bot does this tick.
 func think(me: GSBotContact, world: GSBotWorld, now: float) -> GSBotIntent:
 	if phase_timers:
-		_lap_at = Time.get_ticks_usec()
+		_clock.start()
 	var p := settings.profile
 	var dt := 0.0 if is_nan(_now) else clampf(now - _now, 0.0, MAX_STEP)
 	_now = now
@@ -130,23 +144,23 @@ func think(me: GSBotContact, world: GSBotWorld, now: float) -> GSBotIntent:
 	# With a contact table the rows are read instead, and a body's object only where one is kept.
 	var all := world.contacts() if world != null and world.table() == null else []
 	if phase_timers:
-		_lap(0)
+		_clock.lap(0)
 	var seen := _perceive(me, all, world, p, now)
 	if phase_timers:
-		_lap(1)
+		_clock.lap(1)
 	if world != null:
 		_hear(me, all, world, p, now)
 		if phase_timers:
-			_lap(2)
+			_clock.lap(2)
 		if world.objective != null and goal.due(now):
 			goal.plan(me, world.objective, world, p, _rng, now)
 	if phase_timers:
-		_lap(3)
+		_clock.lap(3)
 	_act(me, seen, world, p, now, dt, out)
 	out.yaw = aim.yaw
 	out.pitch = aim.pitch
 	if phase_timers:
-		_lap(4)
+		_clock.lap(4)
 	tricks.apply(me, world, p, _rng, _scene, _scene_up, aim.yaw, now, dt, out, _mind if _mind != null else aim._n)
 	out.target_id = target_id if _visible else -1
 	if policy != null and _climb == null and _ride_reached < 0 and policy.active(p, id):
@@ -155,14 +169,16 @@ func think(me: GSBotContact, world: GSBotWorld, now: float) -> GSBotIntent:
 		aim.yaw = out.yaw
 		aim.pitch = out.pitch
 	if phase_timers:
-		_lap(5)
+		_clock.lap(5)
 	if _climb != null:
 		_climb_step(me, now, out)
 		_unstick.reset(me.position, now)
 	else:
 		_free_if_stuck(me, world, now, out)
 	if phase_timers:
-		_lap(6)
+		_clock.lap(6)
+		if OS.get_thread_caller_id() == OS.get_main_thread_id():
+			_clock.fold(phase_us, phase_calls)
 	out.ride = _ride_reached
 	_ride_reached = -1
 	last = out
@@ -226,10 +242,15 @@ func _respawned() -> void:
 	style.respawn(settings)
 
 
-static func _lap(phase: int) -> void:
-	var t := Time.get_ticks_usec()
-	phase_us[phase] += t - _lap_at
-	_lap_at = t
+## Adds the clocks of [param brains] (that thought on worker threads this tick) into [member phase_us] and
+## [member phase_calls]; call it on the main thread after the join, once a tick. A no-op while [member phase_timers] is off.
+static func merge_phases(brains: Array) -> void:
+	if not phase_timers:
+		return
+	for b: Variant in brains:
+		var brain := b as GSBotBrain
+		if brain != null:
+			brain._clock.fold(phase_us, phase_calls)
 
 
 ## The game's rider is done with a ride ([member GSBotIntent.ride]): [param arrived] or not, the
@@ -484,12 +505,18 @@ func _sees(world: GSBotWorld, eye: Vector3, c: GSBotContact, now: float) -> bool
 			h = _mind.sight_cached(c.id, now, stamp)
 		if h >= 0:
 			return h == 1
+		var t_sight1 := Time.get_ticks_usec() if GSBotClock.on else 0
 		var seen_n := world.line_of_sight(eye, c.aim_point()) or world.line_of_sight(eye, c.eye())
+		if t_sight1:
+			GSBotClock.add(_clock, GSBotClock.Q_SIGHT, t_sight1)
 		_mind.sight_put(c.id, now, seen_n, stamp)
 		return seen_n
 	var held: Variant = _sight_cache.get(c.id)
 	if not (held is Array):
+		var t_sight2 := Time.get_ticks_usec() if GSBotClock.on else 0
 		var first := world.line_of_sight(eye, c.aim_point()) or world.line_of_sight(eye, c.eye())
+		if t_sight2:
+			GSBotClock.add(_clock, GSBotClock.Q_SIGHT, t_sight2)
 		_sight_cache[c.id] = [now, first, stamp]
 		return first
 	var row := held as Array
@@ -501,7 +528,10 @@ func _sees(world: GSBotWorld, eye: Vector3, c: GSBotContact, now: float) -> bool
 		if not row[1] and world.sight_far > 0.0 and now - at < world.sight_far_reuse and c.id != target_id \
 				and eye.distance_squared_to(c.position) > world.sight_far * world.sight_far:
 			return false
+	var t_sight3 := Time.get_ticks_usec() if GSBotClock.on else 0
 	var seen := world.line_of_sight(eye, c.aim_point()) or world.line_of_sight(eye, c.eye())
+	if t_sight3:
+		GSBotClock.add(_clock, GSBotClock.Q_SIGHT, t_sight3)
 	# The row is this brain's own: written in place, a sight test allocates nothing after the first.
 	row[0] = now
 	row[1] = seen
@@ -538,7 +568,10 @@ func _hear(me: GSBotContact, all: Array, world: GSBotWorld, p: GSBotProfile, now
 	var newest := world.last_sound()
 	if newest == _heard_seq:
 		return
+	var t_sounds := Time.get_ticks_usec() if GSBotClock.on else 0
 	world.sounds_into(_heard_seq, now, _heard)
+	if t_sounds:
+		GSBotClock.add(_clock, GSBotClock.Q_SOUNDS, t_sounds)
 	_heard_seq = newest
 	var my_id := me.id
 	var here := me.position
@@ -569,7 +602,10 @@ func _hear(me: GSBotContact, all: Array, world: GSBotWorld, p: GSBotProfile, now
 
 func _fight(me: GSBotContact, c: GSBotContact, world: GSBotWorld, p: GSBotProfile, now: float, dt: float, out: GSBotIntent) -> void:
 	var eye := me.eye()
+	var t_proj := Time.get_ticks_usec() if GSBotClock.on else 0
 	var speed := world.projectile_speed(me) if world != null else 0.0
+	if t_proj:
+		GSBotClock.add(_clock, GSBotClock.Q_PROJECTILE, t_proj)
 	var flat := Vector2(c.position.x - me.position.x, c.position.z - me.position.z)
 	var dist := flat.length()
 	var retreat := _roll_cover and me.health < RETREAT_HEALTH

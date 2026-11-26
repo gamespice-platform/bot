@@ -29,6 +29,8 @@ var _last: float = -INF
 var _skip: Dictionary = {}
 ## When a quiet bot next looks over the drops ([member GSBotProfile.replan_every]).
 var _look_next: float = -INF
+## The owning brain's profile clock ([GSBotClock]); null in one made without a brain.
+var clock: GSBotClock = null
 
 
 ## The plan this tick: [code]{position, use}[/code], or empty when the bot has nothing to fetch.
@@ -40,7 +42,10 @@ func step(me: GSBotContact, world: GSBotWorld, p: GSBotProfile, now: float, quie
 	if not quiet or p.pickup_weapons < 0.5 or world == null:
 		cancel()
 		return NONE
+	var t_drops := Time.get_ticks_usec() if GSBotClock.on else 0
 	var drops := world.drops()
+	if t_drops:
+		GSBotClock.add(clock, GSBotClock.Q_DROPS, t_drops)
 	var drop := _find(drops, _goal)
 	if _goal != -1 and drop.is_empty():
 		cancel()
@@ -111,8 +116,13 @@ func _choose(me: GSBotContact, world: GSBotWorld, p: GSBotProfile, drops: Array,
 		var g := gain(me, d)
 		if g < MIN_GAIN:
 			continue
-		if p.through_walls < 0.5 and not world.line_of_sight(me.eye(), at + Vector3.UP * 0.3):
-			continue
+		if p.through_walls < 0.5:
+			var t_sight := Time.get_ticks_usec() if GSBotClock.on else 0
+			var sees := world.line_of_sight(me.eye(), at + Vector3.UP * 0.3)
+			if t_sight:
+				GSBotClock.add(clock, GSBotClock.Q_SIGHT, t_sight)
+			if not sees:
+				continue
 		var score := g - dist * 0.02
 		if score > best_score:
 			best_score = score

@@ -48,6 +48,8 @@ var _duck_until: float = -INF
 var _duck_next: float = 0.0
 var _air_next: float = 0.0
 var _was_crouch: bool = false
+## The owning brain's profile clock ([GSBotClock]); null in one made without a brain.
+var clock: GSBotClock = null
 
 
 ## Forgets a plan: a respawn, or a trick the world changed under.
@@ -238,7 +240,10 @@ func _find_wall(me: GSBotContact, world: GSBotWorld, heading: Vector2) -> Vector
 	var best_d := INF
 	for sign_x: float in [-1.0, 1.0]:
 		var side := Vector2(-heading.y, heading.x) * sign_x
+		var t_wall := Time.get_ticks_usec() if GSBotClock.on else 0
 		var hit := world.wall_ahead(from, Vector3(side.x, 0.0, side.y), WALL_REACH)
+		if t_wall:
+			GSBotClock.add(clock, GSBotClock.Q_WALL, t_wall)
 		if hit.is_empty():
 			continue
 		var n: Vector3 = hit["normal"]

@@ -56,6 +56,8 @@ var _roll_crouch: bool = false
 var _roll_cover: bool = false
 
 ## Slide, wall run and the rest; the scenario and the target's height over the bot are set by whichever of fight, search, listen or roam ran this tick.
+## This brain's profile clock ([GSBotClock]), handed to its parts that ask the world; see [member GSBotBrain.phase_us].
+var _clock := GSBotClock.new()
 var tricks := GSBotTricks.new()
 var _scene: StringName = &"roam"
 var _scene_up: float = 0.0
@@ -270,7 +272,10 @@ func _quiet(now: float, p: GSBotProfile) -> bool:
 
 
 func _pick_waypoint(me: GSBotContact, world: GSBotWorld, p: GSBotProfile) -> Vector3:
+	var t_way := Time.get_ticks_usec() if GSBotClock.on else 0
 	var points := world.waypoints() if world != null else PackedVector3Array()
+	if t_way:
+		GSBotClock.add(_clock, GSBotClock.Q_WAYPOINTS, t_way)
 	# The places over 3 m away, in _far's first n slots: it only grows, so a pick allocates nothing.
 	if _far.size() < points.size():
 		_far.resize(points.size())
@@ -331,7 +336,10 @@ func _nearest_enemy(me: GSBotContact, world: GSBotWorld) -> Vector3:
 func _toward(me: GSBotContact, world: GSBotWorld, goal: Vector3) -> Vector2:
 	if goal != _route_goal:
 		_route_goal = goal
+		var t_route := Time.get_ticks_usec() if GSBotClock.on else 0
 		var detail := world.route_detail(me.position, goal) if world != null else {}
+		if t_route:
+			GSBotClock.add(_clock, GSBotClock.Q_ROUTE, t_route)
 		_route = detail.get("points", PackedVector3Array())
 		_route_rides = detail.get("rides", PackedInt32Array())
 	var here := Vector2(me.position.x, me.position.z)
@@ -339,7 +347,10 @@ func _toward(me: GSBotContact, world: GSBotWorld, goal: Vector3) -> Vector2:
 		# A corner that starts a ride edge: say so, and the game takes the legs from here.
 		if not _route_rides.is_empty():
 			var ride := _route_rides[0]
+			var t_ladder := Time.get_ticks_usec() if GSBotClock.on else 0
 			var ladder := world.ladder(ride) if ride >= 0 and world != null else {}
+			if t_ladder:
+				GSBotClock.add(_clock, GSBotClock.Q_LADDER, t_ladder)
 			if not ladder.is_empty():
 				_climb = GSBotClimb.begin(ladder, _now)
 			elif ride >= 0:
