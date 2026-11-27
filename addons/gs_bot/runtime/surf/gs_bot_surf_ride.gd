@@ -60,6 +60,8 @@ var stall_ticks: int = 64 * 8
 var _last: Vector3 = Vector3.INF
 var _anchor: Vector3 = Vector3.INF
 var _anchor_tick: int = 0
+## Whether the ridden state has [code]is_grounded[/code]: -1 until the first [method steer] of a ride.
+var _grounded_api: int = -1
 
 
 ## Starts a ride on [param p_course] with a pilot sharing [param cache]'s rides, vetoing on
@@ -81,6 +83,7 @@ func begin(cache: GSBotSurfPilot, p_course: GSBotSurfCourse, sim: Variant, now_t
 	max_ticks = int(seconds * tick_rate)
 	stall_ticks = int(STALL_SECONDS * tick_rate)
 	_anchor = Vector3.INF
+	_grounded_api = -1
 	status = RIDING
 	ticks = 0
 	return self
@@ -137,7 +140,7 @@ func steer(state: Variant, intent: GSBotIntent, now_tick: int) -> int:
 			return _end(FELL)
 	if now_tick - began > max_ticks:
 		return _end(TIMED_OUT)
-	if _anchor == Vector3.INF or p.distance_to(_anchor) > STALL_RADIUS or (state.has_method(&"is_grounded") and state.is_grounded()):
+	if _anchor == Vector3.INF or p.distance_to(_anchor) > STALL_RADIUS or (_grounds(state) and state.is_grounded()):
 		_anchor = p
 		_anchor_tick = now_tick
 	elif now_tick - _anchor_tick > stall_ticks:
@@ -150,7 +153,7 @@ func steer(state: Variant, intent: GSBotIntent, now_tick: int) -> int:
 		ticks += 1
 		return RIDING
 	var action := pilot.action(state)
-	if GSBotSurfPilot.jumps(action) or (state.has_method(&"is_grounded") and state.is_grounded()):
+	if GSBotSurfPilot.jumps(action) or (_grounds(state) and state.is_grounded()):
 		# Running to the ramp, and jumping, the view goes where the legs go: on the ground a key
 		# held backward is slower, and a jump beside a wall pushes off along the view (a wall
 		# jump), so either made for a view elsewhere is not the ride that was planned, and it
@@ -162,6 +165,13 @@ func steer(state: Variant, intent: GSBotIntent, now_tick: int) -> int:
 	intent.walk = false
 	ticks += 1
 	return RIDING
+
+
+## Whether [param state] answers [code]is_grounded[/code] (duck typed: gs-bot does not depend on the controller), asked once a ride.
+func _grounds(state: Variant) -> bool:
+	if _grounded_api < 0:
+		_grounded_api = 1 if (state as Object).has_method(&"is_grounded") else 0  # perf-lint: allow dynamic_call once a ride, then cached
+	return _grounded_api == 1
 
 
 func _end(how: int) -> int:

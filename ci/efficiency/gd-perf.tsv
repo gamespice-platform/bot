@@ -225,4 +225,4 @@ addons/gs_bot/runtime/surf/gs_bot_surf_ride.gd::begin_picked::dynamic_call	5
 addons/gs_bot/runtime/surf/gs_bot_surf_ride.gd::begin_picked::untyped_array	1
 addons/gs_bot/runtime/surf/gs_bot_surf_ride.gd::describe::untyped_array	1
 addons/gs_bot/runtime/surf/gs_bot_surf_ride.gd::pick::untyped_array	1
-addons/gs_bot/runtime/surf/gs_bot_surf_ride.gd::steer::dynamic_call	3
+addons/gs_bot/runtime/surf/gs_bot_surf_ride.gd::steer::dynamic_call	1
