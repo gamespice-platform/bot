@@ -10,6 +10,7 @@ const ActParity := preload("res://examples/native_parity_act.gd")
 const PickupParity := preload("res://examples/native_parity_pickup.gd")
 const DropsParity := preload("res://examples/native_parity_drops.gd")
 const UnstickParity := preload("res://examples/native_parity_unstick.gd")
+const StyleParity := preload("res://examples/native_parity_style.gd")
 const TICK := 1.0 / 30.0
 const ROUNDS := 12
 const SECONDS := 14.0
@@ -74,11 +75,14 @@ func _run() -> void:
 	var unstick_stats := {}
 	if _failed == "":
 		_failed = UnstickParity.run(unstick_stats)
+	var style_stats := {}
+	if _failed == "":
+		_failed = StyleParity.run(style_stats)
 	if _failed != "":
 		print("native parity: FAIL ", _failed)
 		get_tree().quit(1)
 		return
-	print("native parity: ok, %d ticks over %d rounds (%d fighting, %d firing), native and script identical%s; tricks %s; hear %s; steer %s; pickup %s; drops %s; unstick %s; think %.1f us native (perceive %s, + %.1f us scan per world per tick), %.1f us script" % [_ticks, ROUNDS, _fights, _fires, ", and native on a worker" if _held else " (no worker copy: library without perceive_held)", "skipped (library without tricks)" if trick_stats.has("skipped") else "identical over %d ticks %s" % [TricksParity.TICKS, trick_stats], "skipped (library without hear)" if hear_stats.has("skipped") else "identical %s" % hear_stats, "skipped (library without steer)" if act_stats.has("skipped") else "identical %s" % act_stats, "skipped (library without pickup_choose)" if pickup_stats.has("skipped") else "identical %s" % pickup_stats, "skipped (library without GSSimBotDrops)" if drops_stats.has("skipped") else "identical %s" % drops_stats, "skipped (library without unstick_step)" if unstick_stats.has("skipped") else "identical %s" % unstick_stats, float(_usec[0]) / _ticks, "native" if GSBotBrain.native_perceive else "script", float(_scan_usec) / _ticks, float(_usec[1]) / _ticks])
+	print("native parity: ok, %d ticks over %d rounds (%d fighting, %d firing), native and script identical%s; tricks %s; hear %s; steer %s; pickup %s; drops %s; unstick %s; style %s; think %.1f us native (perceive %s, + %.1f us scan per world per tick), %.1f us script" % [_ticks, ROUNDS, _fights, _fires, ", and native on a worker" if _held else " (no worker copy: library without perceive_held)", "skipped (library without tricks)" if trick_stats.has("skipped") else "identical over %d ticks %s" % [TricksParity.TICKS, trick_stats], "skipped (library without hear)" if hear_stats.has("skipped") else "identical %s" % hear_stats, "skipped (library without steer)" if act_stats.has("skipped") else "identical %s" % act_stats, "skipped (library without pickup_choose)" if pickup_stats.has("skipped") else "identical %s" % pickup_stats, "skipped (library without GSSimBotDrops)" if drops_stats.has("skipped") else "identical %s" % drops_stats, "skipped (library without unstick_step)" if unstick_stats.has("skipped") else "identical %s" % unstick_stats, "skipped (library without style_cover)" if style_stats.has("skipped") else "identical %s" % style_stats, float(_usec[0]) / _ticks, "native" if GSBotBrain.native_perceive else "script", float(_scan_usec) / _ticks, float(_usec[1]) / _ticks])
 	if not _phases.is_empty():
 		for i in GSBotClock.SLOTS:
 			if _phases[0][i] + _phases[1][i] > 0:

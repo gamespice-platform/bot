@@ -358,12 +358,12 @@ func lead(b: RefCounted, me: GSBotContact, world: GSBotWorld, now: float, dt: fl
 	if _killed:
 		_killed = false
 		if free and (row["fight"] == "peek" or row["roam"] == "camp") and _rng.next_unit() < float(row["reposition"]):
-			_to_vantage(me, world, now, me.position)
+			_to_vantage(b, me, world, now, me.position)
 			return phase != NONE and lead(b, me, world, now, dt, out, free)
 	# A camper with nothing to do heads for an angle.
 	if free and row["roam"] == "camp" and now >= _vantage_next and b._last_seen_pos == Vector3.INF and b._heard_at == -INF and b._hurt_at == -INF:
 		_vantage_next = now + 3.0
-		_to_vantage(me, world, now, me.position)
+		_to_vantage(b, me, world, now, me.position)
 		return phase != NONE and lead(b, me, world, now, dt, out, free)
 	return false
 
@@ -371,7 +371,7 @@ func lead(b: RefCounted, me: GSBotContact, world: GSBotWorld, now: float, dt: fl
 func _lead_hide(b: RefCounted, me: GSBotContact, world: GSBotWorld, now: float, dt: float, out: GSBotIntent, free: bool, eye: Vector3) -> bool:
 	if now >= phase_until and (_at(me, spot) or now > phase_since + TRAVEL_MAX):
 		if _killed or _rng.next_unit() < float(row["reposition"]):
-			_to_vantage(me, world, now, peek_spot)
+			_to_vantage(b, me, world, now, peek_spot)
 		else:
 			_begin(RETURN, now, now + TRAVEL_MAX)
 			spot = peek_spot
@@ -429,13 +429,13 @@ func _lead_hold(b: RefCounted, me: GSBotContact, world: GSBotWorld, now: float, 
 		var burnt: bool = b._hurt_at > phase_since
 		_end()
 		if burnt and free and row["roam"] == "camp":
-			_to_vantage(me, world, now, me.position)
+			_to_vantage(b, me, world, now, me.position)
 			return phase != NONE and lead(b, me, world, now, dt, out, free)
 		return false
 	if now >= phase_until:
 		_end()
 		if row["roam"] == "camp":
-			_to_vantage(me, world, now, me.position)
+			_to_vantage(b, me, world, now, me.position)
 			return phase != NONE and lead(b, me, world, now, dt, out, free)
 		return false
 	out.move = Vector2.ZERO
@@ -474,7 +474,7 @@ func _end() -> void:
 
 ## Back out of [param c]'s sight to cover near by, remembering where it peeked from.
 func _hide(b: RefCounted, me: GSBotContact, c: GSBotContact, world: GSBotWorld, now: float, dt: float, out: GSBotIntent, why: StringName) -> void:
-	var at := cover_near(me.position, c.position, c.eye(), world, _rng, clock)
+	var at := cover_near(me.position, c.position, c.eye(), world, _rng, clock, b._unstick_mind())
 	peek_spot = me.position
 	threat = c.position
 	spot = at
@@ -488,8 +488,8 @@ func _hide(b: RefCounted, me: GSBotContact, c: GSBotContact, world: GSBotWorld, 
 
 
 ## Off to a vantage away from [param away_from]; no phase when none was found.
-func _to_vantage(me: GSBotContact, world: GSBotWorld, now: float, away_from: Vector3) -> void:
-	var picked := vantage(me.position, away_from, world, _rng, clock)
+func _to_vantage(b: RefCounted, me: GSBotContact, world: GSBotWorld, now: float, away_from: Vector3) -> void:
+	var picked := vantage(me.position, away_from, world, _rng, clock, b._unstick_mind())
 	if picked.is_empty():
 		_end()
 		return
@@ -526,10 +526,33 @@ const COVER_TURNS: PackedFloat32Array = [0.0, 55.0, 110.0]
 const COVER_REACH: PackedFloat32Array = [3.5, 7.0]
 const COVER_RAYS := 6
 
+## Off: [method cover_near] and [method vantage] run in script even with a mind (cvar bot_native_style_cover in a game).
+static var native_enabled := true
+static var _native_known := -1
+
+
+## True when [param mind] (the brain's GSSimBotMind) answers the places natively.
+static func _native_places(mind: Object) -> bool:
+	if mind == null or not native_enabled:
+		return false
+	if _native_known < 0:
+		_native_known = 1 if ClassDB.class_exists(&"GSSimBotMind") and ClassDB.class_has_method(&"GSSimBotMind", &"style_cover") else 0
+	return _native_known == 1
+
+
 ## A standable spot near [param here] that [param threat_eye] cannot see (a crouched head), tried
-## away from the threat and to either side; failing that, a few metres straight back.
+## away from the threat and to either side; failing that, a few metres straight back. With a
+## [param mind] it runs in gs-sim (GSSimBotMind.style_cover): the same spot and draws to the bit.
 static func cover_near(here: Vector3, threat_pos: Vector3, threat_eye: Vector3, world: GSBotWorld, rng: GSRandomStream,
-		clock: GSBotClock = null) -> Vector3:
+		clock: GSBotClock = null, mind: Object = null) -> Vector3:
+	if _native_places(mind):
+		var t_native := Time.get_ticks_usec() if GSBotClock.on else 0
+		var got: PackedFloat64Array = mind.style_cover(here, threat_pos, threat_eye, rng._key, rng._counter,
+				world.walkable_fn, world.sight_callable())
+		if t_native:
+			GSBotClock.add(clock, GSBotClock.Q_SIGHT, t_native)
+		rng._counter = int(got[3])
+		return Vector3(got[0], got[1], got[2])
 	var away := Vector2(here.x - threat_pos.x, here.z - threat_pos.z)
 	away = away.normalized() if away.length() > 0.01 else Vector2(0.0, 1.0)
 	var flip := 1.0 if rng.next_unit() < 0.5 else -1.0
@@ -573,9 +596,10 @@ static func _back_off(here: Vector3, away: Vector2, world: GSBotWorld, snaps: bo
 
 
 ## A vantage: a waypoint that sees other waypoints far off, higher the better, not too near
-## [param away_from]. `{at, face}` or empty.
+## [param away_from]. `{at, face}` or empty. With a [param mind] the draws and sight checks run in
+## gs-sim (GSSimBotMind.style_vantage): the same place and draws to the bit.
 static func vantage(here: Vector3, away_from: Vector3, world: GSBotWorld, rng: GSRandomStream,
-		clock: GSBotClock = null) -> Dictionary:
+		clock: GSBotClock = null, mind: Object = null) -> Dictionary:
 	var t_way := Time.get_ticks_usec() if GSBotClock.on else 0
 	var points := world.waypoints()
 	if t_way:
@@ -583,6 +607,15 @@ static func vantage(here: Vector3, away_from: Vector3, world: GSBotWorld, rng: G
 	var n := points.size()
 	if n == 0:
 		return {}
+	if _native_places(mind):
+		var t_native := Time.get_ticks_usec() if GSBotClock.on else 0
+		var got: PackedFloat64Array = mind.style_vantage(here, away_from, points, rng._key, rng._counter, world.sight_callable())
+		if t_native:
+			GSBotClock.add(clock, GSBotClock.Q_SIGHT, t_native)
+		rng._counter = int(got[7])
+		if got[0] == 0.0:
+			return {}
+		return {"at": Vector3(got[1], got[2], got[3]), "face": Vector3(got[4], got[5], got[6])}
 	var best: Dictionary = {}
 	var best_score := -INF
 	for _i in 6:
