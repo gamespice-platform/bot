@@ -8,10 +8,6 @@ const STEP := 1.0 / 120.0
 const GRAVITY := 9.8
 const MAX_TIME := 15.0
 
-# _height_at's result, held in statics rather than returned as a fresh [height, time] array: _pitch
-# calls it 26 times per solve. Single-threaded (the solver runs on the bot tick only).
-static var _hit_y: float = NAN
-static var _hit_t: float = NAN
 
 
 ## Reads muzzle_velocity, bullet_gravity and drag off [param tuning] by duck typing (a gs-weapon
@@ -47,22 +43,26 @@ static func solve(muzzle: Vector3, target: Vector3, velocity: Vector3, tuning: V
 static func _pitch(v0: float, g: float, drag: float, r: float, h: float) -> Array:
 	var lo := -0.6
 	var hi := 1.0
-	if not _height_at(v0, g, drag, hi, r) or _hit_y < h:
+	var at_hi := _height_at(v0, g, drag, hi, r)
+	if is_nan(at_hi.x) or at_hi.x < h:
 		return []
 	for i in 24:
 		var mid := (lo + hi) * 0.5
-		if not _height_at(v0, g, drag, mid, r) or _hit_y < h:
+		var res := _height_at(v0, g, drag, mid, r)
+		if is_nan(res.x) or res.x < h:
 			lo = mid
 		else:
 			hi = mid
-	if not _height_at(v0, g, drag, hi, r) or absf(_hit_y - h) > 0.25 + r * 0.01:
+	var best := _height_at(v0, g, drag, hi, r)
+	if is_nan(best.x) or absf(best.x - h) > 0.25 + r * 0.01:
 		return []
-	return [hi, _hit_t]
+	return [hi, best.y]
 
 
-## Whether a bullet launched at [param pitch] passes horizontal [param r]; when it does, the height
-## and time it passes there are left in [member _hit_y] and [member _hit_t].
-static func _height_at(v0: float, g: float, drag: float, pitch: float, r: float) -> bool:
+## (height, time) when a bullet launched at [param pitch] passes horizontal [param r]; (NAN, NAN) if it
+## never does. A Vector2 rather than an array: a value, so no heap allocation per call (_pitch makes 26
+## per solve), and no shared state, since games may run bot brains, and so this solver, on worker threads.
+static func _height_at(v0: float, g: float, drag: float, pitch: float, r: float) -> Vector2:
 	var x := 0.0
 	var y := 0.0
 	var vx := cos(pitch) * v0
@@ -78,15 +78,13 @@ static func _height_at(v0: float, g: float, drag: float, pitch: float, r: float)
 		var nx := x + vx * STEP
 		if nx >= r:
 			var f := (r - x) / maxf(nx - x, 0.000001)
-			_hit_y = y + vy * STEP * f
-			_hit_t = t + STEP * f
-			return true
+			return Vector2(y + vy * STEP * f, t + STEP * f)
 		x = nx
 		y += vy * STEP
 		t += STEP
 		if vx < 1.0:
 			break
-	return false
+	return Vector2(NAN, NAN)
 
 
 static func _read(tuning: Variant, key: String, fallback: float) -> float:
