@@ -81,3 +81,34 @@ static func drops_of(drops: Object, arsenal: Object, rater: Callable = Callable(
 ## [param arsenal_source] any arsenal whose catalogue knows the weapons.
 static func wire(world: GSBotWorld, drops_source: Callable, arsenal_source: Callable, rater: Callable = Callable()) -> void:
 	world.drops_fn = func() -> Array: return drops_of(drops_source.call(), arsenal_source.call(), rater)
+	world.drop_table_fn = func() -> Variant: return pack_drops(drops_source.call(), arsenal_source.call(), rater)
+
+
+## gs-sim's native drop pack, reached by name (GSSimBotDrops.pack).
+const DROPS_CLASS := &"GSSimBotDrops"
+## 1 when the library has the pack, 0 not, -1 not asked yet.
+static var _drops_known := -1
+
+
+## [method drops_of] as [GSBotWorld]'s drop table columns ([code][ids, at, rows][/code]) in one native call
+## (GSSimBotDrops.pack): the same columns to the bit, each weapon read once per pack rather than once per drop.
+## null when the library has no pack or refuses an entry; the world then packs [method drops_of] in script.
+static func pack_drops(drops: Object, arsenal: Object, rater: Callable = Callable()) -> Variant:
+	if _drops_known < 0:
+		_drops_known = 1 if ClassDB.class_exists(DROPS_CLASS) and ClassDB.class_has_method(DROPS_CLASS, &"pack") else 0
+	if _drops_known == 0:
+		return null
+	if drops == null or arsenal == null or arsenal.get("catalogue") == null:
+		return [PackedInt64Array(), PackedVector3Array(), PackedFloat64Array()]
+	var catalogue: Object = arsenal.get("catalogue")
+	# What drops_of reads of a weapon: slot, value, the rounds when full ([method ammo_fraction]) and whether infinite.
+	var def_row := func(id: Variant) -> PackedFloat64Array:
+		var def: Object = catalogue.call("get_def", StringName(id))
+		if def == null:
+			return PackedFloat64Array()
+		var infinite := bool(def.get("infinite_reserve"))
+		var full := 0 if infinite else int(def.get("magazine")) + int(def.call("reserve_cap"))
+		var value: Variant = rater.call(def) if rater.is_valid() else rate(def)
+		return PackedFloat64Array([float(int(def.get("slot"))), float(value), float(full), 1.0 if infinite else 0.0])
+	var packed: Array = ClassDB.class_call_static(DROPS_CLASS, &"pack", drops.call("snapshot"), def_row)
+	return packed if packed.size() == 3 else null

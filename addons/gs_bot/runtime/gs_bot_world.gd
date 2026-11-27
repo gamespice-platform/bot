@@ -284,6 +284,13 @@ class DropTable:
 
 
 var _drop_table: DropTable = null
+## [method drops] already packed as [code][ids, at, rows][/code], or null (then [method drop_table] packs [method drops]
+## in script); [method GSBotArms.wire] sets it to [method GSBotArms.pack_drops]. A game that sets [member drops_fn]
+## itself leaves this empty.
+var drop_table_fn: Callable = Callable()
+## Whether [method drop_table] may take [member drop_table_fn]'s native pack (the same columns to the bit); off, it
+## packs [method drops] in script.
+static var native_drops := true
 var _drop_lock := Mutex.new()
 
 
@@ -297,12 +304,18 @@ func drop_table() -> DropTable:
 	if t == null or t.version != contacts_version:
 		t = DropTable.new()
 		t.version = contacts_version
-		for d: Dictionary in drops():
-			t.ids.push_back(int(d["id"]))
-			t.at.push_back(d["position"])
-			t.rows.push_back(float(int(d.get("slot", 0))))
-			t.rows.push_back(float(d.get("value", 0.0)))
-			t.rows.push_back(float(d.get("ammo", 0.0)))
+		var packed: Variant = drop_table_fn.call() if native_drops and drop_table_fn.is_valid() else null
+		if packed is Array:
+			t.ids = packed[0]
+			t.at = packed[1]
+			t.rows = packed[2]
+		else:
+			for d: Dictionary in drops():
+				t.ids.push_back(int(d["id"]))
+				t.at.push_back(d["position"])
+				t.rows.push_back(float(int(d.get("slot", 0))))
+				t.rows.push_back(float(d.get("value", 0.0)))
+				t.rows.push_back(float(d.get("ammo", 0.0)))
 		_drop_table = t
 	_drop_lock.unlock()
 	return t
