@@ -58,7 +58,7 @@ func think_mt_row(me: GSBotContact, world: GSBotWorld, now: float) -> PackedFloa
 	var p := settings.profile
 	var eye := me.eye()
 	var flags := (1 if _visible else 0) | (2 if p.through_walls >= 0.5 else 0)
-	_mt_key = PackedFloat64Array([me.id, me.team, eye.x, eye.y, eye.z, aim.yaw, aim.pitch, p.fov * 0.5, p.sight,
+	_mt_key = PackedFloat64Array([me.id, me.team, eye.x, eye.y, eye.z, aim.yaw, aim.pitch, p.fov * 0.5, p.sight,  # perf-lint: allow alloc the row this call answers to the threaded pass, one per bot per tick
 		target_id, flags, now, world.sight_stamp()])
 	return _mt_key
 
@@ -81,7 +81,10 @@ func _perceive_held_mt(me_id: int, me_team: int, eye: Vector3, half: float, sigh
 	var key := _mt_key
 	if not key.is_empty():
 		_mt_key = PackedFloat64Array()
-		if key == PackedFloat64Array([me_id, me_team, eye.x, eye.y, eye.z, aim.yaw, aim.pitch, half, sight, target_id, flags, now, stamp]):
+		# Field by field rather than building the 13-number row again just to compare it (same values, no array per tick).
+		if (key.size() == 13 and key[0] == me_id and key[1] == me_team and key[2] == eye.x and key[3] == eye.y
+				and key[4] == eye.z and key[5] == aim.yaw and key[6] == aim.pitch and key[7] == half and key[8] == sight
+				and key[9] == target_id and key[10] == flags and key[11] == now and key[12] == stamp):
 			mt_hits += 1
 			return _mt_r
 		mt_misses += 1
