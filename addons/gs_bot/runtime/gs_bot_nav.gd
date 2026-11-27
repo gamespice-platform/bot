@@ -227,6 +227,11 @@ func _step_stitches(job: Dictionary, until_usec: int) -> bool:
 		job.erase("best_score")
 		if _past(until_usec):
 			return false
+	return _stitch_links(job, until_usec, max_rise)
+
+
+## Stage 4 of [method _step_stitches]: one ride per island pair (two when the rise allows), through the closest pair that sees across. True when every pair is done or the limit is reached.
+func _stitch_links(job: Dictionary, until_usec: int, max_rise: float) -> bool:
 	var best_of: Dictionary[Vector2i, PackedVector3Array] = job["best"]
 	var pairs: Array[Vector2i] = job["pairs"]
 	var space: PhysicsDirectSpaceState3D = null
