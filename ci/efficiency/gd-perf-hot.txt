@@ -1,0 +1,30 @@
+# Per-tick bot scripts checked by gs-ci scripts/check-gd-perf.py (the CI efficiency step).
+# One fnmatch glob per line over tracked paths. Baseline: ci/efficiency/gd-perf.tsv (only shrinks).
+# Left out on purpose: build-time and offline tools (nav prep/tiles/parse, links, demo export,
+# eval gate, aim stats, heatmap, ride harvest, soak, profile, settings, persona, names).
+addons/gs_bot/core/gs_bot_contact.gd
+addons/gs_bot/core/gs_bot_contact_table.gd
+addons/gs_bot/core/gs_bot_intent.gd
+addons/gs_bot/runtime/gs_bot_brain*.gd
+addons/gs_bot/runtime/gs_bot_aim.gd
+addons/gs_bot/runtime/gs_bot_aim_solver.gd
+addons/gs_bot/runtime/gs_bot_world.gd
+addons/gs_bot/runtime/gs_bot_arms.gd
+addons/gs_bot/runtime/gs_bot_goal.gd
+addons/gs_bot/runtime/gs_bot_hiding.gd
+addons/gs_bot/runtime/gs_bot_mlp.gd
+addons/gs_bot/runtime/gs_bot_nav.gd
+addons/gs_bot/runtime/gs_bot_nav_core.gd
+addons/gs_bot/runtime/gs_bot_objective.gd
+addons/gs_bot/runtime/gs_bot_pickup.gd
+addons/gs_bot/runtime/gs_bot_policy.gd
+addons/gs_bot/runtime/gs_bot_search.gd
+addons/gs_bot/runtime/gs_bot_style.gd
+addons/gs_bot/runtime/gs_bot_think_tier.gd
+addons/gs_bot/runtime/gs_bot_tricks.gd
+addons/gs_bot/runtime/gs_bot_unstick.gd
+addons/gs_bot/runtime/surf/gs_bot_surf_course.gd
+addons/gs_bot/runtime/surf/gs_bot_surf_pilot*.gd
+addons/gs_bot/runtime/surf/gs_bot_surf_ride.gd
+# Run once: the model load and encode, the nav bake's set-up and its link/stitch build jobs.
+cold+: from_data|encode|_set_up|begin_edges|_run_edges|_step_stitches|_stitch_best
