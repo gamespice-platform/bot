@@ -439,3 +439,19 @@ func spread_points(count: int, stream: GSRandomStream, min_gap: float = 6.0) -> 
 		if far < min_gap:
 			break
 	return out
+
+
+## Builds now everything [method joined], [method route] and [method path] would build the first time they are asked
+## (the islands, each island's triangle grid, the polygon grid, the ride graph, the synced flag), so that worker
+## threads can then ask them at once without a lock, with the answers they would have had. True when ready; false
+## (nothing to share yet: ask under a lock) before the bake lands or while held.
+## Call it on the main thread, again after any ride change ([method add_ride], [method clear_rides]).
+func warm_queries() -> bool:
+	if not is_ready():
+		return false
+	for island in islands():
+		if not island.has("grid"):
+			island["grid"] = GSBotNavGeometry.grid(mesh, island)
+	_poly_grid_ready(mesh.get_vertices())
+	var _graph := _rides_between_islands()
+	return true
