@@ -225,24 +225,27 @@ func _step_stitches(job: Dictionary, until_usec: int) -> bool:
 		job.erase("rim_at")
 		job.erase("rim_of")
 		job.erase("best_score")
+		# one ray query for the whole stage, its ends set per candidate
+		job["ray"] = PhysicsRayQueryParameters3D.new()
 		if _past(until_usec):
 			return false
-	return _stitch_links(job, until_usec, max_rise)
-
-
-## Stage 4 of [method _step_stitches]: one ride per island pair (two when the rise allows), through the closest pair that sees across. True when every pair is done or the limit is reached.
-func _stitch_links(job: Dictionary, until_usec: int, max_rise: float) -> bool:
-	var best_of: Dictionary[Vector2i, PackedVector3Array] = job["best"]
-	var pairs: Array[Vector2i] = job["pairs"]
+	# the world's space once per slice, here rather than in the stage's loop
 	var space: PhysicsDirectSpaceState3D = null
 	if _root != null and is_instance_valid(_root) and _root.is_inside_tree():
 		space = _root.get_world_3d().direct_space_state
-	var first_id: int = job["first_id"]
-	var limit: int = job["limit"]
-	var cost: float = job["cost"]
-	var added: int = job["added"]
+	var pairs: Array[Vector2i] = job["pairs"]
+	var reached := _stitch_links(job["best"], pairs, space, job["ray"], int(job["i"]), int(job["added"]),
+			int(job["first_id"]), int(job["limit"]), float(job["cost"]), max_rise, until_usec)
+	job["i"] = reached.x
+	job["added"] = reached.y
+	return reached.x >= pairs.size()
+
+
+## Stage 4 of [method _step_stitches]: one ride per island pair (two when the rise allows), through the closest pair that sees across ([param space] null sees across everything), from pair [param from] with [param added] rides so far. Returns the next pair and the rides added; the next pair is [code]pairs.size()[/code] when every pair is done or [param limit] is reached.
+func _stitch_links(best_of: Dictionary[Vector2i, PackedVector3Array], pairs: Array[Vector2i], space: PhysicsDirectSpaceState3D,
+		ray: PhysicsRayQueryParameters3D, from: int, added: int, first_id: int, limit: int, cost: float, max_rise: float, until_usec: int) -> Vector2i:
 	var chest := Vector3(0.0, 0.9, 0.0)
-	var n: int = job["i"]
+	var n := from
 	while n < pairs.size():
 		var pair: Vector2i = pairs[n]
 		n += 1
@@ -251,7 +254,10 @@ func _stitch_links(job: Dictionary, until_usec: int, max_rise: float) -> bool:
 		var w := Vector3.INF
 		var candidates := best_of[pair]
 		for c in range(0, candidates.size(), 2):
-			if space == null or space.intersect_ray(PhysicsRayQueryParameters3D.create(candidates[c] + chest, candidates[c + 1] + chest)).is_empty():
+			if space != null:
+				ray.from = candidates[c] + chest
+				ray.to = candidates[c + 1] + chest
+			if space == null or space.intersect_ray(ray).is_empty():
 				v = candidates[c]
 				w = candidates[c + 1]
 				break
@@ -264,13 +270,10 @@ func _stitch_links(job: Dictionary, until_usec: int, max_rise: float) -> bool:
 				add_ride(low, high, first_id + added, cost)
 				added += 1
 			if added >= limit:
-				job["added"] = added
-				return true
+				return Vector2i(pairs.size(), added)
 		if _past(until_usec):
 			break
-	job["i"] = n
-	job["added"] = added
-	return n >= pairs.size()
+	return Vector2i(n, added)
 
 
 ## Stage 2 of [method _step_stitches]: the open-border points of every polygon, gridded by [param max_gap]. True when every polygon is seen.
