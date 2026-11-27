@@ -87,6 +87,18 @@ The brain's answer is one row per bot, in the order of the bots handed in. It ho
 
 `GSBotIntentTable` holds these columns: `pack(intents)` or `set_row(i, intent)` fill it, and `state_names` is the state name table. `finish(move_map, fire_map)` makes the command columns `cmd_move` (`move.limit_length(1.0)`), `move_buttons` and `fire_buttons`. The maps hold, per intent bit, the bit the game's command sets for it, so gs-bot names no command class. It runs in one native call (`GSSimBotFinish.write`) when the library has it and `GSBotIntentTable.native_enabled` is on, otherwise in script; `digest()` hashes every column and must agree. `examples/native_parity_finish.gd` holds the two to the bit. Fatal Contact's `think_finish` copies a row's columns into its commands instead of reading the `GSBotIntent`; recoil compensation and coast still read the mind and stay in script there.
 
+## The threaded perceive pass (API 53)
+
+Perceiving is the candidate scan plus the choice of target. The pass runs it for every threaded brain at once, in Rust, before the workers start. The game calls three things on the main thread, after `par_ready` and before `par_begin`:
+
+1. `brain.think_mt_row(me, world, now)` for each bot. It returns the 13 numbers (`GSSimBotThinkMt.ROW`) that `think` would hand `GSSimBotMind.perceive_held`. The row is empty when this tick's perceive is not a held one. `brain.think_mt_mind()` is the mind that goes with it.
+2. `GSSimBotThinkMt.perceive_all(minds, rows, world.sight_callable(), threads)`. Each step runs on gs-sim's own rayon pool and is cache-only: a bot whose choice needs a ray it has no cached answer for stops at that row (`gs_sim_bots::choose`, `Pick::Need`). The main thread then casts those rays through each mind's own sight query and caches them. The steps rerun until every bot has chosen. Results go back by index, so the thread count changes nothing.
+3. `brain.think_mt_put(answer)`.
+
+When `think` reaches `perceive_held` with exactly the row it was handed, it takes the pass's answer (`mt_hits`). Any other call goes to the mind as before. A row that was answered and then asked differently counts in `mt_misses`. That is always 0: a miss would mean the pass grew the sight cache on its own. Fatal Contact's `headless_botthreads` holds the pass to the bit against the script path, with `mt_misses` 0.
+
+Routing and roaming (about 4 to 5 ms of `srv_bots` at 32 bots) stay in script on the workers: they need a native nav mirror and the trace mirror.
+
 ## Port order
 
 Cheapest win first. Each step lands alone with its parity gate and a PH bench.
