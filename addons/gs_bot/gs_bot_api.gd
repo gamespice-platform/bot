@@ -66,5 +66,6 @@ extends RefCounted
 # 47: GSBotBrain._steer_native passes its inputs to GSSimBotMind.steer_step/steer_drift as arguments; the glance state stays in the mind (glance_state/glance_load handoff).
 # 49: GSBotWorld.drop_table packs natively (GSSimBotDrops.pack through GSBotArms.pack_drops, the weapon read once per id; the same columns to the bit): GSBotWorld.drop_table_fn, GSBotWorld.native_drops, GSBotArms.pack_drops, set by GSBotArms.wire.
 # 50: GSBotUnstick steps natively (GSSimBotMind.unstick_step, its state kept in the mind; the same answer to the bit, the nudge query stays in script): GSBotUnstick.native_enabled, the mind argument of GSBotUnstick.step, GSBotBrainState._unstick_mind.
-const LEVEL := 50
+# 52: GSBotIntentTable (one tick's intents as packed columns, docs/native-bot-brain.md step 3) and its finish (the stick limited to 1 and the command buttons through a game's bit maps; natively through GSSimBotFinish.write when the library has it, GSBotIntentTable.native_enabled; the same columns to the bit).
+const LEVEL := 52
 const OLDEST := 1
