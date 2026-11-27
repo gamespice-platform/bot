@@ -46,7 +46,7 @@ static func survey(candidates: PackedVector3Array, watchers: PackedVector3Array,
 			if d > reach or d < 1.0:
 				continue
 			near += 1
-			if bool(los.call(eye, target)):
+			if bool(los.call(eye, target)):  # perf-lint: allow dynamic_call the caller's line-of-sight or reach callback
 				seen += 1
 		# A spot nobody is within reach of is as hidden as it is unvisited: count it as seen by
 		# half, so a far corner of a field does not beat a cupboard.
@@ -61,7 +61,7 @@ static func survey(candidates: PackedVector3Array, watchers: PackedVector3Array,
 ## says so. [param skill] 0..1. An empty dictionary when nothing qualifies.
 static func choose(spots: Array, me: Vector3, threats: PackedVector3Array, taken: PackedVector3Array,
 		stream: GSRandomStream, skill: float, reachable: Callable = Callable(), spread: float = SPREAD) -> Dictionary:
-	var scored: Array = []
+	var scored: Array[Array] = []
 	for spot: Dictionary in spots:
 		var at: Vector3 = spot["at"]
 		var score := (1.0 - float(spot["exposure"])) * 3.0
@@ -82,7 +82,7 @@ static func choose(spots: Array, me: Vector3, threats: PackedVector3Array, taken
 		tries += 1
 		var pick: Array = scored[stream.next_range_i(0, mini(depth, scored.size()) - 1)]
 		var spot: Dictionary = pick[1]
-		if not reachable.is_valid() or bool(reachable.call(spot["at"])):
+		if not reachable.is_valid() or bool(reachable.call(spot["at"])):  # perf-lint: allow dynamic_call the caller's line-of-sight or reach callback
 			return spot
 		scored.erase(pick)
 	return {}
@@ -115,7 +115,7 @@ static func flee_spot(spots: Array, me: Vector3, threat: Vector3, threat_eye: Ve
 		var score := (1.0 - float(spot["exposure"])) * 2.0 + dir.dot(away) - from_me / within
 		if score <= best_score:
 			continue
-		if bool(los.call(threat_eye, at + Vector3(0.0, head, 0.0))):
+		if bool(los.call(threat_eye, at + Vector3(0.0, head, 0.0))):  # perf-lint: allow dynamic_call the caller's line-of-sight or reach callback
 			continue
 		best_score = score
 		best = spot
@@ -131,4 +131,4 @@ static func sees(eye: Vector3, forward: Vector3, fov: float, sight: float, targe
 		return false
 	if d > 0.01 and rad_to_deg(forward.angle_to(to / d)) > fov * 0.5:
 		return false
-	return bool(los.call(eye, target))
+	return bool(los.call(eye, target))  # perf-lint: allow dynamic_call the caller's line-of-sight or reach callback
