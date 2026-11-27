@@ -6,6 +6,8 @@ extends RefCounted
 ## [b]Cheap.[/b] Per tick a string compare and a few branches; cover costs up to six rays per peek, a vantage up to eighteen per hold, from this bot's own [GSRandomStream] ([code]gs_bot_style[/code]), so a bot with no weapon class, or `bot_styles 0`, plays exactly as before.
 
 const CHANNEL := "gs.bot"
+## Read-only "no rows for this weapon" default.
+const _NO_ROWS: Array = []
 
 ## Phases.
 const NONE := 0
@@ -231,7 +233,7 @@ func refresh(me: GSBotContact, settings: GSBotSettings) -> void:
 	if held == "" or p.styles <= 0.0:
 		_set_row({}, p)
 		return
-	var rows: Array = settings.style_table().get(held, [])
+	var rows: Array = settings.style_table().get(held, _NO_ROWS)
 	if not _picked.has(held):
 		_picked[held] = pick(rows, _rng.next_unit())
 	var i: int = _picked[held]

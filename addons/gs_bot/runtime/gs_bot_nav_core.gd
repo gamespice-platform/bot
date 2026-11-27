@@ -9,6 +9,8 @@ const CHANNEL := "gs.bot.nav"
 ## them). The radius rounds up to whole cells, so a body whose radius is not a multiple wants its own
 ## cell: 0.4064 m at 0.175 bakes as 0.525 m. Finer costs bake time on a big map.
 const CELL := 0.175
+## Read-only "no edges" default for graph lookups.
+const _NO_NEXT: Array = []
 const CELL_HEIGHT := 0.1
 
 ## The baked mesh, or null before [method bake].
@@ -691,7 +693,7 @@ func joined(from: Vector3, to: Vector3) -> bool:
 	var queue: Array[int] = [a]
 	while not queue.is_empty():
 		var at: int = queue.pop_back()
-		for next: int in graph.get(at, []):
+		for next: int in graph.get(at, _NO_NEXT):
 			if next == b:
 				return true
 			if not seen.has(next):

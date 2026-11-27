@@ -16,8 +16,6 @@ addons/gs_bot/runtime/gs_bot_aim.gd::describe::untyped_array	1
 addons/gs_bot/runtime/gs_bot_aim.gd::engagement::alloc	1
 addons/gs_bot/runtime/gs_bot_aim.gd::engagement::untyped_array	1
 addons/gs_bot/runtime/gs_bot_aim.gd::track::dynamic_call	1
-addons/gs_bot/runtime/gs_bot_aim_solver.gd::_height_at::alloc	2
-addons/gs_bot/runtime/gs_bot_aim_solver.gd::_height_at::untyped_array	1
 addons/gs_bot/runtime/gs_bot_aim_solver.gd::_pitch::alloc	3
 addons/gs_bot/runtime/gs_bot_aim_solver.gd::_pitch::untyped_array	1
 addons/gs_bot/runtime/gs_bot_arms.gd::drops_of::alloc	3
@@ -103,7 +101,7 @@ addons/gs_bot/runtime/gs_bot_nav_core.gd::bake::untyped_array	1
 addons/gs_bot/runtime/gs_bot_nav_core.gd::bake_in_background::untyped_array	1
 addons/gs_bot/runtime/gs_bot_nav_core.gd::cache_path::string_build	2
 addons/gs_bot/runtime/gs_bot_nav_core.gd::describe::untyped_array	1
-addons/gs_bot/runtime/gs_bot_nav_core.gd::joined::alloc	3
+addons/gs_bot/runtime/gs_bot_nav_core.gd::joined::alloc	2
 addons/gs_bot/runtime/gs_bot_nav_core.gd::on_island::untyped_array	1
 addons/gs_bot/runtime/gs_bot_nav_core.gd::rides::alloc	2
 addons/gs_bot/runtime/gs_bot_nav_core.gd::route::alloc	1
@@ -142,7 +140,7 @@ addons/gs_bot/runtime/gs_bot_style.gd::describe::untyped_array	1
 addons/gs_bot/runtime/gs_bot_style.gd::label::string_build	1
 addons/gs_bot/runtime/gs_bot_style.gd::pick::dynamic_call	1
 addons/gs_bot/runtime/gs_bot_style.gd::pick::untyped_array	1
-addons/gs_bot/runtime/gs_bot_style.gd::refresh::alloc	2
+addons/gs_bot/runtime/gs_bot_style.gd::refresh::alloc	1
 addons/gs_bot/runtime/gs_bot_style.gd::refresh::untyped_array	1
 addons/gs_bot/runtime/gs_bot_style.gd::vantage::alloc	3
 addons/gs_bot/runtime/gs_bot_style.gd::vantage::untyped_array	2
