@@ -27,4 +27,4 @@ addons/gs_bot/runtime/surf/gs_bot_surf_course.gd
 addons/gs_bot/runtime/surf/gs_bot_surf_pilot*.gd
 addons/gs_bot/runtime/surf/gs_bot_surf_ride.gd
 # Run once: the model load and encode, the nav bake's set-up and its link/stitch build jobs.
-cold+: from_data|encode|_set_up|begin_edges|_run_edges|_step_stitches|_stitch_best
+cold+: from_data|encode|_set_up|begin_edges|_run_edges|_step_stitches|_stitch_best|_stitch_links

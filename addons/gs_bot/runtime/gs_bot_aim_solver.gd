@@ -8,6 +8,10 @@ const STEP := 1.0 / 120.0
 const GRAVITY := 9.8
 const MAX_TIME := 15.0
 
+## Flight time of the last [method _height_at] (and so of the last [method _pitch]) that hit, seconds.
+## A slot instead of a returned pair so the bisection allocates nothing; bots think on one thread.
+static var _time := 0.0
+
 
 ## Reads muzzle_velocity, bullet_gravity and drag off [param tuning] by duck typing (a gs-weapon
 ## GSWeaponBallistics fits, so does any Object or Dictionary with those names). Null or
@@ -24,42 +28,42 @@ static func solve(muzzle: Vector3, target: Vector3, velocity: Vector3, tuning: V
 		var flat := Vector2(aim.x - muzzle.x, aim.z - muzzle.z).length()
 		var h := aim.y - muzzle.y
 		var sol := _pitch(v0, g, drag, flat, h)
-		if sol.is_empty():
+		if is_nan(sol):
 			return target
-		t = sol[1]
+		t = _time
 		aim = target + velocity * t
 	var r := Vector2(aim.x - muzzle.x, aim.z - muzzle.z).length()
 	if r < 0.001:
 		return target
 	var last := _pitch(v0, g, drag, r, aim.y - muzzle.y)
-	if last.is_empty():
+	if is_nan(last):
 		return target
-	return Vector3(aim.x, muzzle.y + tan(last[0]) * r, aim.z)
+	return Vector3(aim.x, muzzle.y + tan(last) * r, aim.z)
 
 
 ## Launch pitch (radians, absolute) that reaches horizontal [param r] at height [param h], and the
-## flight time; empty when out of reach.
-static func _pitch(v0: float, g: float, drag: float, r: float, h: float) -> Array:
+## flight time in [member _time]; NAN when out of reach.
+static func _pitch(v0: float, g: float, drag: float, r: float, h: float) -> float:
 	var lo := -0.6
 	var hi := 1.0
 	var at_hi := _height_at(v0, g, drag, hi, r)
-	if is_nan(at_hi[0]) or at_hi[0] < h:
-		return []
+	if is_nan(at_hi) or at_hi < h:
+		return NAN
 	for i in 24:
 		var mid := (lo + hi) * 0.5
 		var res := _height_at(v0, g, drag, mid, r)
-		if is_nan(res[0]) or res[0] < h:
+		if is_nan(res) or res < h:
 			lo = mid
 		else:
 			hi = mid
 	var best := _height_at(v0, g, drag, hi, r)
-	if is_nan(best[0]) or absf(best[0] - h) > 0.25 + r * 0.01:
-		return []
-	return [hi, best[1]]
+	if is_nan(best) or absf(best - h) > 0.25 + r * 0.01:
+		return NAN
+	return hi
 
 
-## [height, time] when a bullet launched at [param pitch] passes horizontal [param r]; [NAN, NAN] if it never does.
-static func _height_at(v0: float, g: float, drag: float, pitch: float, r: float) -> Array:
+## Height when a bullet launched at [param pitch] passes horizontal [param r], its time in [member _time]; NAN if it never does.
+static func _height_at(v0: float, g: float, drag: float, pitch: float, r: float) -> float:
 	var x := 0.0
 	var y := 0.0
 	var vx := cos(pitch) * v0
@@ -75,13 +79,14 @@ static func _height_at(v0: float, g: float, drag: float, pitch: float, r: float)
 		var nx := x + vx * STEP
 		if nx >= r:
 			var f := (r - x) / maxf(nx - x, 0.000001)
-			return [y + vy * STEP * f, t + STEP * f]
+			_time = t + STEP * f
+			return y + vy * STEP * f
 		x = nx
 		y += vy * STEP
 		t += STEP
 		if vx < 1.0:
 			break
-	return [NAN, NAN]
+	return NAN
 
 
 static func _read(tuning: Variant, key: String, fallback: float) -> float:

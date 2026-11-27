@@ -492,49 +492,51 @@ func _choose(me: GSBotContact, all: Array, world: GSBotWorld, p: GSBotProfile, e
 	var best_score := INF
 	# Candidates inside range and cone come first; the sight test is the dear part, so it is
 	# asked of the current target and then of the best score only until one is seen.
-	var scores := PackedFloat32Array()
+	_scores.clear()
 	# A bot that still sees its target keeps it whoever else is in view, so the target alone is
 	# tested first and the scan over every body runs only when that fails (most thinks of a fight).
 	if target_first and _visible:
 		var held := _contact(world, all, target_id)
 		if held != null and held.alive:
 			_one[0] = held
-			if not _candidates(me, _one, p, eye, forward, half, scores).is_empty() and (through or _sees(world, eye, held, now)):
+			if not _candidates(me, _one, p, eye, forward, half, _scores).is_empty() and (through or _sees(world, eye, held, now)):
 				current = held
 			_one[0] = null
-			scores.clear()
-	var cand: Array[GSBotContact] = []
+			_scores.clear()
+	# The scans refill the brain's reused buffer, which is read only when one ran.
+	var cand := _cand
 	if current == null:
 		var senses := world.senses(all) if world != null else null  # packed once per contacts_version
-		cand = _candidates_native(senses, world, me, p, eye, forward, half, scores) if senses != null else _candidates(me, _every(world, all), p, eye, forward, half, scores)
+		cand = _candidates_native(senses, world, me, p, eye, forward, half, _scores) if senses != null else _candidates(me, _every(world, all), p, eye, forward, half, _scores)
 		if _visible:
 			for i in cand.size():
 				if cand[i].id == target_id:
 					if through or _sees(world, eye, cand[i], now):
 						current = cand[i]
-					scores[i] = INF
+					_scores[i] = INF
 					break
 	if current == null:
 		while true:
 			var bi := -1
 			best_score = INF
 			for i in cand.size():
-				if scores[i] < best_score:
-					best_score = scores[i]
+				if _scores[i] < best_score:
+					best_score = _scores[i]
 					bi = i
 			if bi < 0:
 				break
 			if through or _sees(world, eye, cand[bi], now):
 				best = cand[bi]
 				break
-			scores[bi] = INF
+			_scores[bi] = INF
 
 	return current if current != null else best
 
 
 ## Enemies inside range and cone (or already being fought), appended to the result with their closeness score in [param scores].
 func _candidates(me: GSBotContact, all: Array, p: GSBotProfile, eye: Vector3, forward: Vector3, half: float, scores: PackedFloat32Array) -> Array[GSBotContact]:
-	var cand: Array[GSBotContact] = []
+	var cand := _cand
+	cand.clear()
 	for item in all:
 		if not (item is GSBotContact):
 			continue
@@ -577,7 +579,8 @@ static func _every(world: GSBotWorld, all: Array) -> Array:
 
 ## [method _candidates] by GameSpice Sim's native scan over the tick's packed bodies: the same list, scores and forgetting.
 func _candidates_native(senses: Object, world: GSBotWorld, me: GSBotContact, p: GSBotProfile, eye: Vector3, forward: Vector3, half: float, scores: PackedFloat32Array) -> Array[GSBotContact]:
-	var cand: Array[GSBotContact] = []
+	var cand := _cand
+	cand.clear()
 	var idx: PackedInt32Array = senses.call(&"candidates", me.id, me.team, eye, forward, half, p.sight, CLOSE_NOTICE, target_id, _visible)
 	if senses.call(&"target_dead"):
 		_target_down()
@@ -678,7 +681,7 @@ func _hear(me: GSBotContact, all: Array, world: GSBotWorld, p: GSBotProfile, now
 	var my_id := me.id
 	var here := me.position
 	var reach := p.hearing
-	for s in _heard:
+	for s: Dictionary in _heard:
 		var source := int(s.get("source", 0))
 		if source == my_id:
 			continue

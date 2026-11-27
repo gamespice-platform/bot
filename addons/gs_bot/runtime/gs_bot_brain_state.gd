@@ -29,6 +29,9 @@ const GLANCE := 1.2
 const SIGHT_REUSE := 0.045
 
 var _one: Array = [null]
+## [method _choose]'s candidates and their scores, reused across thinks (the scans clear them).
+var _cand: Array[GSBotContact] = []
+var _scores := PackedFloat32Array()
 
 ## Longest gap between thinks that is integrated as one step, seconds.
 const MAX_STEP := 0.25
