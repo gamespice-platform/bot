@@ -195,8 +195,10 @@ func _step_stitches(job: Dictionary, until_usec: int) -> bool:
 		if islands().size() < 2:
 			return true
 		job["stage"] = 2
-		job["grid"] = {}
-		job["rim"] = []
+		var grid: Dictionary[Vector2i, PackedInt32Array] = {}
+		job["grid"] = grid
+		job["rim_at"] = PackedVector3Array()
+		job["rim_of"] = PackedInt32Array()
 		job["i"] = 0
 		if _past(until_usec):
 			return false
@@ -204,7 +206,10 @@ func _step_stitches(job: Dictionary, until_usec: int) -> bool:
 		if not _stitch_rim(job, until_usec, vertices, max_gap):
 			return false
 		job["stage"] = 3
-		job["best"] = {}
+		var best_at: Dictionary[Vector2i, PackedVector3Array] = {}
+		var best_score: Dictionary[Vector2i, PackedFloat64Array] = {}
+		job["best"] = best_at
+		job["best_score"] = best_score
 		job["i"] = 0
 		if _past(until_usec):
 			return false
@@ -212,14 +217,18 @@ func _step_stitches(job: Dictionary, until_usec: int) -> bool:
 		if not _stitch_best(job, until_usec, max_gap, max_rise):
 			return false
 		job["stage"] = 4
-		job["pairs"] = (job["best"] as Dictionary).keys()
+		var best_pairs: Dictionary[Vector2i, PackedVector3Array] = job["best"]
+		var keys: Array[Vector2i] = best_pairs.keys()
+		job["pairs"] = keys
 		job["i"] = 0
 		job.erase("grid")
-		job.erase("rim")
+		job.erase("rim_at")
+		job.erase("rim_of")
+		job.erase("best_score")
 		if _past(until_usec):
 			return false
-	var best_of: Dictionary = job["best"]
-	var pairs: Array = job["pairs"]
+	var best_of: Dictionary[Vector2i, PackedVector3Array] = job["best"]
+	var pairs: Array[Vector2i] = job["pairs"]
 	var space: PhysicsDirectSpaceState3D = null
 	if _root != null and is_instance_valid(_root) and _root.is_inside_tree():
 		space = _root.get_world_3d().direct_space_state
@@ -235,10 +244,11 @@ func _step_stitches(job: Dictionary, until_usec: int) -> bool:
 		# the closest pair may lie through a wall (a doorway's jamb); the next closest that sees across is the link
 		var v := Vector3.INF
 		var w := Vector3.INF
-		for candidate: Array in best_of[pair]:
-			if space == null or space.intersect_ray(PhysicsRayQueryParameters3D.create(candidate[0] + chest, candidate[1] + chest)).is_empty():
-				v = candidate[0]
-				w = candidate[1]
+		var candidates := best_of[pair]
+		for c in range(0, candidates.size(), 2):
+			if space == null or space.intersect_ray(PhysicsRayQueryParameters3D.create(candidates[c] + chest, candidates[c + 1] + chest)).is_empty():
+				v = candidates[c]
+				w = candidates[c + 1]
 				break
 		if v != Vector3.INF and not _buried(v) and not _buried(w):
 			var low := v if v.y <= w.y else w
@@ -260,8 +270,9 @@ func _step_stitches(job: Dictionary, until_usec: int) -> bool:
 
 ## Stage 2 of [method _step_stitches]: the open-border points of every polygon, gridded by [param max_gap]. True when every polygon is seen.
 func _stitch_rim(job: Dictionary, until_usec: int, vertices: PackedVector3Array, max_gap: float) -> bool:
-	var grid: Dictionary = job["grid"]
-	var rim: Array = job["rim"]
+	var grid: Dictionary[Vector2i, PackedInt32Array] = job["grid"]
+	var rim_at: PackedVector3Array = job["rim_at"]
+	var rim_of: PackedInt32Array = job["rim_of"]
 	var count := mesh.get_polygon_count()
 	var i: int = job["i"]
 	while i < count:
@@ -275,33 +286,40 @@ func _stitch_rim(job: Dictionary, until_usec: int, vertices: PackedVector3Array,
 			# two points per rim edge, so a long wall of mesh still has candidates along it
 			for p: Vector3 in [pa, pa.lerp(pb, 0.5)]:
 				var cell := Vector2i(floori(p.x / max_gap), floori(p.z / max_gap))
-				if not grid.has(cell):
-					grid[cell] = []
-				grid[cell].append(rim.size())
-				rim.append([p, owner])
+				var in_cell: PackedInt32Array = grid.get(cell, PackedInt32Array())
+				var _grew := in_cell.append(rim_at.size())
+				grid[cell] = in_cell
+				var _at := rim_at.append(p)
+				var _of := rim_of.append(owner)
 		i += 1
 		if i % 64 == 0 and _past(until_usec):
 			break
+	# packed arrays are values: the job keeps what this stage added
+	job["rim_at"] = rim_at
+	job["rim_of"] = rim_of
 	job["i"] = i
 	return i >= count
 
 
 ## Stage 3 of [method _step_stitches]: the closest candidate pairs of rim points per pair of islands. True when every rim point is seen.
 func _stitch_best(job: Dictionary, until_usec: int, max_gap: float, max_rise: float) -> bool:
-	var grid: Dictionary = job["grid"]
-	var rim: Array = job["rim"]
-	var best: Dictionary = job["best"]
+	var grid: Dictionary[Vector2i, PackedInt32Array] = job["grid"]
+	var rim_at: PackedVector3Array = job["rim_at"]
+	var rim_of: PackedInt32Array = job["rim_of"]
+	var best_at: Dictionary[Vector2i, PackedVector3Array] = job["best"]
+	var best_score: Dictionary[Vector2i, PackedFloat64Array] = job["best_score"]
+	var none := PackedInt32Array()
 	var i: int = job["i"]
-	while i < rim.size():
-		var entry: Array = rim[i]
-		var v: Vector3 = entry[0]
-		var a: int = entry[1]
+	while i < rim_at.size():
+		var v := rim_at[i]
+		var a := rim_of[i]
 		var cv := Vector2i(floori(v.x / max_gap), floori(v.z / max_gap))
 		for dx in range(-1, 2):
 			for dz in range(-1, 2):
-				for j: int in grid.get(Vector2i(cv.x + dx, cv.y + dz), []):
-					var w: Vector3 = rim[j][0]
-					var b: int = rim[j][1]
+				var near: PackedInt32Array = grid.get(Vector2i(cv.x + dx, cv.y + dz), none)
+				for j in near:
+					var w := rim_at[j]
+					var b := rim_of[j]
 					if b == a or a < 0 or b < 0 or a > b:
 						continue
 					var flat := Vector2(v.x - w.x, v.z - w.z).length()
@@ -310,18 +328,25 @@ func _stitch_best(job: Dictionary, until_usec: int, max_gap: float, max_rise: fl
 						continue
 					var score := flat + dy
 					var pair := Vector2i(a, b)
-					if not best.has(pair):
-						best[pair] = []
-					var kept: Array = best[pair]
-					kept.append([v, w, score])
-					kept.sort_custom(func(x: Array, y: Array) -> bool: return x[2] < y[2])
-					if kept.size() > STITCH_CANDIDATES:
-						kept.resize(STITCH_CANDIDATES)
+					# the closest STITCH_CANDIDATES, nearest first: (v, w) at 2k, 2k + 1, score at k
+					var scores: PackedFloat64Array = best_score.get(pair, PackedFloat64Array())
+					var at: PackedVector3Array = best_at.get(pair, PackedVector3Array())
+					var k := scores.bsearch(score, false)
+					if k >= STITCH_CANDIDATES:
+						continue
+					var _s := scores.insert(k, score)
+					var _v := at.insert(2 * k, w)
+					var _w := at.insert(2 * k, v)
+					if scores.size() > STITCH_CANDIDATES:
+						var _sr := scores.resize(STITCH_CANDIDATES)
+						var _ar := at.resize(2 * STITCH_CANDIDATES)
+					best_score[pair] = scores
+					best_at[pair] = at
 		i += 1
 		if i % 64 == 0 and _past(until_usec):
 			break
 	job["i"] = i
-	return i >= rim.size()
+	return i >= rim_at.size()
 
 
 ## Whether a point a little above [param feet] lies inside a solid body: a scrap of mesh a bake leaves inside a wall's footprint, which no body stands on or reaches.
