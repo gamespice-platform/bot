@@ -46,6 +46,9 @@ var settings: GSBotSettings = null
 
 ## The view, the aim error, the reaction and the trigger.
 var aim: GSBotAim = null
+## This brain's GSSimBotMind (the aim's, kept when the aim falls back to script): it holds the
+## sight cache, and perceives when the world packed a native scan this tick. Null: all in script.
+var _mind: Object = null
 
 ## The latest intent, for describe().
 var last: GSBotIntent = null
@@ -275,6 +278,11 @@ func _pickup_mind() -> Object:
 	return null
 
 
+## The native mind that keeps the unstick state: [member _mind], else the aim's, null for the script (GSBotUnstick checks the library and [member GSBotUnstick.native_enabled]).
+func _unstick_mind() -> Object:
+	return _mind if _mind != null else (aim._n if aim != null else null)
+
+
 ## True when a weapon on the floor has this tick: walk to it, look at it, press use near it.
 func _fetch(me: GSBotContact, world: GSBotWorld, p: GSBotProfile, now: float, dt: float, out: GSBotIntent) -> bool:
 	var t := Time.get_ticks_usec() if GSBotClock.on else 0
@@ -407,7 +415,7 @@ func _toward_route(me: GSBotContact, world: GSBotWorld, goal: Vector3) -> Vector
 func _free_if_stuck(me: GSBotContact, world: GSBotWorld, now: float, out: GSBotIntent) -> void:
 	# A duel strafes on the spot by design; only travelling can be stuck.
 	var pushing := out.move.length() > 0.3 and out.state != &"dead" and out.state != &"fight" and out.state != &"retreat"
-	if _unstick.step(me.position, pushing, now, world, settings.profile.stranded_sec) == 0:
+	if _unstick.step(me.position, pushing, now, world, settings.profile.stranded_sec, _unstick_mind()) == 0:
 		return
 	if _unstick.stranded:
 		out.stranded = true

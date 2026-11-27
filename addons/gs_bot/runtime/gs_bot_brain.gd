@@ -62,9 +62,6 @@ const PHASES: Array[StringName] = [&"bb_setup", &"bb_perceive", &"bb_hear", &"bb
 static var phase_us := _zeros()
 static var phase_calls := _zeros()
 
-## This brain's GSSimBotMind (the aim's, kept when the aim falls back to script): it holds the
-## sight cache, and perceives when the world packed a native scan this tick. Null: all in script.
-var _mind: Object = null
 static var _sight_lod_known := -1
 ## The sight LOD last handed to [member _mind] (GSBotWorld.sight_far, sight_far_reuse).
 var _lod_far := 0.0
