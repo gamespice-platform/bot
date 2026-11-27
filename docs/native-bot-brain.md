@@ -71,7 +71,7 @@ At 31 bots a game's contact build wrote about 13 fields into every `GSBotContact
 - `GSBotContactTable.from_contacts(version, contacts)` packs objects (a game's script loop, or a check), and `digest()` hashes every column: a native fill must digest as `from_contacts` of the same bodies.
 - gs-sim fills it with `GSSimBotContacts.fill_table(records, eye, aim, launch)` and the column getters. Fatal Contact's cvar `bot_contact_table` turns it off.
 
-## The intent table (planned)
+## The intent table (API 52)
 
 The brain's answer is one row per bot, in the order of the bots handed in. It holds the `GSBotIntent` fields as packed columns:
 
@@ -83,7 +83,21 @@ The brain's answer is one row per bot, in the order of the bots handed in. It ho
 | ride, target_id | `PackedInt64Array` |
 | state | `PackedInt32Array` index into a state name table handed once |
 
-`GSSimBotMind.fight` already returns a flat row (r[0..14]), which is the precedent. The game's finish step (Fatal Contact's `think_finish`: recoil compensation, coast, the command write) then reads columns and does not touch `GSBotIntent` objects.
+`GSSimBotMind.fight` already returns a flat row (r[0..14]), which is the precedent.
+
+`GSBotIntentTable` holds these columns: `pack(intents)` or `set_row(i, intent)` fill it, and `state_names` is the state name table. `finish(move_map, fire_map)` makes the command columns `cmd_move` (`move.limit_length(1.0)`), `move_buttons` and `fire_buttons`. The maps hold, per intent bit, the bit the game's command sets for it, so gs-bot names no command class. It runs in one native call (`GSSimBotFinish.write`) when the library has it and `GSBotIntentTable.native_enabled` is on, otherwise in script; `digest()` hashes every column and must agree. `examples/native_parity_finish.gd` holds the two to the bit. Fatal Contact's `think_finish` copies a row's columns into its commands instead of reading the `GSBotIntent`; recoil compensation and coast still read the mind and stay in script there.
+
+## The threaded perceive pass (API 53)
+
+Perceiving is the candidate scan plus the choice of target. The pass runs it for every threaded brain at once, in Rust, before the workers start. The game calls three things on the main thread, after `par_ready` and before `par_begin`:
+
+1. `brain.think_mt_row(me, world, now)` for each bot. It returns the 13 numbers (`GSSimBotThinkMt.ROW`) that `think` would hand `GSSimBotMind.perceive_held`. The row is empty when this tick's perceive is not a held one. `brain.think_mt_mind()` is the mind that goes with it.
+2. `GSSimBotThinkMt.perceive_all(minds, rows, world.sight_callable(), threads)`. Each step runs on gs-sim's own rayon pool and is cache-only: a bot whose choice needs a ray it has no cached answer for stops at that row (`gs_sim_bots::choose`, `Pick::Need`). The main thread then casts those rays through each mind's own sight query and caches them. The steps rerun until every bot has chosen. Results go back by index, so the thread count changes nothing.
+3. `brain.think_mt_put(answer)`.
+
+When `think` reaches `perceive_held` with exactly the row it was handed, it takes the pass's answer (`mt_hits`). Any other call goes to the mind as before. A row that was answered and then asked differently counts in `mt_misses`. That is always 0: a miss would mean the pass grew the sight cache on its own. Fatal Contact's `headless_botthreads` holds the pass to the bit against the script path, with `mt_misses` 0.
+
+Routing and roaming (about 4 to 5 ms of `srv_bots` at 32 bots) stay in script on the workers: they need a native nav mirror and the trace mirror.
 
 ## Port order
 
@@ -93,7 +107,7 @@ Cheapest win first. Each step lands alone with its parity gate and a PH bench.
 | --- | --- | --- | --- |
 | 1 | Contact table (API 37, done): the game fills the columns in its loop | 0.02 to 0.05 ms main (one walk of 32 contacts and 3 method calls each) | `br_contacts` plus `bot_brain`, `srv_bots` not slower |
 | 2 | Finish glue: cache `GSWeaponRecoilRules.seed_for` per definition (it loops over the id's bytes every shot), reuse the coast command instead of two `duplicate_command` calls and a new array | 0.2 to 0.3 ms main (`bt_coast` 0.4, part of `ba_tail`) | `bt_coast`, `ba_tail` |
-| 3 | One native finish over the intent table (recoil, coast, write) | a further 0.2 to 0.4 ms main | `bot_after`, `srv_bots` |
+| 3 | One native finish over the intent table (API 52, the write done: `GSBotIntentTable.finish`; recoil and coast still script) | a further 0.2 to 0.4 ms main | `bot_after`, `srv_bots` |
 | 4 | Contacts from state columns once fc-server-packed-1 gives `GSFpsMotorBatch` columns: refresh copies columns, with no per-player GDScript | 0.4 to 0.6 ms main (`br_contacts` without loadout/weapon) | `bot_refresh` |
 | 5 | Brain pieces into GSSimBotMind: tricks (API 39, done: `GSSimBotMind.tricks`; API 43: the state stays in the mind, `tricks_step` returns the buttons packed), hear (API 41, done: `GSSimBotMind.hear` over `GSBotWorld.sound_rows`, switch `GSBotBrain.native_hear`), steer (API 42, done: `GSSimBotMind.steer` for walk, hold and drift, switch `GSBotBrain.native_act`; API 47: `steer_step`/`steer_drift` take the inputs as arguments and the glance state stays in the mind), pickup drop table (API 49, done: `GSSimBotDrops.pack` through `GSBotArms.pack_drops`, each weapon read once per pack, switch `GSBotWorld.native_drops`), unstick (API 50, done: `GSSimBotMind.unstick_step`, the state kept in the mind, the nudge's `walkable_near` query stays in script, switch `GSBotUnstick.native_enabled`), left: style's cover and route queries (they need the nav closest point and the sight blockers in gs-sim; only the sight ray and `route_detail` are native today), goal | 1.0 ms at threads 0, about 0.25 wall on 4 workers | `bb_*` with `bot_threads 0`, then `bot_brain` |
 | 6 | Whole native think: one call per tick (begin, think and finish for every bot) over contact and intent tables, on gs-sim's own threads | the rest of `srv_bots` glue, target under 2 ms | `srv_bots` |

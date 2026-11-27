@@ -4,6 +4,89 @@ extends "gs_bot_brain_state.gd"
 ## into one call each, and the answer unpacked into the aim, the stream and the intent as the script would have
 ## left them. Split out of gs_bot_brain.gd for file size; nothing outside the brain names this script.
 
+static var _sight_lod_known := -1
+## The sight LOD last handed to [member _mind] (GSBotWorld.sight_far, sight_far_reuse).
+var _lod_far := 0.0
+var _lod_reuse := 0.0
+## The [member GSBotWorld.contacts_version] whose packed scan [member _mind] holds ([method par_ready]); -1 none.
+var _held_version := -1
+## The perceive row [method think_mt_row] gave GSSimBotThinkMt this tick, and its answer ([method think_mt_put]).
+var _mt_key := PackedFloat64Array()
+var _mt_r := PackedInt32Array()
+## Perceives answered from the threaded pass; and rows it answered that the brain then asked differently
+## (always 0: a miss would mean the pass grew the sight cache on its own).
+var mt_hits := 0
+var mt_misses := 0
+static var _mt_known := -1
+
+
+## Whether the gs_sim extension's GSSimBotMind applies the sight LOD itself (sight_cached_far, set_sight_lod).
+static func _sight_lod_available() -> bool:
+	if _sight_lod_known < 0:
+		_sight_lod_known = 1 if ClassDB.class_exists(GSBotAim.MIND_CLASS) and ClassDB.class_has_method(GSBotAim.MIND_CLASS, &"sight_cached_far") else 0
+	return _sight_lod_known == 1
+
+
+## Whether gs_sim has GSSimBotThinkMt (perceive_all), the threaded perceive pass.
+static func think_mt_available() -> bool:
+	if _mt_known < 0:
+		_mt_known = 1 if ClassDB.class_exists(&"GSSimBotThinkMt") and ClassDB.class_has_method(&"GSSimBotThinkMt", &"perceive_all") else 0
+	return _mt_known == 1
+
+
+## Hands [member _mind] the world's sight LOD when it changed.
+func _lod_sync(world: GSBotWorld) -> void:
+	if _sight_lod_available() and (world.sight_far != _lod_far or world.sight_far_reuse != _lod_reuse):
+		_lod_far = world.sight_far
+		_lod_reuse = world.sight_far_reuse
+		_mind.set_sight_lod(_lod_far, _lod_reuse)
+
+
+## The 13 numbers (GSSimBotThinkMt.ROW) [method think] will hand GSSimBotMind.perceive_held this tick, for the
+## threaded perceive pass; call on the main thread after [method par_ready], before [method think]. Empty when
+## this tick's perceive is not a held one (dead, just respawned, blind, script). Does what think does first, all
+## of it repeatable: the view, the LOD and the expired sight blockers.
+func think_mt_row(me: GSBotContact, world: GSBotWorld, now: float) -> PackedFloat64Array:
+	_mt_key = PackedFloat64Array()
+	if me == null or not me.alive or not _was_alive or now < _blind_until or _mind == null or world == null:
+		return _mt_key
+	if _held_version < 0 or _held_version != world.contacts_version or not think_mt_available():
+		return _mt_key
+	aim.view_from(me.view_yaw, me.view_pitch)
+	_lod_sync(world)
+	world.prune_sight_blockers(now)
+	var p := settings.profile
+	var eye := me.eye()
+	var flags := (1 if _visible else 0) | (2 if p.through_walls >= 0.5 else 0)
+	_mt_key = PackedFloat64Array([me.id, me.team, eye.x, eye.y, eye.z, aim.yaw, aim.pitch, p.fov * 0.5, p.sight,
+		target_id, flags, now, world.sight_stamp()])
+	return _mt_key
+
+
+## The native mind (GSSimBotMind) GSSimBotThinkMt.perceive_all perceives for, beside [method think_mt_row]'s row.
+func think_mt_mind() -> Object:
+	return _mind
+
+
+## The pass's answer to [method think_mt_row]: [chosen row, target dead], or -2s when it could not (think asks itself).
+func think_mt_put(r: PackedInt32Array) -> void:
+	if r.size() == 2 and r[0] != -2:
+		_mt_r = r
+	else:
+		_mt_key = PackedFloat64Array()
+
+
+## GSSimBotMind.perceive_held, or the threaded pass's answer when it was asked exactly this.
+func _perceive_held_mt(me_id: int, me_team: int, eye: Vector3, half: float, sight: float, flags: int, now: float, stamp: int, los: Callable) -> PackedInt32Array:
+	var key := _mt_key
+	if not key.is_empty():
+		_mt_key = PackedFloat64Array()
+		if key == PackedFloat64Array([me_id, me_team, eye.x, eye.y, eye.z, aim.yaw, aim.pitch, half, sight, target_id, flags, now, stamp]):
+			mt_hits += 1
+			return _mt_r
+		mt_misses += 1
+	return _mind.perceive_held(me_id, me_team, eye, aim.yaw, aim.pitch, half, sight, target_id, flags, now, stamp, los)
+
 
 ## Whether the native mind may steer now; GSBotBrain answers it ([member GSBotBrain.native_act]).
 func _act_on() -> bool:

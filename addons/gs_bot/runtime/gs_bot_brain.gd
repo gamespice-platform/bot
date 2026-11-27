@@ -62,12 +62,6 @@ const PHASES: Array[StringName] = [&"bb_setup", &"bb_perceive", &"bb_hear", &"bb
 static var phase_us := _zeros()
 static var phase_calls := _zeros()
 
-static var _sight_lod_known := -1
-## The sight LOD last handed to [member _mind] (GSBotWorld.sight_far, sight_far_reuse).
-var _lod_far := 0.0
-var _lod_reuse := 0.0
-## The [member GSBotWorld.contacts_version] whose packed scan [member _mind] holds ([method par_ready]); -1 none.
-var _held_version := -1
 static var _held_known := -1
 ## Whether brains hear natively (GSSimBotMind.hear over [method GSBotWorld.sound_rows]) when they
 ## can; off, they hear in script. The two hear the same sounds and draw the same numbers, to the bit.
@@ -121,6 +115,7 @@ func leave_native() -> void:
 ## (a worker must not bind it while others do); a gs_sim library without that handle (GSSimBotMind.hold_senses) falls back to script, as [method leave_native].
 func par_ready(world: GSBotWorld) -> void:
 	_held_version = -1
+	_mt_key = PackedFloat64Array()
 	if phase_timers:
 		_clock.fold(phase_us, phase_calls)
 	if not _held_available():
@@ -355,14 +350,11 @@ func _perceive(me: GSBotContact, all: Array, world: GSBotWorld, p: GSBotProfile,
 	var picked := false
 	if senses != null or held:
 		var los := world.sight_callable()
-		if _sight_lod_available() and (world.sight_far != _lod_far or world.sight_far_reuse != _lod_reuse):
-			_lod_far = world.sight_far
-			_lod_reuse = world.sight_far_reuse
-			_mind.set_sight_lod(_lod_far, _lod_reuse)
+		_lod_sync(world)
 		var flags := (1 if _visible else 0) | (2 if through else 0)
 		var r: PackedInt32Array
 		if held:
-			r = _mind.perceive_held(me.id, me.team, eye, aim.yaw, aim.pitch, half, p.sight, target_id, flags, now, world.sight_stamp(), los)
+			r = _perceive_held_mt(me.id, me.team, eye, half, p.sight, flags, now, world.sight_stamp(), los)
 		else:
 			r = _mind.perceive(senses, me.id, me.team, eye, aim.yaw, aim.pitch, half, p.sight, target_id, flags, now, world.sight_stamp(), los)
 		if r.size() == 2:
@@ -489,13 +481,6 @@ static func _held_available() -> bool:
 				and ClassDB.class_call_static(GSBotAim.MIND_CLASS, &"worker_safe"):
 			_held_known = 1
 	return _held_known == 1
-
-
-## Whether the gs_sim extension's GSSimBotMind applies the sight LOD itself (sight_cached_far, set_sight_lod).
-static func _sight_lod_available() -> bool:
-	if _sight_lod_known < 0:
-		_sight_lod_known = 1 if ClassDB.class_exists(GSBotAim.MIND_CLASS) and ClassDB.class_has_method(GSBotAim.MIND_CLASS, &"sight_cached_far") else 0
-	return _sight_lod_known == 1
 
 
 ## [method _perceive]'s choice in script: the current target while it is in sight, else the best

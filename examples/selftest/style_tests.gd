@@ -134,3 +134,32 @@ func _test_style_play() -> void:
 		runs.append(trace)
 	_check(runs[0] == runs[1], "bot_styles 0 with a class plays exactly as no class at all")
 	_done()
+
+
+func _test_intent_table() -> void:
+	_section("intent table: intents as packed columns, the command columns in script as GSBotIntent writes them")
+	var a := GSBotIntent.new()
+	a.yaw = 12.5
+	a.move = Vector2(3.0, 4.0)
+	a.fire = true
+	a.walk = true
+	a.state = &"fight"
+	var b := GSBotIntent.new()
+	b.move = Vector2(0.3, 0.0)
+	b.jump = true
+	b.use = true
+	b.stranded = true
+	var t := GSBotIntentTable.new()
+	t.pack([a, null, b])
+	_check(t.buttons == PackedInt32Array([GSBotIntentTable.FIRE | GSBotIntentTable.WALK, 0, GSBotIntentTable.JUMP | GSBotIntentTable.USE | GSBotIntentTable.STRANDED]), "the buttons pack one bit each", str(t.buttons))
+	_check(t.state[1] == -1 and t.state_names[t.state[0]] == &"fight" and t.state_names[t.state[2]] == &"roam", "states index a name table; a missing row is -1")
+	var move_map := PackedInt32Array([0, 2, 1, 8, 32, 0, 0, 0])
+	var fire_map := PackedInt32Array([1, 0, 0, 0, 0, 0, 8, 0])
+	t.finish(move_map, fire_map, false)
+	_check(t.cmd_move[0] == Vector2(3.0, 4.0).limit_length(1.0) and t.cmd_move[2] == Vector2(0.3, 0.0), "the stick is limited to length 1", str(t.cmd_move))
+	_check(t.move_buttons == PackedInt32Array([8, 0, 1]) and t.fire_buttons == PackedInt32Array([1, 0, 8]), "the command buttons follow the maps", "%s %s" % [t.move_buttons, t.fire_buttons])
+	var n := GSBotIntentTable.new()
+	n.pack([a, null, b])
+	n.finish(move_map, fire_map)
+	_check(n.digest() == t.digest(), "the native finish (%s) digests as the script one" % ("on" if GSBotIntentTable.native_available() else "absent, script both ways"))
+	_done()
