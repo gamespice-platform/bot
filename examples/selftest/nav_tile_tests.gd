@@ -214,5 +214,18 @@ func _test_nav_parse_slices() -> void:
 	for i in 30:
 		await get_tree().process_frame
 	_check(dropped.is_empty() and not again.is_baking() and not again.is_baked(), "a sliced parse cleared halfway is dropped", str(dropped))
+	var copy := root.duplicate() as Node3D
+	root.get_parent().add_child(copy)
+	var lost: Array = []
+	var orphan := GSBotNav.new()
+	orphan.parse_slice_usec = 1
+	var _orphan := orphan.bake_in_background(copy, agent, 0, [], func(res: GSResult) -> void: lost.append(res.ok))
+	copy.free()
+	for i in 30:
+		if not lost.is_empty():
+			break
+		await get_tree().process_frame
+	_check(lost == [false] and not orphan.is_baking() or not GSPlatform.has_threads(),
+		"a source freed halfway through its parse ends the bake: done hears it failed and it is no longer baking", str(lost))
 	root.queue_free()
 	_done()

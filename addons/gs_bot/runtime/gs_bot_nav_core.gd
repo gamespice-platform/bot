@@ -130,11 +130,11 @@ func bake_in_background(root: Node3D, agent: Dictionary = {}, mask: int = 0, bod
 	return GSResult.success(0)
 
 
-## One frame's slice of a sliced parse; the next is called from the tree's next frame until it is done or dropped.
-func _parse_slice(parser: GSBotNavParse, root: Node3D, tree: SceneTree, generation: int, agent: Dictionary, done: Callable) -> void:
+## One frame's slice of a sliced parse, the next called from the tree's next frame until done or dropped. [param root] is untyped: a caller may free it between slices, and a freed object fails a typed argument before the body runs, which hung the bake with no [code]done[/code].
+func _parse_slice(parser: GSBotNavParse, root: Variant, tree: SceneTree, generation: int, agent: Dictionary, done: Callable) -> void:
 	if generation != _generation:
 		return
-	var gone := not is_instance_valid(root) or not root.is_inside_tree()
+	var gone := not is_instance_valid(root) or not (root as Node3D).is_inside_tree()
 	if not gone and not parser.step(mesh, Time.get_ticks_usec() + parse_slice_usec):
 		tree.process_frame.connect(_parse_slice.bind(parser, root, tree, generation, agent, done), CONNECT_ONE_SHOT)
 		return

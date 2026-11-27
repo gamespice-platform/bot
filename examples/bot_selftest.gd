@@ -3,7 +3,7 @@ extends "res://examples/selftest/style_tests.gd"
 ## gs-bot's suite (`godot --headless --path . res://examples/bot_selftest.tscn`): presets, cvars, names, roster, and a bot's senses, aim and fights measured rather than read.
 ## The numbers a player feels are measured per preset (time to first shot, aim error, turn speed, K/D against one fixed opponent); the bands are what the presets promise.
 
-const CHECKS := 729
+const CHECKS := 730
 
 ## Of CHECKS, the ones that need GameSpice SQL and the SQLite extension linked into this project.
 const SQL_CHECKS := 0
