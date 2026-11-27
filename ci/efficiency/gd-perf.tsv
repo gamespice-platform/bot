@@ -22,13 +22,13 @@ addons/gs_bot/runtime/gs_bot_aim_solver.gd::_pitch::alloc	3
 addons/gs_bot/runtime/gs_bot_aim_solver.gd::_pitch::untyped_array	1
 addons/gs_bot/runtime/gs_bot_arms.gd::ammo_fraction::dynamic_call	2
 addons/gs_bot/runtime/gs_bot_arms.gd::drops_of::alloc	3
-addons/gs_bot/runtime/gs_bot_arms.gd::drops_of::dynamic_call	7
+addons/gs_bot/runtime/gs_bot_arms.gd::drops_of::dynamic_call	6
 addons/gs_bot/runtime/gs_bot_arms.gd::drops_of::untyped_array	2
 addons/gs_bot/runtime/gs_bot_arms.gd::loadout_of::untyped_array	1
 addons/gs_bot/runtime/gs_bot_arms.gd::pack_drops::alloc	3
-addons/gs_bot/runtime/gs_bot_arms.gd::pack_drops::dynamic_call	8
+addons/gs_bot/runtime/gs_bot_arms.gd::pack_drops::dynamic_call	7
 addons/gs_bot/runtime/gs_bot_arms.gd::pack_drops::untyped_array	1
-addons/gs_bot/runtime/gs_bot_arms.gd::rate::dynamic_call	6
+addons/gs_bot/runtime/gs_bot_arms.gd::rate::dynamic_call	4
 addons/gs_bot/runtime/gs_bot_arms.gd::wire::dynamic_call	2
 addons/gs_bot/runtime/gs_bot_brain.gd::_candidates::alloc	1
 addons/gs_bot/runtime/gs_bot_brain.gd::_candidates::untyped_array	1

@@ -21,10 +21,12 @@ static func rate(def: Object) -> float:
 	var tuning: Variant = def.get("tuning")
 	if tuning is Object:
 		var t: Object = tuning
-		if t.get("damage") != null:
-			damage = float(t.get("damage"))
-		if t.get("pellets") != null:
-			pellets = float(t.get("pellets"))
+		var d: Variant = t.get("damage")
+		if d != null:
+			damage = float(d)
+		var p: Variant = t.get("pellets")
+		if p != null:
+			pellets = float(p)
 	var interval := maxi(int(def.get("use_interval_ticks")), 1)
 	return clampf(damage * pellets * TICK_RATE / float(interval) / FULL_DPS, 0.0, 1.0)
 
@@ -63,16 +65,17 @@ static func loadout_of(arsenal: Object, rater: Callable = Callable()) -> Diction
 ## definitions come from [param arsenal]'s catalogue.
 static func drops_of(drops: Object, arsenal: Object, rater: Callable = Callable()) -> Array:
 	var out := []
-	if drops == null or arsenal == null or arsenal.get("catalogue") == null:
+	var catalogue: Object = arsenal.get("catalogue") if arsenal != null else null
+	if drops == null or catalogue == null:
 		return out
-	var catalogue: Object = arsenal.get("catalogue")
+	var custom := rater.is_valid()
 	for d: Dictionary in drops.call("snapshot"):
 		var state: Dictionary = d["state"]
 		var def: Object = catalogue.call("get_def", StringName(state["id"]))
 		if def == null:
 			continue
 		out.append({"id": d["id"], "position": (d["at"] as Transform3D).origin, "slot": int(def.get("slot")),
-			"value": rater.call(def) if rater.is_valid() else rate(def),
+			"value": rater.call(def) if custom else rate(def),
 			"ammo": ammo_fraction(def, int(state.get("magazine", 0)), int(state.get("reserve", 0)))})
 	return out
 
@@ -98,9 +101,9 @@ static func pack_drops(drops: Object, arsenal: Object, rater: Callable = Callabl
 		_drops_known = 1 if ClassDB.class_exists(DROPS_CLASS) and ClassDB.class_has_method(DROPS_CLASS, &"pack") else 0
 	if _drops_known == 0:
 		return null
-	if drops == null or arsenal == null or arsenal.get("catalogue") == null:
+	var catalogue: Object = arsenal.get("catalogue") if arsenal != null else null
+	if drops == null or catalogue == null:
 		return [PackedInt64Array(), PackedVector3Array(), PackedFloat64Array()]
-	var catalogue: Object = arsenal.get("catalogue")
 	# What drops_of reads of a weapon: slot, value, the rounds when full ([method ammo_fraction]) and whether infinite.
 	var def_row := func(id: Variant) -> PackedFloat64Array:
 		var def: Object = catalogue.call("get_def", StringName(id))
