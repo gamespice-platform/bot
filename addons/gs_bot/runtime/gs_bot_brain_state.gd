@@ -58,6 +58,8 @@ var target_id: int = -1
 var _visible: bool = false
 ## Thinks counted for [member GSBotWorld.scan_every] (the perception stride).
 var _scan_turn: int = 0
+## The body this brain thinks for, as the last perceive was told (pair sight asks by id).
+var _me_id: int = 0
 
 ## Per target id: [time asked, answer] of the last line-of-sight test, see [constant SIGHT_REUSE].
 var _sight_cache: Dictionary = {}

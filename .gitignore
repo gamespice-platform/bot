@@ -9,6 +9,8 @@
 # Optional, for the SQL store's section of the suite (gs-sql, and godot-sqlite from its tools/fetch_sqlite.sh).
 /addons/gs_sql
 /addons/godot-sqlite
+# Optional, so native_parity compares the native brain (gs-sim, a library built by its ci/install.sh).
+/addons/gs_sim
 
 # Exports
 build/

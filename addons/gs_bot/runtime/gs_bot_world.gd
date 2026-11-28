@@ -81,6 +81,7 @@ static var _native_known: int = -1
 static var _loads_known: int = -1
 var _senses: Object = null
 var _senses_version: int = -2
+var _grid_set := false
 var _sensed: Array = []
 ## The contact table a game handed for one [member contacts_version] ([method set_rows]); -2 none.
 var _handed_version: int = -2
@@ -168,6 +169,10 @@ func senses(all: Array) -> Object:
 		_senses = ClassDB.instantiate(SENSES_CLASS)
 	if _senses_version != contacts_version:
 		_senses_version = contacts_version
+		if sight_grid > 0.0 or _grid_set:
+			_grid_set = _senses.has_method(&"set_grid_cell")
+			if _grid_set:
+				_senses.call(&"set_grid_cell", sight_grid)
 		var t := table()
 		if t != null:
 			_load_table(t)
@@ -222,6 +227,63 @@ var sight_far_reuse: float = 0.15
 ## that sees its target checks it every think. 1 (the default) scans every think. A game raises
 ## it with the player count so the sight rays per tick stay flat instead of growing as n squared.
 var scan_every: int = 1
+
+## Pair sight: whether a bot sees a body is one ray between their eyes, cast from the lower id's
+## eye to the higher id's, so A seeing B and B seeing A is one question, answered once per tick
+## and shared (natively in the tick's pair cache, in script here on the main thread). Off, a bot
+## asks its own rays, chest then head. A game turns it on to keep sight rays per tick near n²/2
+## instead of 2n². Takes effect only where the loaded GameSpice Sim (if any) knows it too
+## ([method pair_sight_on]), so native and script answer alike.
+var pair_sight: bool = false
+## The native scan's grid cell (m): bodies bucketed per tick so a bot's scan visits only the cells
+## within its sight. 0 (the default) scans the whole table; the answer is the same either way.
+var sight_grid: float = 0.0
+var _pairs: Dictionary = {}
+var _pairs_version: int = -2
+var _pairs_stamp: int = -1
+static var _pair_known: int = -1
+
+
+## Whether [member pair_sight] is in effect: on, and either no GameSpice Sim is loaded or it has
+## the pair cache (an older library would ask chest and head natively).
+func pair_sight_on() -> bool:
+	if not pair_sight:
+		return false
+	if _pair_known < 0:
+		_pair_known = 1 if not native_available() or ClassDB.class_has_method(SENSES_CLASS, &"set_grid_cell") else 0
+	return _pair_known == 1
+
+
+## Whether the bot [param me_id] with its eye at [param eye] sees [param c]: under
+## [method pair_sight_on] the pair's one eye-to-eye ray (cached for this [member contacts_version]
+## on the main thread), else the chest then the head from [param eye].
+func sees_body(me_id: int, eye: Vector3, c: GSBotContact) -> bool:
+	if not pair_sight_on():
+		return line_of_sight(eye, c.aim_point()) or line_of_sight(eye, c.eye())
+	var lo := mini(me_id, c.id)
+	var hi := maxi(me_id, c.id)
+	var cache := contacts_version >= 0 and OS.get_thread_caller_id() == OS.get_main_thread_id()
+	var row: Dictionary
+	if cache:
+		var stamp := sight_stamp()
+		if _pairs_version != contacts_version or _pairs_stamp != stamp:
+			_pairs.clear()
+			_pairs_version = contacts_version
+			_pairs_stamp = stamp
+		var got: Variant = _pairs.get(lo)
+		if got is Dictionary:
+			row = got
+			var seen: Variant = row.get(hi)
+			if seen is bool:
+				return seen
+		else:
+			row = {}
+			_pairs[lo] = row
+	var seen_now := line_of_sight(eye, c.eye()) if me_id < c.id else line_of_sight(c.eye(), eye)
+	if cache:
+		row[hi] = seen_now
+	return seen_now
+
 
 ## `{center, radius, until}` per sight blocker (smoke), by id; a segment through one is not clear.
 var sight_blockers: Dictionary = {}
