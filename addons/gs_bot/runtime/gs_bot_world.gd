@@ -170,9 +170,9 @@ func senses(all: Array) -> Object:
 	if _senses_version != contacts_version:
 		_senses_version = contacts_version
 		if sight_grid > 0.0 or _grid_set:
-			_grid_set = _senses.has_method(&"set_grid_cell")
+			_grid_set = _senses.has_method(&"set_grid_cell")  # perf-lint: allow dynamic_call once per contacts_version; an older GameSpice Sim lacks it
 			if _grid_set:
-				_senses.call(&"set_grid_cell", sight_grid)
+				_senses.call(&"set_grid_cell", sight_grid)  # perf-lint: allow dynamic_call once per contacts_version; named so an older GameSpice Sim parses
 		var t := table()
 		if t != null:
 			_load_table(t)
@@ -238,7 +238,7 @@ var pair_sight: bool = false
 ## The native scan's grid cell (m): bodies bucketed per tick so a bot's scan visits only the cells
 ## within its sight. 0 (the default) scans the whole table; the answer is the same either way.
 var sight_grid: float = 0.0
-var _pairs: Dictionary = {}
+var _pairs: Dictionary[int, Dictionary] = {}
 var _pairs_version: int = -2
 var _pairs_stamp: int = -1
 static var _pair_known: int = -1
@@ -263,7 +263,7 @@ func sees_body(me_id: int, eye: Vector3, c: GSBotContact) -> bool:
 	var lo := mini(me_id, c.id)
 	var hi := maxi(me_id, c.id)
 	var cache := contacts_version >= 0 and OS.get_thread_caller_id() == OS.get_main_thread_id()
-	var row: Dictionary
+	var row: Dictionary[int, bool]
 	if cache:
 		var stamp := sight_stamp()
 		if _pairs_version != contacts_version or _pairs_stamp != stamp:
@@ -277,7 +277,7 @@ func sees_body(me_id: int, eye: Vector3, c: GSBotContact) -> bool:
 			if seen is bool:
 				return seen
 		else:
-			row = {}
+			row = {}  # perf-lint: allow alloc one row per lower id per tick, kept in the pair cache
 			_pairs[lo] = row
 	var seen_now := line_of_sight(eye, c.eye()) if me_id < c.id else line_of_sight(c.eye(), eye)
 	if cache:
