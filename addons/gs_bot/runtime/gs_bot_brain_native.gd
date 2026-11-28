@@ -52,6 +52,8 @@ func think_mt_row(me: GSBotContact, world: GSBotWorld, now: float) -> PackedFloa
 		return _mt_key
 	if _held_version < 0 or _held_version != world.contacts_version or not think_mt_available():
 		return _mt_key
+	if _scan_waits(world):
+		return _mt_key
 	aim.view_from(me.view_yaw, me.view_pitch)
 	_lod_sync(world)
 	world.prune_sight_blockers(now)

@@ -217,6 +217,12 @@ func _load_rows(rows: Array) -> void:
 var sight_far: float = 0.0
 var sight_far_reuse: float = 0.15
 
+## Perception stride: a brain with no visible target scans for one only on every this-many-th
+## think (its own count, offset by its id, so the scans spread evenly over the brains); a brain
+## that sees its target checks it every think. 1 (the default) scans every think. A game raises
+## it with the player count so the sight rays per tick stay flat instead of growing as n squared.
+var scan_every: int = 1
+
 ## `{center, radius, until}` per sight blocker (smoke), by id; a segment through one is not clear.
 var sight_blockers: Dictionary = {}
 var _blocker_seq: int = 0

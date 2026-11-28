@@ -338,6 +338,10 @@ func _perceive(me: GSBotContact, all: Array, world: GSBotWorld, p: GSBotProfile,
 		if _visible:
 			_lose(p, now)
 		return null
+	if _scan_waits(world):
+		_scan_turn += 1
+		return null
+	_scan_turn += 1
 	var eye := me.eye()
 	var half := p.fov * 0.5
 	var through := p.through_walls >= 0.5 or world == null

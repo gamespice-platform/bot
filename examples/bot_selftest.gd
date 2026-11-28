@@ -15,8 +15,11 @@ var _native_ran := false
 
 ## Sections entered against sections that ran to their last line. A runtime error inside a
 ## section aborts that function and nothing says so.
-const SECTIONS := 69
+const SECTIONS := 70
 
+
+## Sight rays the crowd's world answered in the last [method _crowd_intents].
+var _crowd_rays: int = 0
 
 func _ready() -> void:
 	GSLog.set_level(GSLog.Level.ERROR)
@@ -43,6 +46,7 @@ func _run() -> void:
 	_test_contact_rows()
 	_test_contact_table()
 	_test_target_first()
+	_test_scan_stride()
 	_test_turning()
 	_test_reaction_and_aim()
 	_test_duels()
@@ -359,17 +363,39 @@ func _test_target_first() -> void:
 	_done()
 
 
+func _test_scan_stride() -> void:
+	_section("perception stride: idle brains scan every scan_every-th think, fights stay")
+	var every := _crowd_intents(true, false, 1)
+	var every_rays := _crowd_rays
+	GSBotBrain.target_first = true
+	var base := _crowd_intents(true)
+	_check(every == base, "scan_every 1 presses exactly what the default does", "%d vs %d thinks" % [every.size(), base.size()])
+	var strided := _crowd_intents(true, false, 3)
+	var strided_rays := _crowd_rays
+	GSBotBrain.target_first = true
+	var fights := 0
+	for row: Array in strided:
+		if row[13] == &"fight":
+			fights += 1
+	_check(strided_rays < every_rays, "scan_every 3 asks fewer sight rays", "%d vs %d" % [strided_rays, every_rays])
+	_check(fights > strided.size() / 5, "and the bots still fight for much of it", "%d of %d thinks" % [fights, strided.size()])
+	_done()
+
+
 ## Every intent of six bots over 20 s among eight bodies that circle a wall, die, come back and fire; smoke for a while.
-func _crowd_intents(target_first: bool, table := false) -> Array:
+func _crowd_intents(target_first: bool, table := false, scan_every := 1) -> Array:
 	GSBotBrain.target_first = target_first
+	_crowd_rays = 0
 	const PRESETS: Array[String] = ["easy", "medium", "hard", "nightmare", "hard", "medium"]
 	var bodies: Array = []
 	for i in range(8):
 		bodies.append(GSBotContact.make(i + 1, Vector3.ZERO, 0 if i >= 6 else 1 + i % 2))
 	var world := GSBotWorld.new()
+	world.scan_every = scan_every
 	world.contacts_fn = func() -> Array: return bodies
 	# A wall on x = 0 for |z| < 4: sight across it there is refused.
 	world.line_of_sight_fn = func(a: Vector3, b: Vector3) -> bool:
+		_crowd_rays += 1
 		if (a.x < 0.0) == (b.x < 0.0):
 			return true
 		return absf(lerpf(a.z, b.z, a.x / (a.x - b.x))) >= 4.0

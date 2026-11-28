@@ -68,5 +68,6 @@ extends RefCounted
 # 50: GSBotUnstick steps natively (GSSimBotMind.unstick_step, its state kept in the mind; the same answer to the bit, the nudge query stays in script): GSBotUnstick.native_enabled, the mind argument of GSBotUnstick.step, GSBotBrainState._unstick_mind.
 # 52: GSBotIntentTable (one tick's intents as packed columns, docs/native-bot-brain.md step 3) and its finish (the stick limited to 1 and the command buttons through a game's bit maps; natively through GSSimBotFinish.write when the library has it, GSBotIntentTable.native_enabled; the same columns to the bit).
 # 53: GSBotBrain.think_mt_row / think_mt_mind / think_mt_put / think_mt_available, mt_hits / mt_misses: the threaded native perceive pass (gs-sim GSSimBotThinkMt.perceive_all).
-const LEVEL := 53
+# 54: GSBotWorld.scan_every (the perception stride: a brain with no visible target scans for one every that many thinks; 1, the default, every think).
+const LEVEL := 54
 const OLDEST := 1
