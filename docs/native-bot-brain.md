@@ -116,7 +116,7 @@ Measurement: PH, `--headless`, the command above. Run before and after on the sa
 
 ## Parity
 
-`examples/native_parity.tscn` is the whole-intent harness. Each round gives the same seed and world to a native brain on the main thread, a script brain, and a native brain on a worker. It runs 12 rounds of 14 s at 30 Hz with 6 bystanders. Every tick it compares the intent and the aim's private state to the bit, per bot. From API 37, odd rounds hand one native side a contact table filled field by field, as a game does, and check it against `rows_of`. Every slice above adds its side to this harness before it lands. A slice that cannot match to the bit does not ship.
+`examples/native_parity.tscn` is the whole-intent harness. Each round gives the same seed and world to a native brain on the main thread, a script brain, and a native brain on a worker. It runs 12 rounds of 14 s at 30 Hz with 6 bystanders. Every tick it compares the intent and the aim's private state to the bit, per bot. From API 37, odd rounds hand one native side a contact table filled field by field, as a game does, and check it against `rows_of`. From API 55, rounds 2 and 3 of every four sight by pairs (`pair_sight`, round 3 with the bot holding the higher id) and even rounds use the native sight grid; the ok line counts the pair rounds, 0 on a library without them. With no gs_sim linked the suite skips, so link `addons/gs_sim` from a gs-sim checkout with an installed library (gitignored). Every slice above adds its side to this harness before it lands. A slice that cannot match to the bit does not ship.
 
 In a game, the suite with bots (Fatal Contact's `headless_bots`) runs with the cvar both ways.
 

@@ -338,6 +338,11 @@ func _perceive(me: GSBotContact, all: Array, world: GSBotWorld, p: GSBotProfile,
 		if _visible:
 			_lose(p, now)
 		return null
+	if _scan_waits(world):
+		_scan_turn += 1
+		return null
+	_scan_turn += 1
+	_me_id = me.id
 	var eye := me.eye()
 	var half := p.fov * 0.5
 	var through := p.through_walls >= 0.5 or world == null
@@ -351,7 +356,7 @@ func _perceive(me: GSBotContact, all: Array, world: GSBotWorld, p: GSBotProfile,
 	if senses != null or held:
 		var los := world.sight_callable()
 		_lod_sync(world)
-		var flags := (1 if _visible else 0) | (2 if through else 0)
+		var flags := (1 if _visible else 0) | (2 if through else 0) | (4 if world.pair_sight_on() else 0)
 		var r: PackedInt32Array
 		if held:
 			r = _perceive_held_mt(me.id, me.team, eye, half, p.sight, flags, now, world.sight_stamp(), los)
@@ -589,7 +594,7 @@ func _candidates_native(senses: Object, world: GSBotWorld, me: GSBotContact, p: 
 	return cand
 
 
-## Whether [param c] is in line of sight from [param eye]: the chest or the head, reused for [constant SIGHT_REUSE].
+## Whether [param c] is in line of sight from [param eye] ([method GSBotWorld.sees_body]: the chest or the head, or the pair's one ray), reused for [constant SIGHT_REUSE].
 func _sees(world: GSBotWorld, eye: Vector3, c: GSBotContact, now: float) -> bool:
 	var stamp := world.sight_stamp()
 	if _mind != null:
@@ -606,7 +611,7 @@ func _sees(world: GSBotWorld, eye: Vector3, c: GSBotContact, now: float) -> bool
 		if h >= 0:
 			return h == 1
 		var t_sight1 := Time.get_ticks_usec() if GSBotClock.on else 0
-		var seen_n := world.line_of_sight(eye, c.aim_point()) or world.line_of_sight(eye, c.eye())
+		var seen_n := world.sees_body(_me_id, eye, c)
 		if t_sight1:
 			GSBotClock.add(_clock, GSBotClock.Q_SIGHT, t_sight1)
 		_mind.sight_put(c.id, now, seen_n, stamp)
@@ -614,7 +619,7 @@ func _sees(world: GSBotWorld, eye: Vector3, c: GSBotContact, now: float) -> bool
 	var held: Variant = _sight_cache.get(c.id)
 	if not (held is Array):
 		var t_sight2 := Time.get_ticks_usec() if GSBotClock.on else 0
-		var first := world.line_of_sight(eye, c.aim_point()) or world.line_of_sight(eye, c.eye())
+		var first := world.sees_body(_me_id, eye, c)
 		if t_sight2:
 			GSBotClock.add(_clock, GSBotClock.Q_SIGHT, t_sight2)
 		_sight_cache[c.id] = [now, first, stamp]
@@ -629,7 +634,7 @@ func _sees(world: GSBotWorld, eye: Vector3, c: GSBotContact, now: float) -> bool
 				and eye.distance_squared_to(c.position) > world.sight_far * world.sight_far:
 			return false
 	var t_sight3 := Time.get_ticks_usec() if GSBotClock.on else 0
-	var seen := world.line_of_sight(eye, c.aim_point()) or world.line_of_sight(eye, c.eye())
+	var seen := world.sees_body(_me_id, eye, c)
 	if t_sight3:
 		GSBotClock.add(_clock, GSBotClock.Q_SIGHT, t_sight3)
 	# The row is this brain's own: written in place, a sight test allocates nothing after the first.

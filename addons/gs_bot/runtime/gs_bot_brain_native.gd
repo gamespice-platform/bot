@@ -52,12 +52,14 @@ func think_mt_row(me: GSBotContact, world: GSBotWorld, now: float) -> PackedFloa
 		return _mt_key
 	if _held_version < 0 or _held_version != world.contacts_version or not think_mt_available():
 		return _mt_key
+	if _scan_waits(world):
+		return _mt_key
 	aim.view_from(me.view_yaw, me.view_pitch)
 	_lod_sync(world)
 	world.prune_sight_blockers(now)
 	var p := settings.profile
 	var eye := me.eye()
-	var flags := (1 if _visible else 0) | (2 if p.through_walls >= 0.5 else 0)
+	var flags := (1 if _visible else 0) | (2 if p.through_walls >= 0.5 else 0) | (4 if world.pair_sight_on() else 0)
 	_mt_key = PackedFloat64Array([me.id, me.team, eye.x, eye.y, eye.z, aim.yaw, aim.pitch, p.fov * 0.5, p.sight,  # perf-lint: allow alloc the row this call answers to the threaded pass, one per bot per tick
 		target_id, flags, now, world.sight_stamp()])
 	return _mt_key

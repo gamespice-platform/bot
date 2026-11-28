@@ -56,6 +56,10 @@ var last: GSBotIntent = null
 # The target, as perceived.
 var target_id: int = -1
 var _visible: bool = false
+## Thinks counted for [member GSBotWorld.scan_every] (the perception stride).
+var _scan_turn: int = 0
+## The body this brain thinks for, as the last perceive was told (pair sight asks by id).
+var _me_id: int = 0
 
 ## Per target id: [time asked, answer] of the last line-of-sight test, see [constant SIGHT_REUSE].
 var _sight_cache: Dictionary = {}
@@ -483,3 +487,10 @@ func describe_lines() -> PackedStringArray:
 	for key in d:
 		out.append("%s: %s" % [key, str(d[key])])
 	return out
+
+
+## Whether this think skips the scan for a new target ([member GSBotWorld.scan_every]): only when no
+## target is visible, so a brain in a fight always checks its target. Reads [member _scan_turn]
+## without counting it, so [method think_mt_row] asks the same question the think will.
+func _scan_waits(world: GSBotWorld) -> bool:
+	return not _visible and world != null and world.scan_every > 1 and (_scan_turn + id) % world.scan_every != 0

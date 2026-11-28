@@ -24,6 +24,8 @@ var _failed := ""
 var _usec := [0, 0, 0]
 ## The native world's scan packing (GSBotWorld.senses), once per tick, outside the timed think.
 var _scan_usec := 0
+## Rounds whose worlds sighted by pairs (GSBotWorld.pair_sight_on: the library has pair sight, or none is loaded).
+var _pair_rounds := 0
 ## Whether the gs_sim library can perceive on a worker (GSSimBotMind.perceive_held); older ones skip the worker copy.
 var _held := false
 ## `-- --phases`: each side's think phases (GSBotBrain.PHASES), native then script, printed at the end.
@@ -82,7 +84,7 @@ func _run() -> void:
 		print("native parity: FAIL ", _failed)
 		get_tree().quit(1)
 		return
-	print("native parity: ok, %d ticks over %d rounds (%d fighting, %d firing), native and script identical%s; tricks %s; hear %s; steer %s; pickup %s; drops %s; unstick %s; finish %s; think %.1f us native (perceive %s, + %.1f us scan per world per tick), %.1f us script" % [_ticks, ROUNDS, _fights, _fires, ", and native on a worker" if _held else " (no worker copy: library without perceive_held)", "skipped (library without tricks)" if trick_stats.has("skipped") else "identical over %d ticks %s" % [TricksParity.TICKS, trick_stats], "skipped (library without hear)" if hear_stats.has("skipped") else "identical %s" % hear_stats, "skipped (library without steer)" if act_stats.has("skipped") else "identical %s" % act_stats, "skipped (library without pickup_choose)" if pickup_stats.has("skipped") else "identical %s" % pickup_stats, "skipped (library without GSSimBotDrops)" if drops_stats.has("skipped") else "identical %s" % drops_stats, "skipped (library without unstick_step)" if unstick_stats.has("skipped") else "identical %s" % unstick_stats, "skipped (library without GSSimBotFinish)" if finish_stats.has("skipped") else "identical %s" % finish_stats, float(_usec[0]) / _ticks, "native" if GSBotBrain.native_perceive else "script", float(_scan_usec) / _ticks, float(_usec[1]) / _ticks])
+	print("native parity: ok, %d ticks over %d rounds (%d fighting, %d firing), native and script identical%s, %d with pair sight; tricks %s; hear %s; steer %s; pickup %s; drops %s; unstick %s; finish %s; think %.1f us native (perceive %s, + %.1f us scan per world per tick), %.1f us script" % [_ticks, ROUNDS, _fights, _fires, ", and native on a worker" if _held else " (no worker copy: library without perceive_held)", _pair_rounds, "skipped (library without tricks)" if trick_stats.has("skipped") else "identical over %d ticks %s" % [TricksParity.TICKS, trick_stats], "skipped (library without hear)" if hear_stats.has("skipped") else "identical %s" % hear_stats, "skipped (library without steer)" if act_stats.has("skipped") else "identical %s" % act_stats, "skipped (library without pickup_choose)" if pickup_stats.has("skipped") else "identical %s" % pickup_stats, "skipped (library without GSSimBotDrops)" if drops_stats.has("skipped") else "identical %s" % drops_stats, "skipped (library without unstick_step)" if unstick_stats.has("skipped") else "identical %s" % unstick_stats, "skipped (library without GSSimBotFinish)" if finish_stats.has("skipped") else "identical %s" % finish_stats, float(_usec[0]) / _ticks, "native" if GSBotBrain.native_perceive else "script", float(_scan_usec) / _ticks, float(_usec[1]) / _ticks])
 	if not _phases.is_empty():
 		for i in GSBotClock.SLOTS:
 			if _phases[0][i] + _phases[1][i] > 0:
@@ -127,6 +129,8 @@ func _round(round_: int, preset: String) -> void:
 		var a := deg_to_rad(rng.next_range_f(-180.0, 180.0))
 		spots.append(Vector3(-sin(a), 0.0, -cos(a)) * rng.next_range_f(3.0, 60.0))
 	var sides := _make_sides(round_, preset, start, spots)
+	if (sides[0].world as GSBotWorld).pair_sight_on():
+		_pair_rounds += 1
 	if not (sides[0].brain as GSBotBrain).aim.is_native() or (sides[1].brain as GSBotBrain).aim.is_native() or GSBotBrain.native_perceive and (sides[0].brain as GSBotBrain)._mind == null or _held and (sides[2].brain as GSBotBrain)._mind == null:
 		_failed = "round %d: could not set up one native and one script brain" % round_
 		return
@@ -248,12 +252,16 @@ func _make_sides(round_: int, preset: String, start: Vector3, spots: Array[Vecto
 	for mode in ([0, 1, 2] if _held else [0, 1]):
 		# 0 native on the main thread, 1 script, 2 native on a worker.
 		var native: bool = mode != 1
-		var me := GSBotContact.make(1, Vector3.ZERO)
+		# Rounds 2 and 3 of every four sight by pairs (GSBotWorld.pair_sight: one ray from the lower id's eye); in
+		# round 3 the bot has the higher id, so its rays are cast from the other body back to it.
+		var me := GSBotContact.make(50 if round_ % 4 == 3 else 1, Vector3.ZERO)
 		var them := GSBotContact.make(2, start)
 		var all: Array = [me, them]
 		for b in BYSTANDERS:
 			all.append(GSBotContact.make(10 + b, spots[b]))
 		var world := GSBotWorld.new()
+		world.pair_sight = round_ % 4 >= 2
+		world.sight_grid = 8.0 if round_ % 2 == 0 else 0.0
 		var wall := [false]
 		world.contacts_fn = func() -> Array: return all
 		# The wall hides the target, and the far side of the field from the near.
